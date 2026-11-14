@@ -141,6 +141,32 @@ function cstring(bytes: Buffer, offset = 0): string {
     throw Object.assign(new Error("Invalid UTF8 name"), { code: "EINVAL" });
   return value;
 }
+function validateSymlinkTarget(pathname: string, bytes: Buffer): void {
+  if (bytes.length > 4096)
+    workspaceError(
+      "SYMLINK_UNSUPPORTED",
+      "Symlink content must be a bounded UTF-8 blob",
+    );
+  const target = bytes.toString("utf8");
+  if (
+    !Buffer.from(target).equals(bytes) ||
+    target.includes("\0") ||
+    target.includes("\\") ||
+    path.posix.isAbsolute(target)
+  )
+    workspaceError(
+      "SYMLINK_UNSUPPORTED",
+      "The virtual filesystem requires relative UTF-8 symlinks",
+    );
+  const resolved = path.posix.normalize(
+    path.posix.join(path.posix.dirname(pathname), target),
+  );
+  if (resolved === ".." || resolved.startsWith("../"))
+    workspaceError(
+      "SYMLINK_ESCAPE",
+      "Symlink target escapes the workspace",
+    );
+}
 function mode(entry: SourceEntry): number {
   return entry.kind === "directory"
     ? 0o40755
@@ -576,20 +602,21 @@ export class NativeVirtualFilesystem {
           );
           try {
             const file = await data.stat();
+            const payload = await data.readFile();
             if (
               !file.isFile() ||
               file.size !== entry.size ||
               file.mode & 0o077 ||
               "sha256:" +
-                createHash("sha256")
-                  .update(await data.readFile())
-                  .digest("hex") !==
+                createHash("sha256").update(payload).digest("hex") !==
                 entry.digest
             )
               workspaceError(
                 "VIRTUAL_STATE_CORRUPT",
                 "Overlay bytes differ from durable journal",
               );
+            if (entry.kind === "symlink")
+              validateSymlinkTarget(entry.path, payload);
           } finally {
             await data.close();
           }
@@ -712,7 +739,11 @@ export class NativeVirtualFilesystem {
     return node;
   }
   private async size(node: Node, signal?: AbortSignal): Promise<number> {
-    if (node.overlay) return node.overlay.size;
+    if (node.overlay) {
+      if (node.overlay.kind === "symlink")
+        validateSymlinkTarget(node.path, await this.readOverlay(node.overlay));
+      return node.overlay.size;
+    }
     if (node.entry.kind === "directory") return 0;
     await this.current(node.path, false, signal);
     const acquired = await this.cache.acquire(
@@ -722,7 +753,15 @@ export class NativeVirtualFilesystem {
       () => this.current(node.path, false, signal),
     );
     try {
-      if (node.entry.kind === "symlink") return acquired.object.payload.length;
+      if (node.entry.kind === "symlink") {
+        if (acquired.object.kind !== "blob")
+          workspaceError(
+            "SYMLINK_UNSUPPORTED",
+            "Symlink content must be a bounded UTF-8 blob",
+          );
+        validateSymlinkTarget(node.path, acquired.object.payload);
+        return acquired.object.payload.length;
+      }
       if (acquired.object.kind !== "file")
         workspaceError("FILE_DESCRIPTOR", "Expected a native file descriptor");
       const descriptor = JSON.parse(acquired.object.payload.toString("utf8"));
@@ -742,13 +781,19 @@ export class NativeVirtualFilesystem {
   }
   private async bytes(node: Node, signal?: AbortSignal): Promise<Buffer> {
     await this.current(node.path, false, signal);
-    if (node.overlay) return this.readOverlay(node.overlay);
+    if (node.overlay) {
+      const bytes = await this.readOverlay(node.overlay);
+      if (node.entry.kind === "symlink") validateSymlinkTarget(node.path, bytes);
+      return bytes;
+    }
     const key = node.entry.object_id + ":" + node.path;
     let pending = this.hydration.get(key);
     if (!pending) {
       pending = this.materializer
         .readEntry(this.descriptor, node.path, node.entry)
         .then((bytes) => {
+          if (node.entry.kind === "symlink")
+            validateSymlinkTarget(node.path, bytes);
           this.metrics.contentHydrations++;
           this.metrics.hydratedBytes += bytes.length;
           return bytes;
@@ -1326,7 +1371,7 @@ export class NativeVirtualFilesystem {
           if (opcode === op.SYMLINK) {
             const start = body.indexOf(0) + 1;
             bytes = Buffer.from(cstring(body, start));
-            if (bytes.length > 4096) fail("EFBIG");
+            validateSymlinkTarget(name, bytes);
           }
           const selectedMode =
             kind === "directory"
