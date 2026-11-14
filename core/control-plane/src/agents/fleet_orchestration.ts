@@ -1135,9 +1135,9 @@ export function createComponent(ctx: ComponentContext): Component {
      LEFT JOIN hyperfide.provider_native_bootstraps j ON j.organisation_id=pi.organisation_id AND j.run_id=pi.run_id AND j.intent_id=pi.id
      LEFT JOIN hyperfide.identity_principals rp ON rp.credential_id::text=j.receipt->>'credential_id' AND rp.organisation_id=pi.organisation_id AND rp.run_id=pi.run_id AND rp.role='RUNNER' AND rp.sandbox_id=pi.sandbox_id AND rp.boot_id=j.boot_id AND rp.boot_generation=pi.boot_generation
      LEFT JOIN hyperfide.identity_enrollment_grants g ON g.organisation_id=j.organisation_id AND g.run_id=j.run_id AND g.id=j.grant_id
-     WHERE pi.organisation_id=$1 AND pi.run_id=$2 AND EXISTS(SELECT 1 FROM hyperfide.fleet_effect_receipts e JOIN hyperfide.fleet_decisions d ON d.organisation_id=e.organisation_id AND d.run_id=e.run_id AND d.id=e.decision_id WHERE e.organisation_id=pi.organisation_id AND e.run_id=pi.run_id AND e.result->>'provider_intent_id'=pi.id::text AND ($3::uuid IS NULL OR d.actor_id=$3))
+     WHERE pi.organisation_id=$1 AND pi.run_id=$2 AND EXISTS(SELECT 1 FROM hyperfide.fleet_effect_receipts e JOIN hyperfide.fleet_decisions d ON d.organisation_id=e.organisation_id AND d.run_id=e.run_id AND d.id=e.decision_id WHERE e.organisation_id=pi.organisation_id AND e.run_id=pi.run_id AND e.result->>'provider_intent_id'=pi.id::text AND ($3::uuid IS NULL OR (d.actor_id=$3 AND d.body->>'delegation_id' IS NOT DISTINCT FROM $4::text)))
      ORDER BY pi.created_at DESC,pi.id LIMIT 101`,
-              [...p, b.actor_role === "PRIMARY" ? null : b.actor_id],
+              [...p, b.actor_role === "PRIMARY" ? null : b.actor_id, b.actor_role === "PRIMARY" ? null : b.delegation_id],
             )
           ).rows;
           const replanRows = (
@@ -1148,8 +1148,8 @@ export function createComponent(ctx: ComponentContext): Component {
           ).rows;
           const applicationFeedback = (
             await tx.query(
-              `SELECT d.id::text AS decision_id,d.operation_id::text,d.actor_id::text,d.action,d.body->>'input_digest' AS input_digest,d.body->'input' AS input,r.result->'application' AS application FROM hyperfide.fleet_reasoning r JOIN hyperfide.fleet_decisions d ON d.organisation_id=r.organisation_id AND d.run_id=r.run_id AND d.reasoning_id=r.id WHERE r.organisation_id=$1 AND r.run_id=$2 AND r.actor_id=$3 AND r.result->'application'->>'state'='REFUSED' ORDER BY r.updated_at DESC,r.id LIMIT 20`,
-              [...p, b.actor_id],
+              `SELECT d.id::text AS decision_id,d.operation_id::text,d.actor_id::text,d.action,d.body->>'input_digest' AS input_digest,d.body->'input' AS input,r.result->'application' AS application FROM hyperfide.fleet_reasoning r JOIN hyperfide.fleet_decisions d ON d.organisation_id=r.organisation_id AND d.run_id=r.run_id AND d.reasoning_id=r.id WHERE r.organisation_id=$1 AND r.run_id=$2 AND r.actor_id=$3 AND ($4::text IS NULL OR d.body->>'delegation_id' IS NOT DISTINCT FROM $4::text) AND r.result->'application'->>'state'='REFUSED' ORDER BY r.updated_at DESC,r.id LIMIT 20`,
+              [...p, b.actor_id, b.actor_role === "PRIMARY" ? null : b.delegation_id],
             )
           ).rows;
           const installSpecs = (
@@ -1160,8 +1160,8 @@ export function createComponent(ctx: ComponentContext): Component {
           ).rows;
           const sandboxCandidates = (
             await tx.query(
-              "SELECT DISTINCT s.id::text,s.pool_id::text,s.native_sandbox_id,s.observed_state,s.boot_generation::text,b.boot_id::text FROM hyperfide.sandboxes s JOIN hyperfide.sandbox_boots b ON b.organisation_id=s.organisation_id AND b.sandbox_id=s.id AND b.boot_generation=s.boot_generation JOIN hyperfide.fleet_effect_receipts e ON e.organisation_id=s.organisation_id AND e.run_id=$2 AND e.result->>'sandbox_id'=s.id::text JOIN hyperfide.fleet_decisions d ON d.organisation_id=e.organisation_id AND d.run_id=e.run_id AND d.id=e.decision_id WHERE s.organisation_id=$1 AND s.native_sandbox_id IS NOT NULL AND ($3::uuid IS NULL OR d.actor_id=$3) ORDER BY 1 LIMIT 100",
-              [...p, b.actor_role === "PRIMARY" ? null : b.actor_id],
+              "SELECT DISTINCT s.id::text,s.pool_id::text,s.native_sandbox_id,s.observed_state,s.boot_generation::text,b.boot_id::text FROM hyperfide.sandboxes s JOIN hyperfide.sandbox_boots b ON b.organisation_id=s.organisation_id AND b.sandbox_id=s.id AND b.boot_generation=s.boot_generation JOIN hyperfide.fleet_effect_receipts e ON e.organisation_id=s.organisation_id AND e.run_id=$2 AND e.result->>'sandbox_id'=s.id::text JOIN hyperfide.fleet_decisions d ON d.organisation_id=e.organisation_id AND d.run_id=e.run_id AND d.id=e.decision_id WHERE s.organisation_id=$1 AND s.native_sandbox_id IS NOT NULL AND ($3::uuid IS NULL OR (d.actor_id=$3 AND d.body->>'delegation_id' IS NOT DISTINCT FROM $4::text)) ORDER BY 1 LIMIT 100",
+              [...p, b.actor_role === "PRIMARY" ? null : b.actor_id, b.actor_role === "PRIMARY" ? null : b.delegation_id],
             )
           ).rows;
           const sandboxRunners = (
@@ -1172,9 +1172,9 @@ export function createComponent(ctx: ComponentContext): Component {
      LEFT JOIN hyperfide.identity_principals rc ON rc.credential_id=r.credential_id AND rc.organisation_id=r.organisation_id AND rc.run_id=r.run_id AND rc.role='RUNNER' AND rc.sandbox_id=r.sandbox_id AND rc.boot_id=r.boot_id AND rc.boot_generation=r.boot_generation
      JOIN hyperfide.sandbox_boots sb ON sb.organisation_id=s.organisation_id AND sb.sandbox_id=s.id AND sb.boot_generation=s.boot_generation AND sb.boot_id=r.boot_id
      WHERE r.organisation_id=$1 AND r.run_id=$2 AND r.state IN ('PREPARING','CURRENT') AND s.observed_state='RUNNING' AND s.desired_state='RUNNING'
-     AND EXISTS(SELECT 1 FROM hyperfide.fleet_effect_receipts e JOIN hyperfide.fleet_decisions d ON d.organisation_id=e.organisation_id AND d.run_id=e.run_id AND d.id=e.decision_id WHERE e.organisation_id=r.organisation_id AND e.run_id=r.run_id AND e.result->>'sandbox_id'=r.sandbox_id::text AND ($3::uuid IS NULL OR d.actor_id=$3))
+     AND EXISTS(SELECT 1 FROM hyperfide.fleet_effect_receipts e JOIN hyperfide.fleet_decisions d ON d.organisation_id=e.organisation_id AND d.run_id=e.run_id AND d.id=e.decision_id WHERE e.organisation_id=r.organisation_id AND e.run_id=r.run_id AND e.result->>'sandbox_id'=r.sandbox_id::text AND ($3::uuid IS NULL OR (d.actor_id=$3 AND d.body->>'delegation_id' IS NOT DISTINCT FROM $4::text)))
      ORDER BY r.sandbox_id,r.slot_id,r.session_id LIMIT 101`,
-              [...p, b.actor_role === "PRIMARY" ? null : b.actor_id],
+              [...p, b.actor_role === "PRIMARY" ? null : b.actor_id, b.actor_role === "PRIMARY" ? null : b.delegation_id],
             )
           ).rows;
           const recoveryRows = (
