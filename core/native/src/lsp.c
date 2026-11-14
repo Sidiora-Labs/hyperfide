@@ -156,6 +156,7 @@ static void emit_location(Cg *cg, StrBuf *b, const char *path, int line,
 
 /* the identifier under a zero-based line/character in a file on disk */
 static bool word_at(const char *abs, int line0, int chr, char *out, size_t cap) {
+    if (line0 < 0 || chr < 0) return false;
     char *data = read_entire_file(abs, NULL);
     if (!data) return false;
     const char *p = data;
