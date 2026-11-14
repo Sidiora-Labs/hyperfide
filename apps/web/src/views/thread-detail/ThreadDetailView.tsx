@@ -614,7 +614,9 @@ function ThreadDetailViewInternal(
     },
   );
   const pendingInteractions = pendingInteractionsQuery.data ?? [];
-  const hasPendingInteraction = pendingInteractions.length > 0;
+  const hasPendingInteraction = pendingInteractions.some(
+    (interaction) => interaction.origin?.kind !== "plugin",
+  );
   const unreadDividerState = useThreadUnreadDividerState({
     routeThreadId: threadId,
     thread,

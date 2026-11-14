@@ -1,4 +1,3 @@
-import { MutationObserver } from "@tanstack/react-query";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { makeHost } from "@hyperfide/test-helpers/domain-fixtures";
 import { HttpError } from "@/lib/api";
@@ -124,5 +123,42 @@ describe("useResolveThreadPendingInteraction", () => {
     expect(
       queryClient.getQueryData(threadPendingInteractionsQueryKey("thr_1")),
     ).toEqual([other]);
+  });
+
+  it("invalidates stale interaction state after a resolution conflict", async () => {
+    const queryClient = createAppQueryClient({
+      defaultOptions: {
+        mutations: { retry: false },
+        queries: { gcTime: Infinity, retry: false },
+      },
+      showMutationErrorToasts: false,
+    });
+    queryClient.setQueryData(threadPendingInteractionsQueryKey("thr_1"), []);
+    const conflict = new HttpError({
+      status: 409,
+      code: "invalid_request",
+      message: "Pending interaction is already resolved",
+      body: {
+        code: "invalid_request",
+        message: "Pending interaction is already resolved",
+      },
+    });
+    const options = resolveThreadPendingInteractionMutationOptions(queryClient);
+    options.onError?.(
+      conflict,
+      {
+        threadId: "thr_1",
+        interactionId: "pint_plan",
+        resolution: {
+          decision: "allow_once",
+          grantedPermissions: null,
+        },
+      },
+      undefined,
+    );
+    expect(
+      queryClient.getQueryState(threadPendingInteractionsQueryKey("thr_1"))
+        ?.isInvalidated,
+    ).toBe(true);
   });
 });

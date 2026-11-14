@@ -962,6 +962,11 @@ export function ThreadDetailPromptArea({
     (stopThread.isPending && stopThread.variables === thread.id);
   const orderedPendingInteractions =
     orderPendingInteractions(pendingInteractions);
+  const composerBlockingPendingInteractions = orderedPendingInteractions.filter(
+    (interaction) => interaction.origin?.kind !== "plugin",
+  );
+  const hasComposerBlockingPendingInteraction =
+    composerBlockingPendingInteractions.length > 0;
   const hasPendingInteraction = orderedPendingInteractions.length > 0;
   const shouldHideComposer =
     environmentGoneStatus !== null || thread.archivedAt !== null;
@@ -1013,7 +1018,7 @@ export function ThreadDetailPromptArea({
       };
     }
     return buildFollowUpSubmitMode({
-      hasPendingInteraction,
+      hasPendingInteraction: hasComposerBlockingPendingInteraction,
       isDefaultExecutionOptionsLoading,
       isStopRequested,
       onStop: handleStopThread,
@@ -1022,7 +1027,7 @@ export function ThreadDetailPromptArea({
   }, [
     effectiveSelectedModel,
     handleStopThread,
-    hasPendingInteraction,
+    hasComposerBlockingPendingInteraction,
     isDefaultExecutionOptionsLoading,
     isHandoffSelection,
     modelLoadFailed,

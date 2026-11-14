@@ -7,6 +7,7 @@ import {
 import type { Host, PendingInteraction } from "@hyperfide/domain";
 import type { ResolvePendingInteractionRequest } from "@hyperfide/server-contract";
 import { sdk } from "@/lib/sdk";
+import { asHttpError } from "@/lib/http-error";
 import { isHostDisconnectedError } from "@/lib/lifecycle-errors";
 import { useEnvironment } from "../queries/environment-queries";
 import { useHosts } from "../queries/host-queries";
@@ -64,6 +65,15 @@ export function resolveThreadPendingInteractionMutationOptions(
         threadId: variables.threadId,
       });
       return interaction;
+    },
+    onError: (error, variables) => {
+      if (asHttpError(error)?.status !== 409) {
+        return;
+      }
+      invalidateThreadPendingInteractionResolutionQueries({
+        queryClient,
+        threadId: variables.threadId,
+      });
     },
   });
 }

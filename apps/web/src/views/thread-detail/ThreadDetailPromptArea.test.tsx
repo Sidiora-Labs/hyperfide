@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 import type {
   PendingInteraction,
+  PluginPendingInteraction,
   PromptTextMention,
   ThreadQueuedMessage,
   ThreadTimelineActivePromptMode,
@@ -130,6 +131,30 @@ function makePendingInteraction(): PendingInteraction {
     status: "pending",
     statusReason: null,
     createdAt: 1,
+    resolvedAt: null,
+  };
+}
+
+function makePluginPendingInteraction(): PluginPendingInteraction {
+  return {
+    id: "interaction-plugin",
+    threadId: "thr_1",
+    turnId: null,
+    origin: {
+      kind: "plugin",
+      pluginId: "secrets",
+      rendererId: "secret-request",
+    },
+    payload: {
+      kind: "plugin",
+      title: "Add a token",
+      data: { fields: ["TOKEN"] },
+    },
+    resolution: null,
+    status: "pending",
+    statusReason: null,
+    createdAt: 1,
+    expiresAt: null,
     resolvedAt: null,
   };
 }
@@ -1473,6 +1498,14 @@ describe("ThreadDetailPromptArea", () => {
       "blocked:pending-interaction",
     );
     expect(screen.queryByTestId("queued-message-list")).toBeNull();
+  });
+
+  it("does not block the composer for a plugin-only interaction", () => {
+    renderPromptArea({
+      pendingInteractions: [makePluginPendingInteraction()],
+    });
+
+    expect(screen.getByTestId("submit-mode").textContent).toBe("ready:");
   });
 
   it("wires the Plan exit action to the current thread", () => {
