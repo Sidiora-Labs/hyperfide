@@ -1049,8 +1049,15 @@ export function createComponent(ctx: ComponentContext): Component {
           ).rows;
           const receipts = (
             await tx.query(
-              `SELECT e.decision_id::text,e.operation_id::text,e.created_at::text,d.action,e.result FROM hyperfide.fleet_effect_receipts e JOIN hyperfide.fleet_decisions d ON d.organisation_id=e.organisation_id AND d.run_id=e.run_id AND d.id=e.decision_id WHERE e.organisation_id=$1 AND e.run_id=$2 AND ($3::uuid IS NULL OR d.actor_id=$3) AND COALESCE(e.result->>'kind','')<>'FLEET_HISTORY_PAGE' ORDER BY e.created_at DESC,e.operation_id DESC LIMIT 101`,
-              [...p, b.actor_role === "PRIMARY" ? null : b.actor_id],
+              `SELECT e.decision_id::text,e.operation_id::text,e.created_at::text,d.action,COALESCE(d.body->>'authority_epoch',e.result->>'authority_epoch') AS authority_epoch,COALESCE(d.body->>'leader_generation',e.result->>'leader_generation') AS leader_generation,COALESCE(d.body->>'delegation_id',e.result->>'delegation_id') AS delegation_id,COALESCE(d.body->>'manager_generation',e.result->>'manager_generation') AS manager_generation,e.result FROM hyperfide.fleet_effect_receipts e JOIN hyperfide.fleet_decisions d ON d.organisation_id=e.organisation_id AND d.run_id=e.run_id AND d.id=e.decision_id WHERE e.organisation_id=$1 AND e.run_id=$2 AND ($3::uuid IS NULL OR (d.actor_id=$3 AND COALESCE(d.body->>'authority_epoch',e.result->>'authority_epoch')=$4 AND COALESCE(d.body->>'leader_generation',e.result->>'leader_generation')=$5 AND COALESCE(d.body->>'delegation_id',e.result->>'delegation_id') IS NOT DISTINCT FROM $6::text AND COALESCE(d.body->>'manager_generation',e.result->>'manager_generation') IS NOT DISTINCT FROM $7::text)) AND COALESCE(e.result->>'kind','')<>'FLEET_HISTORY_PAGE' ORDER BY e.created_at DESC,e.operation_id DESC LIMIT 101`,
+              [
+                ...p,
+                b.actor_role === "PRIMARY" ? null : b.actor_id,
+                b.authority_epoch,
+                b.leader_generation,
+                b.actor_role === "PRIMARY" ? null : b.delegation_id,
+                b.actor_role === "PRIMARY" ? null : b.manager_generation,
+              ],
             )
           ).rows;
           const lastHistoryRead =
@@ -1378,14 +1385,14 @@ export function createComponent(ctx: ComponentContext): Component {
           ).rows;
           const coordination = (
             await tx.query(
-              `SELECT id,event_type,payload,created_at::text FROM (
-     SELECT e.operation_id::text AS id,'fleet.manager.coordination'::text AS event_type,e.result AS payload,e.created_at
+              `SELECT id,event_type,payload,created_at::text,authority_epoch,leader_generation,delegation_id,manager_generation FROM (
+     SELECT e.operation_id::text AS id,'fleet.manager.coordination'::text AS event_type,e.result AS payload,e.created_at,d.body->>'authority_epoch' AS authority_epoch,d.body->>'leader_generation' AS leader_generation,d.body->>'delegation_id' AS delegation_id,d.body->>'manager_generation' AS manager_generation
      FROM hyperfide.fleet_effect_receipts e JOIN hyperfide.fleet_decisions d ON d.organisation_id=e.organisation_id AND d.run_id=e.run_id AND d.id=e.decision_id
      WHERE e.organisation_id=$1 AND e.run_id=$2 AND d.action='COORDINATE_DEPENDENCY' AND e.result->>'kind'='COORDINATE_DEPENDENCY' AND e.result->>'delivery'='SCOPED_OBSERVATION'
      AND e.result->>'decision_id'=d.id::text AND e.result->>'sender_actor_id'=d.actor_id::text AND e.result->>'recipient_package_id'=d.body->'input'->>'recipient_package_id'
      AND ($3::uuid IS NULL OR e.result->>'recipient_package_id'=$3::text)
      UNION ALL
-     SELECT o.id::text,o.event_type,o.payload,o.created_at FROM hyperfide.outbox_events o
+     SELECT o.id::text,o.event_type,o.payload,o.created_at,o.payload->>'authority_epoch',o.payload->>'leader_generation',o.payload->>'delegation_id',o.payload->>'manager_generation' FROM hyperfide.outbox_events o
      WHERE o.organisation_id=$1 AND o.run_id=$2 AND o.event_type='fleet.manager.coordination' AND ($3::uuid IS NULL OR o.payload->>'recipient_package_id'=$3::text)
      AND NOT EXISTS(SELECT 1 FROM hyperfide.fleet_effect_receipts e JOIN hyperfide.fleet_decisions d ON d.organisation_id=e.organisation_id AND d.run_id=e.run_id AND d.id=e.decision_id WHERE e.organisation_id=o.organisation_id AND e.run_id=o.run_id AND e.operation_id=o.id AND d.action='COORDINATE_DEPENDENCY' AND e.result->>'delivery'='SCOPED_OBSERVATION')
     ) messages ORDER BY created_at DESC,id DESC LIMIT 101`,

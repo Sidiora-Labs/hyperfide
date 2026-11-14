@@ -1,9 +1,18 @@
 // Structural transport boundary keeps daemon execution independent of plugin loading.
-interface FleetJob { id: string; threadId: string; payload: string; attempt: number }
+type FleetJobState = "queued" | "running" | "completed" | "failed" | "unknown" | "reconciling";
+interface FleetJob {
+  id: string;
+  threadId: string;
+  payload: string;
+  attempt: number;
+  /** The authority may return an unresolved observation while reconciling a lost effect. */
+  state?: FleetJobState;
+  reconciliation?: string;
+}
 interface FleetTransport {
   enroll(token: string): Promise<{ hostId: string; session: string }>;
   poll(hostId: string, session: string): Promise<FleetJob[]>;
-  complete(hostId: string, session: string, jobId: string, attempt: number, success: boolean): Promise<void>;
+  complete(hostId: string, session: string, jobId: string, attempt: number, success: boolean): Promise<void | { state?: FleetJobState; reconciliation?: string }>;
 }
 
 /** One worker per sandbox. The runner receives the assigned thread and an abort signal. */
@@ -11,7 +20,7 @@ export class FleetWorker {
   private identity?: { hostId: string; session: string };
   private active = new Map<string, AbortController>();
   private pending = new Set<Promise<void>>();
-  private outcomes = new Map<string, boolean>();
+  private outcomes = new Map<string, { success: boolean; state: "ready" | "reconciling" }>();
   constructor(private readonly transport: FleetTransport,
     private readonly run: (job: FleetJob, signal: AbortSignal) => Promise<void>) {}
   async enroll(token: string) { const identity = await this.transport.enroll(token); this.identity = identity; return identity.hostId; }
@@ -20,10 +29,28 @@ export class FleetWorker {
     const { hostId, session } = this.identity;
     const jobs = await this.transport.poll(hostId, session);
     const assigned = new Set(jobs.map(j => `${j.id}:${j.attempt}`));
-    for (const [key, controller] of this.active) if (!assigned.has(key)) { controller.abort(); this.active.delete(key); }
-    for (const key of this.outcomes.keys()) if (!assigned.has(key)) this.outcomes.delete(key);
+    const reconciliation = new Set(
+      jobs
+        .filter(job => job.state === "unknown" || job.state === "reconciling")
+        .map(job => `${job.id}:${job.attempt}`),
+    );
+    for (const [key, controller] of this.active) {
+      if (!assigned.has(key) || reconciliation.has(key)) {
+        controller.abort();
+        this.active.delete(key);
+      }
+    }
+    for (const key of this.outcomes.keys()) {
+      if (reconciliation.has(key)) {
+        this.outcomes.get(key)!.state = "reconciling";
+      } else if (!assigned.has(key) && this.outcomes.get(key)?.state !== "reconciling") {
+        this.outcomes.delete(key);
+      }
+    }
     for (const job of jobs) {
       const key = `${job.id}:${job.attempt}`;
+      if (job.state === "unknown" || job.state === "reconciling") continue;
+      if (job.state && job.state !== "queued" && job.state !== "running") continue;
       if (this.active.has(key)) continue;
       const controller = new AbortController();
       this.active.set(key, controller);
@@ -36,15 +63,21 @@ export class FleetWorker {
   }
   private async execute(job: FleetJob, controller: AbortController) {
     const key = `${job.id}:${job.attempt}`;
-    let success = this.outcomes.get(key) ?? true;
-    if (!this.outcomes.has(key)) {
+    const prior = this.outcomes.get(key);
+    let success = prior?.success ?? true;
+    if (!prior) {
       try { await this.run(job, controller.signal); } catch { success = false; }
     }
     if (controller.signal.aborted || !this.identity) return;
-    this.outcomes.set(key, success);
+    this.outcomes.set(key, { success, state: "ready" });
     try {
-      await this.transport.complete(this.identity.hostId, this.identity.session, job.id, job.attempt, success);
-      this.outcomes.delete(key);
+      const acknowledgement = await this.transport.complete(this.identity.hostId, this.identity.session, job.id, job.attempt, success);
+      if (acknowledgement && typeof acknowledgement === "object" &&
+          (acknowledgement.state === "unknown" || acknowledgement.state === "reconciling")) {
+        this.outcomes.get(key)!.state = "reconciling";
+      } else {
+        this.outcomes.delete(key);
+      }
     } catch { /* Retry the acknowledgement on the next poll without rerunning the thread. */ }
   }
   stop() { for (const controller of this.active.values()) controller.abort(); this.active.clear(); }
@@ -75,6 +108,6 @@ export function createFleetHttpTransport(serverUrl: string, request: typeof fetc
   return {
     enroll: token => post("enroll", { token }),
     poll: (hostId, session) => post("poll", { hostId, session }),
-    complete: async (hostId, session, jobId, attempt, success) => { await post("complete", { hostId, session, jobId, attempt, success }); },
+    complete: async (hostId, session, jobId, attempt, success) => post("complete", { hostId, session, jobId, attempt, success }),
   };
 }
