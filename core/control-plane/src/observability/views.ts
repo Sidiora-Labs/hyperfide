@@ -160,7 +160,7 @@ export async function entityPage(tx:Session,p:Principal,input:unknown):Promise<u
 export function createComponent(_startup:ComponentContext):Component{return {apiVersion:1,actions:{
  'fleet.views.describe':async input=>{object(input,[]);return {schema_version:1,scope:'AUTHENTICATED_RUN',migration:MIGRATION,activity_is_progress:false,read_route:'PRIMARY',replica_routing:'UNSUPPORTED',page_limit:500,graph_limits:{nodes:5000,edges:20000}};},
  'fleet.views.snapshot':(input,ctx)=>authority(ctx,'fleet.views.snapshot',(tx,p)=>snapshot(tx,p,input)),
- 'fleet.views.ledger':(input,ctx)=>authority(ctx,'fleet.views.ledger',(tx)=>readFleetLedgerProjection(tx,ctx.invocation!)),
+ 'fleet.views.ledger':(input,ctx)=>{object(input,[]);return authority(ctx,'fleet.views.ledger',(tx)=>readFleetLedgerProjection(tx,ctx.invocation!));},
  'fleet.views.entities':(input,ctx)=>authority(ctx,'fleet.views.entities',(tx,p)=>entityPage(tx,p,input)),
  'fleet.views.observe':(input,ctx)=>authority(ctx,'fleet.views.observe',(tx,p)=>observe(tx,p,input))
 }};}

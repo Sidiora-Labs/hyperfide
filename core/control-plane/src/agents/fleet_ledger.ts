@@ -21,7 +21,7 @@ export async function readFleetLedgerProjection(tx:PrimaryTransaction,i:Invocati
    COALESCE(d.body->>'leader_generation',r.result->>'leader_generation') AS leader_generation,
    COALESCE(d.body->>'delegation_id',r.result->>'delegation_id') AS delegation_id,
    COALESCE(d.body->>'manager_generation',r.result->>'manager_generation') AS manager_generation,
-   r.result->>'state' AS receipt_state, r.result AS receipt_result,
+   COALESCE(r.result->>'state',r.result->>'status',r.result->>'outcome',CASE WHEN r.operation_id IS NULL THEN NULL ELSE 'RECORDED' END) AS receipt_state, r.result AS receipt_result,
    COALESCE(r.created_at,d.created_at)::text AS created_at
    FROM hyperfide.fleet_decisions d
    LEFT JOIN hyperfide.fleet_effect_receipts r ON r.organisation_id=d.organisation_id AND r.run_id=d.run_id AND r.decision_id=d.id
