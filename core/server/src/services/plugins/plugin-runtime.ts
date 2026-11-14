@@ -1552,7 +1552,8 @@ export function createPluginRuntime(context: PluginRuntimeContext) {
       return null;
     }
     const previous = loaded.get(row.id);
-    const previousPackageName = identities.get(row.id)?.manifest.packageName;
+    const previousIdentity = identities.get(row.id);
+    const previousPackageName = previousIdentity?.manifest.packageName;
     function failBeforeFactory(
       status: PluginRuntimeStatus,
       detail: string,
@@ -1598,6 +1599,8 @@ export function createPluginRuntime(context: PluginRuntimeContext) {
       previousPackageName !== undefined &&
       previousPackageName !== manifest.packageName
     ) {
+      if (previousIdentity === undefined) identities.delete(row.id);
+      else identities.set(row.id, previousIdentity);
       return failBeforeFactory(
         "error",
         `path plugin package name changed from "${previousPackageName}" to "${manifest.packageName}"; reinstall the plugin to change its identity`,
