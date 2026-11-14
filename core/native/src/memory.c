@@ -1444,19 +1444,23 @@ static bool port_insert(Cg *cg, PortRec *r, char *err, size_t errcap) {
  * links it would make. Returns that count, -1 on a write error. */
 static int port_relink(Cg *cg, PortIn *in, const CidRow *tv, int tn,
                        bool dry, char *err, size_t errcap) {
-    CidRow *lk = xmalloc(sizeof *lk * (size_t)(in->n ? in->n : 1));
+    CidRow *lk = xmalloc(sizeof *lk * (size_t)(in->n ? in->n * 2 : 1));
     for (int i = 0; i < in->n; i++) {
         snprintf(lk[i].cid, sizeof lk[i].cid, "%s", in->v[i].link);
         lk[i].row = i + 1;                   /* 0 stays "not in the file" */
+        snprintf(lk[in->n + i].cid, sizeof lk[in->n + i].cid, "%s",
+                 in->v[i].cid);
+        lk[in->n + i].row = i + 1;
     }
-    qsort(lk, (size_t)in->n, sizeof *lk, cid_cmp);
+    int lkn = in->n * 2;
+    qsort(lk, (size_t)lkn, sizeof *lk, cid_cmp);
     int made = 0;
     for (int i = 0; i < in->n; i++) {
         PortRec *r = &in->v[i];
         if (!r->sup || !r->sup[0] || r->dup_of >= 0) continue;
         long by = 0;
         bool known;
-        int at = (int)cid_row(lk, in->n, r->sup);
+        int at = (int)cid_row(lk, lkn, r->sup);
         if (at > 0) {
             const PortRec *s = &in->v[at - 1];
             if (s->dup_of >= 0) s = &in->v[s->dup_of];

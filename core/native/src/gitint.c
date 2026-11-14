@@ -551,8 +551,10 @@ int git_ingest(Cg *cg, int limit, long *ncommits_out, long *npaths_out,
         sqlite3_exec(cg->db, "ROLLBACK", NULL, NULL, NULL);
         return -1;
     }
-    if (sqlite3_exec(cg->db, "COMMIT", NULL, NULL, NULL) != SQLITE_OK)
+    if (sqlite3_exec(cg->db, "COMMIT", NULL, NULL, NULL) != SQLITE_OK) {
+        sqlite3_exec(cg->db, "ROLLBACK", NULL, NULL, NULL);
         return -1;
+    }
     if (ncommits_out) *ncommits_out = ncommits;
     if (npaths_out) *npaths_out = npaths;
     if (seen_out) *seen_out = seen;

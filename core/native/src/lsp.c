@@ -83,6 +83,7 @@ static char *lsp_read(void) {
     if (len < 0 || len > LSP_MAX_MESSAGE) return NULL;
     char *body = xmalloc((size_t)len + 1);
     size_t got = fread(body, 1, (size_t)len, stdin);
+    if (got != (size_t)len) { free(body); return NULL; }
     body[got] = 0;
     return body;
 }
