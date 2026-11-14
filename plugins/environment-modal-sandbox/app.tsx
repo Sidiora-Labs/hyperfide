@@ -309,8 +309,8 @@ function LaunchOptionsSettings() {
           </Button>
         </div>
         {draft.presets.length > 0 ? (
-          <div className="mt-3 space-y-1.5">
-            <div className="grid grid-cols-[minmax(0,1fr)_5rem_7rem_2rem] items-center gap-2 text-xs text-muted-foreground">
+          <div className="@container/preset-grid mt-3 space-y-1.5">
+            <div className="hidden grid-cols-[minmax(0,1fr)_5rem_7rem_2rem] items-center gap-2 text-xs text-muted-foreground @min-[32rem]/preset-grid:grid">
               <span>Name</span>
               <span>CPU</span>
               <span>Memory (MiB)</span>
@@ -319,59 +319,82 @@ function LaunchOptionsSettings() {
             {draft.presets.map((preset, index) => (
               <div
                 key={index}
-                className="grid grid-cols-[minmax(0,1fr)_5rem_7rem_2rem] items-center gap-2"
+                className="grid grid-cols-1 items-start gap-2 @min-[32rem]/preset-grid:grid-cols-[minmax(0,1fr)_5rem_7rem_2rem] @min-[32rem]/preset-grid:items-center"
               >
-                <Input
-                  aria-label={`Preset ${index + 1} name`}
-                  value={preset.name}
-                  onChange={(event) =>
-                    updatePreset(index, { ...preset, name: event.target.value })
-                  }
-                  placeholder="Large"
-                />
-                <Input
-                  aria-label={`${preset.name || `Preset ${index + 1}`} CPU`}
-                  type="number"
-                  min="0.001"
-                  step="0.125"
-                  value={preset.cpu}
-                  onChange={(event) =>
-                    updatePreset(index, {
-                      ...preset,
-                      cpu: Number(event.target.value),
-                    })
-                  }
-                />
-                <Input
-                  aria-label={`${preset.name || `Preset ${index + 1}`} memory MiB`}
-                  type="number"
-                  min="1"
-                  step="1"
-                  value={preset.memoryMiB}
-                  onChange={(event) =>
-                    updatePreset(index, {
-                      ...preset,
-                      memoryMiB: Number(event.target.value),
-                    })
-                  }
-                />
-                <Button
-                  type="button"
-                  size="icon"
-                  variant="ghost"
-                  aria-label={`Remove ${preset.name || `preset ${index + 1}`}`}
-                  className="size-8 text-muted-foreground"
-                  onClick={() =>
-                    setDraft({
-                      ...draft,
-                      presets: draft.presets.filter(
-                        (_entry, candidate) => candidate !== index,
-                      ),
-                    })
-                  }
-                >
-                  <Icon name="X" className="size-3.5" />
-                </Button>
+                <label className="min-w-0">
+                  <span className="mb-1 block text-xs text-muted-foreground @min-[32rem]/preset-grid:sr-only">
+                    Name
+                  </span>
+                  <Input
+                    aria-label={`Preset ${index + 1} name`}
+                    value={preset.name}
+                    onChange={(event) =>
+                      updatePreset(index, {
+                        ...preset,
+                        name: event.target.value,
+                      })
+                    }
+                    placeholder="Large"
+                  />
+                </label>
+                <label className="min-w-0">
+                  <span className="mb-1 block text-xs text-muted-foreground @min-[32rem]/preset-grid:sr-only">
+                    CPU
+                  </span>
+                  <Input
+                    aria-label={`${preset.name || `Preset ${index + 1}`} CPU`}
+                    type="number"
+                    min="0.001"
+                    step="0.125"
+                    value={preset.cpu}
+                    onChange={(event) =>
+                      updatePreset(index, {
+                        ...preset,
+                        cpu: Number(event.target.value),
+                      })
+                    }
+                  />
+                </label>
+                <label className="min-w-0">
+                  <span className="mb-1 block text-xs text-muted-foreground @min-[32rem]/preset-grid:sr-only">
+                    Memory (MiB)
+                  </span>
+                  <Input
+                    aria-label={`${preset.name || `Preset ${index + 1}`} memory MiB`}
+                    type="number"
+                    min="1"
+                    step="1"
+                    value={preset.memoryMiB}
+                    onChange={(event) =>
+                      updatePreset(index, {
+                        ...preset,
+                        memoryMiB: Number(event.target.value),
+                      })
+                    }
+                  />
+                </label>
+                <div>
+                  <span className="mb-1 block text-xs text-muted-foreground @min-[32rem]/preset-grid:sr-only">
+                    Actions
+                  </span>
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="ghost"
+                    aria-label={`Remove ${preset.name || `preset ${index + 1}`}`}
+                    className="size-8 text-muted-foreground"
+                    onClick={() =>
+                      setDraft({
+                        ...draft,
+                        presets: draft.presets.filter(
+                          (_entry, candidate) => candidate !== index,
+                        ),
+                      })
+                    }
+                  >
+                    <Icon name="X" className="size-3.5" />
+                  </Button>
+                </div>
               </div>
             ))}
           </div>
