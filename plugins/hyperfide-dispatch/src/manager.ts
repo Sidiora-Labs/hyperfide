@@ -7,6 +7,7 @@ import {
 import {
   authorityConfiguration,
   createAuthorityClient,
+  parseFleetDecision,
 } from "@hyperfide/authority";
 import { z } from "zod";
 
@@ -45,9 +46,10 @@ export function registerManagerDecisions(api: HyperfidePluginApi) {
             "Manager decision requires its stable operation UUID",
           );
         const client = await createAuthorityClient(config);
-        return client.fleetDecision(decision, {
-          operationId: decision.operation_id,
-          idempotencyKey: decision.operation_id,
+        const typedDecision = parseFleetDecision(decision);
+        return client.fleetDecision(typedDecision, {
+          operationId: typedDecision.operation_id,
+          idempotencyKey: typedDecision.operation_id,
         });
       },
     },
