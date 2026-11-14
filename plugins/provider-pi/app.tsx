@@ -31,6 +31,19 @@ function ExtensionUiInteraction({
   );
   const [text, setText] = useState(request?.prefill ?? "");
   const [busy, setBusy] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
+
+  const dismiss = async () => {
+    setBusy(true);
+    setCancelError(null);
+    try {
+      await cancel();
+    } catch (cause) {
+      setBusy(false);
+      setCancelError("Could not cancel this request. Try again.");
+      throw cause;
+    }
+  };
 
   if (!request) {
     return (
@@ -40,30 +53,28 @@ function ExtensionUiInteraction({
           type="button"
           size="sm"
           variant="outline"
-          onClick={() => void cancel()}
+          disabled={busy}
+          onClick={() => void dismiss().catch(() => {})}
         >
           Cancel
         </Button>
+        {cancelError ? (
+          <p role="alert" className="text-sm text-destructive">
+            {cancelError}
+          </p>
+        ) : null}
       </div>
     );
   }
 
   const send = async (value: unknown) => {
     setBusy(true);
+    setCancelError(null);
     try {
       await submit(value as never);
     } catch (cause) {
       setBusy(false);
       throw cause;
-    }
-  };
-
-  const dismiss = async () => {
-    setBusy(true);
-    try {
-      await cancel();
-    } catch {
-      setBusy(false);
     }
   };
 
@@ -92,7 +103,7 @@ function ExtensionUiInteraction({
         ]}
         disabled={busy}
         cancelDisabled={busy}
-        onCancel={cancel}
+        onCancel={dismiss}
         onSubmit={async (answers) => {
           const selected = answers[request.requestId]?.selected[0];
           const index = selected?.startsWith("option-")
@@ -127,6 +138,7 @@ function ExtensionUiInteraction({
           className="w-full rounded-md border border-border bg-surface-raised px-3 py-2 text-sm text-foreground focus-visible:border-ring/50 focus-visible:outline-none"
           value={text}
           placeholder={request.placeholder}
+          aria-label={request.message ?? interaction.title}
           autoFocus
           disabled={busy}
           onChange={(event) => setText(event.target.value)}
@@ -136,6 +148,8 @@ function ExtensionUiInteraction({
         <textarea
           className="min-h-32 w-full resize-y rounded-md border border-border bg-surface-raised px-3 py-2 font-mono text-sm text-foreground focus-visible:border-ring/50 focus-visible:outline-none"
           value={text}
+          aria-label={request.message ?? interaction.title}
+          autoFocus
           disabled={busy}
           onChange={(event) => setText(event.target.value)}
         />
@@ -168,7 +182,7 @@ function ExtensionUiInteraction({
             size="sm"
             variant="ghost"
             disabled={busy}
-            onClick={() => void dismiss()}
+            onClick={() => void dismiss().catch(() => {})}
           >
             Cancel
           </Button>
@@ -176,6 +190,11 @@ function ExtensionUiInteraction({
             Submit
           </Button>
         </div>
+      ) : null}
+      {cancelError ? (
+        <p role="alert" className="text-sm text-destructive">
+          {cancelError}
+        </p>
       ) : null}
     </form>
   );

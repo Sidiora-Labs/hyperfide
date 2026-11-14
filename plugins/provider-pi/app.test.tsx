@@ -70,11 +70,13 @@ describe("pi extension ui interaction", () => {
       method: "select",
       options: ["A", "B"],
     });
-    expect((view.getByText("Submit answer") as HTMLButtonElement).disabled)
-      .toBe(true);
+    expect(
+      (view.getByText("Submit answer") as HTMLButtonElement).disabled,
+    ).toBe(true);
     fireEvent.click(view.getByText("B"));
-    expect((view.getByText("Submit answer") as HTMLButtonElement).disabled)
-      .toBe(false);
+    expect(
+      (view.getByText("Submit answer") as HTMLButtonElement).disabled,
+    ).toBe(false);
   });
 
   it("submits a boolean for a confirm dialog", async () => {
@@ -100,6 +102,16 @@ describe("pi extension ui interaction", () => {
     fireEvent.click(view.getByText("Submit"));
     await vi.waitFor(() => expect(submit).toHaveBeenCalledWith("hello"));
   });
+
+  it.each(["input", "editor"] as const)(
+    "gives the %s control an accessible name and focuses it",
+    (method) => {
+      const view = render({ requestId: "ui-3", method });
+      const control = view.getByRole("textbox", { name: "Allow access?" });
+
+      expect(document.activeElement).toBe(control);
+    },
+  );
 
   it("keeps an input dialog locked after a successful submit and retryable after a failure", async () => {
     const submit = vi
@@ -169,5 +181,25 @@ describe("pi extension ui interaction", () => {
     );
     fireEvent.click(view.getByText("Cancel"));
     await vi.waitFor(() => expect(cancel).toHaveBeenCalled());
+  });
+
+  it("shows a cancel failure and allows the request to be retried", async () => {
+    const cancel = vi
+      .fn<() => Promise<void>>()
+      .mockRejectedValueOnce(new Error("offline"))
+      .mockResolvedValueOnce();
+    const view = render(
+      { requestId: "ui-1", method: "input", placeholder: "type here" },
+      { cancel },
+    );
+
+    fireEvent.click(view.getByText("Cancel"));
+
+    expect((await view.findByRole("alert")).textContent).toBe(
+      "Could not cancel this request. Try again.",
+    );
+    expect(view.getByText("Cancel")).toHaveProperty("disabled", false);
+    fireEvent.click(view.getByText("Cancel"));
+    await vi.waitFor(() => expect(cancel).toHaveBeenCalledTimes(2));
   });
 });

@@ -71,6 +71,58 @@ type SubmissionState =
   | { status: "pending" }
   | { status: "failed"; message: string };
 
+type FormErrors = {
+  fields: Map<string, string>;
+  formError: string | null;
+};
+
+type StateUpdate<T> = T | ((current: T) => T);
+
+function useInteractionState<T>(
+  key: string,
+  initialValue: () => T,
+): readonly [T, (update: StateUpdate<T>) => void] {
+  const [entry, setEntry] = useState(() => ({
+    key,
+    value: initialValue(),
+  }));
+  const value = entry.key === key ? entry.value : initialValue();
+  const setValue = (update: StateUpdate<T>) => {
+    setEntry((current) => {
+      const currentValue = current.key === key ? current.value : initialValue();
+      return {
+        key,
+        value:
+          typeof update === "function"
+            ? (update as (current: T) => T)(currentValue)
+            : update,
+      };
+    });
+  };
+  return [value, setValue];
+}
+
+function initialCodexMcpFormDrafts(
+  payload: ReturnType<typeof codexMcpElicitationSchema.parse> | null,
+): Map<string, CodexMcpFormDraftValue> {
+  return payload?.kind === "form"
+    ? new Map<string, CodexMcpFormDraftValue>(
+        payload.fields.flatMap((field) =>
+          field.defaultValue === null
+            ? []
+            : [
+                [
+                  field.name,
+                  typeof field.defaultValue === "number"
+                    ? String(field.defaultValue)
+                    : field.defaultValue,
+                ],
+              ],
+        ),
+      )
+    : new Map();
+}
+
 function CodexMcpElicitation({
   interaction,
   submit,
@@ -82,33 +134,25 @@ function CodexMcpElicitation({
     [interaction.payload],
   );
   const payload = parsed.success ? parsed.data : null;
-  const [submission, setSubmission] = useState<SubmissionState>({
-    status: "ready",
-  });
-  const [drafts, setDrafts] = useState<Map<string, CodexMcpFormDraftValue>>(
-    () =>
-      payload?.kind === "form"
-        ? new Map<string, CodexMcpFormDraftValue>(
-            payload.fields.flatMap((field) =>
-              field.defaultValue === null
-                ? []
-                : [
-                    [
-                      field.name,
-                      typeof field.defaultValue === "number"
-                        ? String(field.defaultValue)
-                        : field.defaultValue,
-                    ],
-                  ],
-            ),
-          )
-        : new Map(),
+  const interactionKey = useMemo(
+    () => `${interaction.id}:${JSON.stringify(interaction.payload)}`,
+    [interaction.id, interaction.payload],
   );
-  const [formErrors, setFormErrors] = useState<{
-    fields: Map<string, string>;
-    formError: string | null;
-  }>({ fields: new Map(), formError: null });
-  const [urlOpened, setUrlOpened] = useState(false);
+  const [submission, setSubmission] = useInteractionState<SubmissionState>(
+    interactionKey,
+    () => ({ status: "ready" as const }),
+  );
+  const [drafts, setDrafts] = useInteractionState<
+    Map<string, CodexMcpFormDraftValue>
+  >(interactionKey, () => initialCodexMcpFormDrafts(payload));
+  const [formErrors, setFormErrors] = useInteractionState<FormErrors>(
+    interactionKey,
+    () => ({ fields: new Map<string, string>(), formError: null }),
+  );
+  const [urlOpened, setUrlOpened] = useInteractionState(
+    interactionKey,
+    () => false,
+  );
   const busy = submission.status === "pending";
 
   const respond = async (response: CodexMcpElicitationResponse) => {

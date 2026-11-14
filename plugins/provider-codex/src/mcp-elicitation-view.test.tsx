@@ -389,6 +389,51 @@ const primitiveForm = () =>
   );
 
 describe("Codex MCP forms", () => {
+  it("resets drafts and validation state when a new interaction payload arrives", async () => {
+    const firstPayload = formPayload(
+      { name: { type: "string", title: "Name", minLength: 1 } },
+      ["name"],
+    );
+    const secondPayload = formPayload({
+      note: { type: "string", title: "Note", default: "Fresh" },
+    });
+    const submit = vi.fn<PluginPendingInteractionProps["submit"]>(
+      async () => {},
+    );
+    const cancel = vi.fn<PluginPendingInteractionProps["cancel"]>(
+      async () => {},
+    );
+    const slot = renderPayload(firstPayload, { submit, cancel });
+
+    fireEvent.change(slot.getByLabelText("Name"), {
+      target: { value: "Stale" },
+    });
+    fireEvent.change(slot.getByLabelText("Name"), { target: { value: "" } });
+    fireEvent.click(slot.getByRole("button", { name: "Submit response" }));
+    expect(slot.getByRole("alert")).toBeTruthy();
+
+    const McpElicitation = registration.component;
+    slot.rerender(
+      <McpElicitation
+        interaction={{
+          id: "pint_codex_new",
+          threadId: "thr_test",
+          title: "MCP request",
+          payload: secondPayload,
+          createdAt: 0,
+          expiresAt: null,
+        }}
+        submit={submit}
+        cancel={cancel}
+      />,
+    );
+
+    await slot.findByLabelText("Note");
+    expect(slot.getByLabelText("Note")).toHaveProperty("value", "Fresh");
+    expect(slot.queryByLabelText("Name")).toBeNull();
+    expect(slot.queryByRole("alert")).toBeNull();
+  });
+
   it("shows the full message only when the title truncates it", () => {
     const payload = primitiveForm();
     const render = (title: string) =>
