@@ -335,12 +335,20 @@ describe("resuming released watches", () => {
       const observer = new QueryObserver(queryClient, {
         queryKey,
         queryFn,
+        networkMode: "always",
         staleTime: 0,
         refetchOnWindowFocus: false,
       });
       const unsubscribe = observer.subscribe(() => {});
       try {
         await vi.waitFor(() => expect(queryFn).toHaveBeenCalled());
+        if (target.kind === "plugin") {
+          expect(
+            queryClient
+              .getQueryCache()
+              .findAll({ queryKey: ["plugin-rpc", "plugin-1"] }),
+          ).toHaveLength(1);
+        }
 
         effects.handleResumed([target]);
 
