@@ -11,6 +11,7 @@
     "ios": {
       "bundleIdentifier": "app.hyperfide.mobile",
       "supportsTablet": true,
+      "associatedDomains": ["applinks:hyperfide.dev"],
       "icon": {
         "light": "./assets/icon.png",
         "dark": "./assets/ios-icon-dark.png"
@@ -24,16 +25,25 @@
         "NSAppTransportSecurity": {
           "NSAllowsLocalNetworking": true
         },
-        "UIBackgroundModes": [
-          "remote-notification"
-        ]
+        "UIBackgroundModes": ["remote-notification"]
       }
     },
     "android": {
       "package": "app.hyperfide.mobile",
-      "permissions": [
-        "android.permission.MODIFY_AUDIO_SETTINGS"
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "category": ["BROWSABLE", "DEFAULT"],
+          "data": [
+            {
+              "scheme": "https",
+              "host": "hyperfide.dev"
+            }
+          ]
+        }
       ],
+      "permissions": ["android.permission.MODIFY_AUDIO_SETTINGS"],
       "adaptiveIcon": {
         "backgroundColor": "#FFFFFF",
         "foregroundImage": "./assets/android-icon-foreground.png",

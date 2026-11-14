@@ -31,6 +31,30 @@ async function commandWorks(command: string, args: string[]): Promise<boolean> {
   }
 }
 
+interface ScriptInterpreterCommand {
+  command: string;
+  args: string[];
+}
+
+/** Resolve the stable user-facing interpreter name to a host executable. */
+export async function resolveScriptInterpreter(
+  interpreter: AutomationScriptInterpreter,
+): Promise<ScriptInterpreterCommand> {
+  if (interpreter !== "python3" || process.platform !== "win32") {
+    return { command: interpreter, args: [] };
+  }
+
+  // Windows installations expose Python as `python`; the `py` launcher is the
+  // fallback on machines where the executable alias is disabled.
+  if (await commandWorks("python", ["--version"])) {
+    return { command: "python", args: [] };
+  }
+  if (await commandWorks("py", ["-3", "--version"])) {
+    return { command: "py", args: ["-3"] };
+  }
+  return { command: "python", args: [] };
+}
+
 export function hyperfideBinaryCandidates(env: NodeJS.ProcessEnv): string[] {
   const candidates: string[] = [];
   const pushIfAbsolute = (candidate: string): void => {
@@ -232,6 +256,7 @@ function signalProcessGroup(child: ChildProcess, signal: NodeJS.Signals): void {
 
 function executeWithProcessGroup(args: {
   command: string;
+  args?: string[];
   scriptPath: string;
   cwd: string;
   timeoutMs: number;
@@ -245,7 +270,7 @@ function executeWithProcessGroup(args: {
     const stderrChunks: Buffer[] = [];
     let forceKill: NodeJS.Timeout | undefined;
     let timeout: NodeJS.Timeout;
-    const child = spawn(args.command, [args.scriptPath], {
+    const child = spawn(args.command, [...(args.args ?? []), args.scriptPath], {
       cwd: args.cwd,
       detached: process.platform !== "win32",
       env: args.env,
@@ -343,12 +368,14 @@ export async function executeStoredScript(args: {
     );
   }
   const cwd = args.workingDir;
+  const resolvedInterpreter = await resolveScriptInterpreter(interpreter);
   const result = await executeWithProcessGroup({
-    command: interpreter,
+    command: resolvedInterpreter.command,
     scriptPath,
     cwd,
     timeoutMs: Math.min(args.timeoutMs, AUTOMATION_SCRIPT_TIMEOUT_MAX_MS),
     env: scriptEnv,
+    args: resolvedInterpreter.args,
   });
   return { ...result, output: `${warning}${result.output}` };
 }

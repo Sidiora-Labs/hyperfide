@@ -10,7 +10,7 @@ import {
   stat,
   writeFile,
 } from "node:fs/promises";
-import { homedir } from "node:os";
+import { homedir, platform } from "node:os";
 import { join, resolve } from "node:path";
 
 const [apk, dataDir] = process.argv.slice(2);
@@ -19,10 +19,30 @@ if (!apk || !dataDir || process.argv.length !== 4) {
     "Usage: node scripts/publish-android-apk.mjs <apk> <server-data-dir>",
   );
 }
-const sdk =
-  process.env.ANDROID_HOME ??
-  process.env.ANDROID_SDK_ROOT ??
-  join(homedir(), "Library", "Android", "sdk");
+function configuredAndroidSdk() {
+  for (const value of [
+    process.env.ANDROID_HOME,
+    process.env.ANDROID_SDK_ROOT,
+  ]) {
+    if (value?.trim()) return value;
+  }
+  return undefined;
+}
+
+function defaultAndroidSdk() {
+  if (platform() === "win32") {
+    return join(
+      process.env.LOCALAPPDATA ?? join(homedir(), "AppData", "Local"),
+      "Android",
+      "Sdk",
+    );
+  }
+  if (platform() === "darwin")
+    return join(homedir(), "Library", "Android", "sdk");
+  return join(homedir(), "Android", "Sdk");
+}
+
+const sdk = configuredAndroidSdk() ?? defaultAndroidSdk();
 const buildTools = join(sdk, "build-tools");
 const versions = (await readdir(buildTools)).sort((a, b) =>
   b.localeCompare(a, undefined, { numeric: true }),

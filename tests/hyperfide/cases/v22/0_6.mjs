@@ -57,8 +57,8 @@ assert.equal(mobile.ios.bundleIdentifier, 'app.hyperfide.mobile');
 assert.equal(mobile.android.package, 'app.hyperfide.mobile');
 assert.equal(mobile.owner, undefined);
 assert.equal(mobile.extra?.eas, undefined);
-assert.equal(mobile.ios.associatedDomains, undefined);
-assert.equal(mobile.android.intentFilters, undefined);
+assert.deepEqual(mobile.ios.associatedDomains, ['applinks:hyperfide.dev']);
+assert.deepEqual(mobile.android.intentFilters, [{ action: 'VIEW', autoVerify: true, category: ['BROWSABLE', 'DEFAULT'], data: [{ scheme: 'https', host: 'hyperfide.dev' }] }]);
 const require = createRequire(import.meta.url);
 const configure = require(join(root, 'apps/mobile/app.config.js'));
 // Discover the variant key without changing the runtime contract owned by 0.3.
@@ -72,6 +72,8 @@ try {
     const config = configure({ config: mobile });
     assert.equal(config.name, variant === 'dev' ? 'Hyperfide dev' : 'Hyperfide');
     assert.equal(config.android.package, variant === 'dev' ? 'app.hyperfide.mobile.dev' : 'app.hyperfide.mobile');
+    assert.deepEqual(config.ios.associatedDomains, variant === 'dev' ? undefined : ['applinks:hyperfide.dev']);
+    assert.deepEqual(config.android.intentFilters, variant === 'dev' ? [] : mobile.android.intentFilters);
     for (const icon of [config.icon, config.web.favicon, config.android.adaptiveIcon.foregroundImage]) await stat(join(root, 'apps/mobile', icon));
   }
 } finally {

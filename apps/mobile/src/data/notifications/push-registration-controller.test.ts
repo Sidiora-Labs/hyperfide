@@ -147,6 +147,37 @@ describe("createPushRegistrationController", () => {
     activeTokenGate.resolve("expo-token");
     await activeSync;
   });
+
+  it("retries a failed registration when the same device token event is replayed", async () => {
+    const {
+      controller,
+      store,
+      notifications,
+      tokenGate,
+      api,
+      emitDeviceToken,
+    } = setup();
+    tokenGate.resolve("expo-token");
+    await controller.setEnabled(profile, true);
+    api.register.mockRejectedValueOnce(new Error("offline"));
+    vi.mocked(notifications.getExpoPushToken).mockResolvedValue(
+      "expo-token-new",
+    );
+    const tokenEvents: Promise<void>[] = [];
+    notifications.addTokenListener((deviceToken) => {
+      tokenEvents.push(controller.handleTokenRolled([profile], deviceToken));
+    });
+
+    emitDeviceToken("device-token-1");
+    await tokenEvents[0];
+    expect(api.register).toHaveBeenCalledTimes(2);
+    expect(store.getRegistration(profile.id)?.expoPushToken).toBe("expo-token");
+
+    emitDeviceToken("device-token-1");
+    await tokenEvents[1];
+    expect(api.register).toHaveBeenCalledTimes(3);
+    expect(notifications.getExpoPushToken).toHaveBeenCalledTimes(3);
+  });
 });
 
 describe("device push token consent", () => {

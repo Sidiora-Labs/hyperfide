@@ -52,6 +52,8 @@ export function createPushRegistrationController(
   >();
   let permission: PushPermissionState | null = null;
   let lastDeviceToken: string | null = null;
+  let processingDeviceToken: { token: string; promise: Promise<void> } | null =
+    null;
   let operations: Promise<void> = Promise.resolve();
 
   function enqueue<T>(operation: () => Promise<T>): Promise<T> {
@@ -176,11 +178,29 @@ export function createPushRegistrationController(
     },
     async handleTokenRolled(profiles, deviceToken) {
       if (deviceToken === lastDeviceToken) return;
-      lastDeviceToken = deviceToken;
-      for (const profile of profiles) {
-        if (!deps.store.getRegistration(profile.id)) continue;
-        if (inFlight.has(profile.id)) continue;
-        await sync(profile);
+      if (processingDeviceToken?.token === deviceToken) {
+        await processingDeviceToken.promise;
+        return;
+      }
+      const promise = (async () => {
+        let failed = false;
+        for (const profile of profiles) {
+          if (!deps.store.getRegistration(profile.id)) continue;
+          if (inFlight.has(profile.id)) continue;
+          const outcome = await sync(profile);
+          if (outcome.action === "failed") failed = true;
+        }
+        // Keep a failed token event eligible for a later retry. Token listeners
+        // can emit only once, so callers may explicitly replay the same event.
+        if (!failed) lastDeviceToken = deviceToken;
+      })();
+      processingDeviceToken = { token: deviceToken, promise };
+      try {
+        await promise;
+      } finally {
+        if (processingDeviceToken?.promise === promise) {
+          processingDeviceToken = null;
+        }
       }
     },
     async refreshPermission() {

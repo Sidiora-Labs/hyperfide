@@ -26,6 +26,7 @@ module.exports = ({ config }) => {
       ? {
           name: "Hyperfide dev",
           icon: "./assets/icon-dev.png",
+          ios: { ...config.ios, associatedDomains: undefined },
           web: { ...config.web, favicon: "./assets/favicon-dev.png" },
           plugins: config.plugins.map((plugin) =>
             Array.isArray(plugin) && plugin[0] === "expo-splash-screen"
