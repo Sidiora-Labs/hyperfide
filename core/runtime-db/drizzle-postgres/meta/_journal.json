@@ -8,6 +8,13 @@
       "when": 1792771871885,
       "tag": "0000_platform",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1792771871886,
+      "tag": "0001_turn_retry_claims",
+      "breakpoints": true
     }
   ]
 }

@@ -183,5 +183,14 @@ export const postgresMigrations = [
     "bps": true,
     "folderMillis": 1792771871885,
     "hash": "b5801e0dd36853a56ae463d8c63e0a0d4dbf5d5a7624322e14703d8352a404a4"
+  },
+  {
+    "sql": [
+      "CREATE TABLE \"platform\".\"turn_retry_claims\" (\n\t\"thread_id\" text NOT NULL,\n\t\"original_request_id\" text NOT NULL,\n\t\"attempt\" bigint NOT NULL,\n\t\"created_at\" bigint NOT NULL,\n\tCONSTRAINT \"turn_retry_claims_thread_id_original_request_id_attempt_pk\" PRIMARY KEY(\"thread_id\",\"original_request_id\",\"attempt\")\n);\n",
+      "\nALTER TABLE \"platform\".\"turn_retry_claims\" ADD CONSTRAINT \"turn_retry_claims_thread_id_threads_id_fk\" FOREIGN KEY (\"thread_id\") REFERENCES \"platform\".\"threads\"(\"id\") ON DELETE cascade ON UPDATE no action;\n"
+    ],
+    "bps": true,
+    "folderMillis": 1792771871886,
+    "hash": "67186664db726de5b71b48d408647f9e72ab6b682553bf8db17108778acde9c7"
   }
 ];
