@@ -1,5 +1,8 @@
 import { ServerAuthentication } from "./server-auth.js";
-import { ServerCredentialStore, ServerLoginDecision } from "./server-credentials.js";
+import {
+  ServerCredentialStore,
+  ServerLoginDecision,
+} from "./server-credentials.js";
 import { openServerCredentialsDialog } from "./server-credentials-dialog.js";
 import { createDesktopLogger } from "./desktop-logger.js";
 import { spawn } from "node:child_process";
@@ -205,6 +208,7 @@ import {
 import { removeLegacyAutomationPartitions } from "./desktop-browser-legacy-partitions.js";
 import { resolveDesktopBrowserAppCommand } from "./desktop-browser-shortcuts.js";
 import { registerDesktopBrowserIpc } from "./desktop-browser-main-ipc.js";
+import { createDesktopIpcAuthorization } from "./desktop-ipc-authorization.js";
 import { resolveDesktopExternalUrl } from "./desktop-external-url.js";
 import {
   createDesktopFindViewManager,
@@ -389,6 +393,7 @@ let systemConfigSync: SystemConfigSync | null = null;
 let systemConfigRefreshToken = 0;
 let refreshRemoteSystemConfig: (() => void) | null = null;
 const applicationWindowWebContentsIds = new Set<number>();
+const desktopIpcAuthorization = createDesktopIpcAuthorization();
 const splitNavigationEnabledWebContentsIds = new Set<number>();
 const splitNavigationCommandsByWebContentsId = new Map<
   number,
@@ -405,26 +410,39 @@ let serverCredentials: ServerCredentialStore | null = null;
 let serverAuthentication: ServerAuthentication | null = null;
 const authCancelledOrigins = new Set<string>();
 const serverLogin = new ServerLoginDecision(
-  origin => serverCredentials?.get(origin),
-  async origin => serverAuthentication?.request(origin) ?? null,
+  (origin) => serverCredentials?.get(origin),
+  async (origin) => serverAuthentication?.request(origin) ?? null,
 );
 const authenticatedFetch: typeof fetch = (input, init) =>
-  serverAuthentication ? serverAuthentication.fetch(input, init) : fetch(input, init);
+  serverAuthentication
+    ? serverAuthentication.fetch(input, init)
+    : fetch(input, init);
 const authenticatedNetFetch: typeof fetch = (input, init) => {
-  const transport: typeof fetch = (url, options) => net.fetch(url instanceof URL ? url.toString() : url, options);
-  return serverAuthentication ? serverAuthentication.fetchUsing(transport, input, init) : transport(input, init);
+  const transport: typeof fetch = (url, options) =>
+    net.fetch(url instanceof URL ? url.toString() : url, options);
+  return serverAuthentication
+    ? serverAuthentication.fetchUsing(transport, input, init)
+    : transport(input, init);
 };
 async function probeServer(args: { serverUrl: string; timeoutMs: number }) {
   const origin = new URL(args.serverUrl).origin;
   authCancelledOrigins.delete(origin);
-  const result = await (serverAuthentication ? serverAuthentication.probe(args) : probeHyperfideServer(args));
+  const result = await (serverAuthentication
+    ? serverAuthentication.probe(args)
+    : probeHyperfideServer(args));
   if (result.kind === "auth-required") authCancelledOrigins.add(origin);
   return result;
 }
 async function showAuthCancelled(): Promise<void> {
-  await loadStartupError({ title: "This server asks for a username and password",
-    details: "Sign in to connect, or choose another server.", logs: "",
-    actions: [{ id: "retry", label: "Sign in" }, { id: "choose-server", label: "Choose server…" }] });
+  await loadStartupError({
+    title: "This server asks for a username and password",
+    details: "Sign in to connect, or choose another server.",
+    logs: "",
+    actions: [
+      { id: "retry", label: "Sign in" },
+      { id: "choose-server", label: "Choose server…" },
+    ],
+  });
   popupServerMenu(getFocusedApplicationWindow());
 }
 
@@ -1076,6 +1094,9 @@ function startRemoteSystemConfigSync(serverUrl: string): void {
 function registerApplicationWindow(browserWindow: DesktopBrowserWindow): void {
   const webContentsId = browserWindow.webContents.id;
   applicationWindowWebContentsIds.add(webContentsId);
+  if (currentWindowUrl !== null) {
+    desktopIpcAuthorization.authorize(webContentsId, currentWindowUrl);
+  }
   const nativeWindow = BrowserWindow.fromId(browserWindow.id);
   if (nativeWindow !== null) {
     desktopBrowserBroker?.registerWindow(nativeWindow);
@@ -1110,6 +1131,7 @@ function registerApplicationWindow(browserWindow: DesktopBrowserWindow): void {
     desktopFindViewManager?.releaseWindow(webContentsId);
     desktopBrowserBroker?.releaseWindow(webContentsId);
     applicationWindowWebContentsIds.delete(webContentsId);
+    desktopIpcAuthorization.revoke(webContentsId);
     splitNavigationEnabledWebContentsIds.delete(webContentsId);
     splitNavigationCommandsByWebContentsId.delete(webContentsId);
   });
@@ -1141,7 +1163,10 @@ async function ensureBuiltinRuntimeAttached(): Promise<boolean> {
     return true;
   }
 
-  if (existingProbe.kind === "auth-required") { await showAuthCancelled(); return false; }
+  if (existingProbe.kind === "auth-required") {
+    await showAuthCancelled();
+    return false;
+  }
 
   if (existingProbe.kind === "incompatible") {
     return false;
@@ -1563,9 +1588,15 @@ async function loadRemoteServerTarget(
   isCurrent: () => boolean,
 ): Promise<boolean> {
   authCancelledOrigins.delete(new URL(serverUrl).origin);
-  const probe = await probeServer({ serverUrl, timeoutMs: ATTACH_PROBE_TIMEOUT_MS });
+  const probe = await probeServer({
+    serverUrl,
+    timeoutMs: ATTACH_PROBE_TIMEOUT_MS,
+  });
   if (!isCurrent()) return false;
-  if (probe.kind === "auth-required") { await showAuthCancelled(); return false; }
+  if (probe.kind === "auth-required") {
+    await showAuthCancelled();
+    return false;
+  }
   const loaded = await loadRemoteServerPage({
     wasAuthCancelled: () => authCancelledOrigins.has(new URL(serverUrl).origin),
     isCurrent,
@@ -1661,8 +1692,14 @@ async function openSetServerUrlDialog(add = false): Promise<void> {
     return;
   }
   if (result.kind === "set") {
-    const probe = await probeServer({ serverUrl: result.url, timeoutMs: ATTACH_PROBE_TIMEOUT_MS });
-    if (probe.kind === "auth-required") { await showAuthCancelled(); return; }
+    const probe = await probeServer({
+      serverUrl: result.url,
+      timeoutMs: ATTACH_PROBE_TIMEOUT_MS,
+    });
+    if (probe.kind === "auth-required") {
+      await showAuthCancelled();
+      return;
+    }
   }
   if (
     result.kind === "clear" &&
@@ -1822,6 +1859,9 @@ async function openDataDirectory(): Promise<void> {
 async function loadWindowUrl(args: LoadWindowUrlArgs): Promise<void> {
   startupErrorPage = null;
   currentWindowUrl = args.url;
+  for (const webContentsId of applicationWindowWebContentsIds) {
+    desktopIpcAuthorization.authorize(webContentsId, args.url);
+  }
   if (desktopWindowFactory === null) {
     return;
   }
@@ -1996,18 +2036,25 @@ async function installDesktopUpdate(): Promise<void> {
 function registerDesktopUpdateIpc(): void {
   registerServerChoiceIpc({
     applicationWindowWebContentsIds,
+    isAuthorized: desktopIpcAuthorization.isAuthorized,
     list: listServerChoices,
     select: setActiveServerTarget,
     onError: (error) =>
       desktopLogger.error(`Could not switch server: ${String(error)}`),
   });
-  registerDesktopWindowFocusIpc(applicationWindowWebContentsIds);
-  registerDesktopClipboardIpc(applicationWindowWebContentsIds);
+  registerDesktopWindowFocusIpc(
+    applicationWindowWebContentsIds,
+    desktopIpcAuthorization.isAuthorized,
+  );
+  registerDesktopClipboardIpc(
+    applicationWindowWebContentsIds,
+    desktopIpcAuthorization.isAuthorized,
+  );
   ipcMain.on(
     HYPERFIDE_DESKTOP_ZOOM_COMMAND_CHANNEL,
     (event, payload: unknown) => {
       const parsed = hyperfideDesktopZoomCommandSchema.safeParse(payload);
-      if (parsed.success) {
+      if (parsed.success && desktopIpcAuthorization.isAuthorized(event)) {
         zoomWebContents(
           resolveApplicationWindow(event.sender)?.webContents,
           parsed.data,
@@ -2015,35 +2062,45 @@ function registerDesktopUpdateIpc(): void {
       }
     },
   );
-  ipcMain.handle(HYPERFIDE_DESKTOP_GET_INFO_CHANNEL, () => {
-    return getCurrentDesktopInfo();
+  ipcMain.handle(HYPERFIDE_DESKTOP_GET_INFO_CHANNEL, (event) => {
+    return desktopIpcAuthorization.isAuthorized(event)
+      ? getCurrentDesktopInfo()
+      : null;
   });
   ipcMain.handle(HYPERFIDE_DESKTOP_GET_WINDOW_STATE_CHANNEL, (event) => {
-    return getSenderDesktopWindowState(event);
+    return desktopIpcAuthorization.isAuthorized(event)
+      ? getSenderDesktopWindowState(event)
+      : null;
   });
   ipcMain.handle(
     HYPERFIDE_DESKTOP_OPEN_SERVER_DAEMON_LOGS_CHANNEL,
-    async () => {
+    async (event) => {
+      if (!desktopIpcAuthorization.isAuthorized(event)) return;
       await openLocalLogs();
     },
   );
-  ipcMain.handle(HYPERFIDE_DESKTOP_OPEN_DATA_DIRECTORY_CHANNEL, async () => {
-    await openDataDirectory();
-  });
-  ipcMain.handle(HYPERFIDE_DESKTOP_CHECK_FOR_UPDATES_CHANNEL, async () => {
+  ipcMain.handle(
+    HYPERFIDE_DESKTOP_OPEN_DATA_DIRECTORY_CHANNEL,
+    async (event) => {
+      if (!desktopIpcAuthorization.isAuthorized(event)) return;
+      await openDataDirectory();
+    },
+  );
+  ipcMain.handle(HYPERFIDE_DESKTOP_CHECK_FOR_UPDATES_CHANNEL, async (event) => {
+    if (!desktopIpcAuthorization.isAuthorized(event)) return null;
     await checkDesktopUpdates();
     return getCurrentDesktopInfo();
   });
-  ipcMain.handle(
-    HYPERFIDE_DESKTOP_INSTALL_UPDATE_CHANNEL,
-    installDesktopUpdate,
-  );
+  ipcMain.handle(HYPERFIDE_DESKTOP_INSTALL_UPDATE_CHANNEL, async (event) => {
+    if (desktopIpcAuthorization.isAuthorized(event)) {
+      await installDesktopUpdate();
+    }
+  });
   ipcMain.on(
     HYPERFIDE_DESKTOP_SET_SPLIT_NAVIGATION_ENABLED_CHANNEL,
     (event, enabled: unknown, directionalCommands: unknown) => {
       if (
-        !applicationWindowWebContentsIds.has(event.sender.id) ||
-        event.senderFrame !== event.sender.mainFrame ||
+        !desktopIpcAuthorization.isAuthorized(event) ||
         typeof enabled !== "boolean"
       ) {
         return;
@@ -2066,16 +2123,14 @@ function registerDesktopUpdateIpc(): void {
       }
     },
   );
-  ipcMain.on(
-    HYPERFIDE_DESKTOP_SET_THEME_CHANNEL,
-    (_event, payload: unknown) => {
-      const parsed = hyperfideDesktopThemeSchema.safeParse(payload);
-      if (!parsed.success) {
-        return;
-      }
-      nativeTheme.themeSource = parsed.data;
-    },
-  );
+  ipcMain.on(HYPERFIDE_DESKTOP_SET_THEME_CHANNEL, (event, payload: unknown) => {
+    if (!desktopIpcAuthorization.isAuthorized(event)) return;
+    const parsed = hyperfideDesktopThemeSchema.safeParse(payload);
+    if (!parsed.success) {
+      return;
+    }
+    nativeTheme.themeSource = parsed.data;
+  });
   ipcMain.on(STARTUP_ACTION_CHANNEL, (event, ...payload: unknown[]) => {
     const action = startupActionIdSchema.safeParse(payload[0]);
     const page = startupErrorPage;
@@ -2084,8 +2139,7 @@ function registerDesktopUpdateIpc(): void {
       !action.success ||
       page === null ||
       !page.actions.includes(action.data) ||
-      !applicationWindowWebContentsIds.has(event.sender.id) ||
-      event.senderFrame !== event.sender.mainFrame ||
+      !desktopIpcAuthorization.isAuthorized(event) ||
       event.senderFrame?.url !== page.url
     ) {
       return;
@@ -2096,6 +2150,7 @@ function registerDesktopUpdateIpc(): void {
   ipcMain.on(
     HYPERFIDE_DESKTOP_CLOSE_WINDOW_RESPONSE_CHANNEL,
     (event, payload) => {
+      if (!desktopIpcAuthorization.isAuthorized(event)) return;
       const pending = pendingCloseWindowRequests.get(event.sender.id);
       if (pending !== undefined) {
         clearTimeout(pending);
@@ -2108,7 +2163,8 @@ function registerDesktopUpdateIpc(): void {
   );
   ipcMain.on(
     HYPERFIDE_DESKTOP_OPEN_EXTERNAL_URL_CHANNEL,
-    (_event, payload: unknown) => {
+    (event, payload: unknown) => {
+      if (!desktopIpcAuthorization.isAuthorized(event)) return;
       const url = resolveDesktopExternalUrl(payload);
       if (url !== null) {
         void shell.openExternal(url);
@@ -2203,16 +2259,34 @@ async function spawnOwnedRuntime(
     serverUrl: args.serverUrl,
     userDataPath: args.userDataPath,
   };
-  await writeOwnedRuntimePidFile({
-    bridgePath: args.bridgePath,
-    pid: hyperfideProcess.pid,
-    serverUrl: args.serverUrl,
-    userDataPath: args.userDataPath,
-  });
+  try {
+    await writeOwnedRuntimePidFile({
+      bridgePath: args.bridgePath,
+      pid: hyperfideProcess.pid,
+      serverUrl: args.serverUrl,
+      userDataPath: args.userDataPath,
+    });
+  } catch (error) {
+    // The PID file is the durable ownership record. Never leave a child
+    // running when publishing that record fails.
+    await hyperfideProcess.stop({
+      killSignal: "SIGKILL",
+      killTimeoutMs: OWNED_RUNTIME_KILL_TIMEOUT_MS,
+      signal: "SIGTERM",
+      timeoutMs: OWNED_RUNTIME_STOP_TIMEOUT_MS,
+    });
+    throw error;
+  }
   setCurrentRuntime(runtime);
 
   void hyperfideProcess.exit.then((exit) => {
-    void clearOwnedRuntimePidFile({ userDataPath: args.userDataPath });
+    void clearOwnedRuntimePidFile({ userDataPath: args.userDataPath }).catch(
+      (error: unknown) => {
+        desktopLogger.warn(
+          `[desktop] could not clear owned runtime PID file: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      },
+    );
     if (quitting || currentRuntime !== runtime) {
       return;
     }
@@ -2404,7 +2478,10 @@ async function initializeRuntime(args: InitializeRuntimeArgs): Promise<void> {
     timeoutMs: ATTACH_PROBE_TIMEOUT_MS,
   });
 
-  if (existingProbe.kind === "auth-required") { await showAuthCancelled(); return; }
+  if (existingProbe.kind === "auth-required") {
+    await showAuthCancelled();
+    return;
+  }
 
   if (existingProbe.kind === "compatible") {
     const decision = await decideOnExistingServer(existingProbe);
@@ -2493,20 +2570,45 @@ async function runDesktopApp(): Promise<void> {
       origin = url.origin;
       const port = Number(url.port || (url.protocol === "https:" ? 443 : 80));
       const target = serverTargetStore?.getTarget();
-      const currentUrl = target?.kind === "custom" ? target.url : target?.kind === "connect" ? target.server.url : currentRuntime?.serverUrl ?? builtinServerUrl;
-      const allowed = serverCredentials?.get(origin) !== undefined || new URL(currentUrl).origin === origin;
-      if (authInfo.isProxy || authInfo.scheme.toLowerCase() !== "basic" || authInfo.host !== url.hostname || authInfo.port !== port || !allowed) {
+      const currentUrl =
+        target?.kind === "custom"
+          ? target.url
+          : target?.kind === "connect"
+            ? target.server.url
+            : (currentRuntime?.serverUrl ?? builtinServerUrl);
+      const allowed =
+        serverCredentials?.get(origin) !== undefined ||
+        new URL(currentUrl).origin === origin;
+      if (
+        authInfo.isProxy ||
+        authInfo.scheme.toLowerCase() !== "basic" ||
+        authInfo.host !== url.hostname ||
+        authInfo.port !== port ||
+        !allowed
+      ) {
         callback();
         return;
       }
-    } catch { callback(); return; }
-    void serverLogin.answer(origin).catch(() => null).then(async credentials => {
-      if (credentials) { callback(credentials.username, credentials.password); return; }
-      authCancelledOrigins.add(origin);
+    } catch {
       callback();
-      if (contents && !contents.isDestroyed()) contents.stop();
-      await showAuthCancelled();
-    }).catch(() => { /* The cancelled load has already been answered. */ });
+      return;
+    }
+    void serverLogin
+      .answer(origin)
+      .catch(() => null)
+      .then(async (credentials) => {
+        if (credentials) {
+          callback(credentials.username, credentials.password);
+          return;
+        }
+        authCancelledOrigins.add(origin);
+        callback();
+        if (contents && !contents.isDestroyed()) contents.stop();
+        await showAuthCancelled();
+      })
+      .catch(() => {
+        /* The cancelled load has already been answered. */
+      });
   });
 
   app.on("second-instance", () => {
@@ -2566,7 +2668,8 @@ async function runDesktopApp(): Promise<void> {
   }
 
   const paths = createDesktopPathContext();
-  const devIcon = !paths.isPackaged || process.env.HYPERFIDE_DESKTOP_DEV_ICON === "1";
+  const devIcon =
+    !paths.isPackaged || process.env.HYPERFIDE_DESKTOP_DEV_ICON === "1";
   const iconPath = resolveDesktopIconPath({
     devIcon,
     packagedIconFileName: DESKTOP_RELEASE_INFO.iconFileName,
@@ -2650,12 +2753,19 @@ async function runDesktopApp(): Promise<void> {
     storagePath: join(userDataPath, SERVER_TARGET_FILE_NAME),
   });
   await serverTargetStore.load();
-  serverCredentials = new ServerCredentialStore(join(userDataPath, "server-credentials.json"), safeStorage);
+  serverCredentials = new ServerCredentialStore(
+    join(userDataPath, "server-credentials.json"),
+    safeStorage,
+  );
   await serverCredentials.load();
-  serverAuthentication = new ServerAuthentication(serverCredentials, origin => openServerCredentialsDialog({
-    origin, parentWindow: getFocusedApplicationWindow(), preloadPath: serverUrlDialogPreloadPath!,
-    canRemember: safeStorage.isEncryptionAvailable(),
-  }));
+  serverAuthentication = new ServerAuthentication(serverCredentials, (origin) =>
+    openServerCredentialsDialog({
+      origin,
+      parentWindow: getFocusedApplicationWindow(),
+      preloadPath: serverUrlDialogPreloadPath!,
+      canRemember: safeStorage.isEncryptionAvailable(),
+    }),
+  );
   await serverTargetStore.adoptConnectServers(listMenuConnectServers());
   const dataDir = resolveDataDirFromEnv({
     env: process.env,
@@ -2722,10 +2832,7 @@ async function runDesktopApp(): Promise<void> {
   ipcMain.on(
     HYPERFIDE_DESKTOP_OPEN_WINDOW_FIND_CHANNEL,
     (event, payload: unknown) => {
-      if (
-        !applicationWindowWebContentsIds.has(event.sender.id) ||
-        event.senderFrame !== event.sender.mainFrame
-      ) {
+      if (!desktopIpcAuthorization.isAuthorized(event)) {
         return;
       }
       const parsed = hyperfideDesktopWindowFindRequestSchema.safeParse(payload);
@@ -2737,10 +2844,7 @@ async function runDesktopApp(): Promise<void> {
     },
   );
   ipcMain.on(HYPERFIDE_DESKTOP_RELOAD_WINDOW_CHANNEL, (event) => {
-    if (
-      !applicationWindowWebContentsIds.has(event.sender.id) ||
-      event.senderFrame !== event.sender.mainFrame
-    ) {
+    if (!desktopIpcAuthorization.isAuthorized(event)) {
       return;
     }
     const browserWindow = resolveApplicationWindow(event.sender);
@@ -2784,7 +2888,10 @@ async function runDesktopApp(): Promise<void> {
       });
     },
   });
-  registerDesktopBrowserIpc(desktopBrowserViewManager);
+  registerDesktopBrowserIpc(
+    desktopBrowserViewManager,
+    desktopIpcAuthorization.isAuthorized,
+  );
   const browserImportService = createBrowserImportService({
     context: {
       platform: process.platform,
@@ -2807,7 +2914,7 @@ async function runDesktopApp(): Promise<void> {
   ipcMain.handle(
     HYPERFIDE_DESKTOP_BROWSER_LIST_IMPORT_SOURCES_CHANNEL,
     async (event) => {
-      if (!applicationWindowWebContentsIds.has(event.sender.id)) return null;
+      if (!desktopIpcAuthorization.isAuthorized(event)) return null;
       return { sources: await browserImportService.listSources() };
     },
   );
@@ -2816,10 +2923,7 @@ async function runDesktopApp(): Promise<void> {
     async (event, payload: unknown) => {
       const parsed =
         hyperfideDesktopBrowserImportCookiesRequestSchema.safeParse(payload);
-      if (
-        !parsed.success ||
-        !applicationWindowWebContentsIds.has(event.sender.id)
-      )
+      if (!parsed.success || !desktopIpcAuthorization.isAuthorized(event))
         return null;
       const manager = desktopBrowserViewManager;
       if (!manager) return null;
@@ -2836,7 +2940,7 @@ async function runDesktopApp(): Promise<void> {
     HYPERFIDE_DESKTOP_BROWSER_OPEN_FULL_DISK_ACCESS_SETTINGS_CHANNEL,
     (event) => {
       if (
-        !applicationWindowWebContentsIds.has(event.sender.id) ||
+        !desktopIpcAuthorization.isAuthorized(event) ||
         process.platform !== "darwin"
       )
         return;
@@ -2846,7 +2950,7 @@ async function runDesktopApp(): Promise<void> {
     },
   );
   ipcMain.handle(HYPERFIDE_DESKTOP_BROWSER_TARGET_CHANNEL, (event) => {
-    return applicationWindowWebContentsIds.has(event.sender.id)
+    return desktopIpcAuthorization.isAuthorized(event)
       ? (desktopBrowserBroker?.getTarget(event.sender.id) ?? null)
       : null;
   });
@@ -2854,8 +2958,7 @@ async function runDesktopApp(): Promise<void> {
     HYPERFIDE_DESKTOP_BROWSER_GET_CONTROL_CHANNEL,
     (event, payload: unknown) => {
       const parsed = hyperfideDesktopBrowserTabRefSchema.safeParse(payload);
-      return parsed.success &&
-        applicationWindowWebContentsIds.has(event.sender.id)
+      return parsed.success && desktopIpcAuthorization.isAuthorized(event)
         ? (desktopBrowserBroker?.getControl(
             event.sender.id,
             parsed.data.tabId,
@@ -2867,17 +2970,13 @@ async function runDesktopApp(): Promise<void> {
     HYPERFIDE_DESKTOP_BROWSER_RELEASE_CONTROL_CHANNEL,
     (event, payload: unknown) => {
       const parsed = hyperfideDesktopBrowserTabRefSchema.safeParse(payload);
-      if (
-        parsed.success &&
-        applicationWindowWebContentsIds.has(event.sender.id)
-      )
+      if (parsed.success && desktopIpcAuthorization.isAuthorized(event))
         desktopBrowserBroker?.takeOver(event.sender.id, parsed.data.tabId);
     },
   );
   desktopBrowserBrokerClient = createDesktopBrowserBrokerClient({
     broker: desktopBrowserBroker,
-    fetchImpl: (input, init) =>
-      authenticatedNetFetch(input, init),
+    fetchImpl: (input, init) => authenticatedNetFetch(input, init),
     dataDir,
     homeDir: homedir(),
     getServerUrl() {

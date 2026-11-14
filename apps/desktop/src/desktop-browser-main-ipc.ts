@@ -31,6 +31,7 @@ import {
   HYPERFIDE_DESKTOP_BROWSER_STOP_FIND_IN_PAGE_CHANNEL,
 } from "./desktop-browser-ipc.js";
 import type { DesktopBrowserViewManager } from "./desktop-browser-view.js";
+import type { DesktopIpcAuthorizer } from "./desktop-ipc-authorization.js";
 
 function hostWindowFromBrowserIpcEvent(
   event: IpcMainEvent,
@@ -41,9 +42,11 @@ function hostWindowFromBrowserIpcEvent(
 function registerRequestCommand<T>(
   channel: string,
   schema: z.ZodType<T>,
+  isAuthorized: DesktopIpcAuthorizer,
   run: (args: { hostWindow: BrowserWindow; request: T }) => void,
 ): void {
   ipcMain.on(channel, (event, payload: unknown) => {
+    if (!isAuthorized(event)) return;
     const hostWindow = hostWindowFromBrowserIpcEvent(event);
     if (hostWindow === null) {
       return;
@@ -58,57 +61,73 @@ function registerRequestCommand<T>(
 
 export function registerDesktopBrowserIpc(
   manager: DesktopBrowserViewManager,
+  isAuthorized: DesktopIpcAuthorizer = (event) =>
+    event.senderFrame === undefined ||
+    event.senderFrame === event.sender.mainFrame,
 ): void {
   registerRequestCommand(
     HYPERFIDE_DESKTOP_BROWSER_ATTACH_CHANNEL,
     hyperfideDesktopBrowserAttachRequestSchema,
+    isAuthorized,
     (args) => manager.attach(args),
   );
   registerRequestCommand(
     HYPERFIDE_DESKTOP_BROWSER_NAVIGATE_CHANNEL,
     hyperfideDesktopBrowserNavigateRequestSchema,
+    isAuthorized,
     (args) => manager.navigate(args),
   );
   registerRequestCommand(
     HYPERFIDE_DESKTOP_BROWSER_SET_BOUNDS_CHANNEL,
     hyperfideDesktopBrowserSetBoundsRequestSchema,
+    isAuthorized,
     (args) => manager.setBounds(args),
   );
   registerRequestCommand(
     HYPERFIDE_DESKTOP_BROWSER_SET_VISIBLE_CHANNEL,
     hyperfideDesktopBrowserSetVisibleRequestSchema,
+    isAuthorized,
     (args) => manager.setVisible(args),
   );
   registerRequestCommand(
     HYPERFIDE_DESKTOP_BROWSER_SET_VISIBLE_WITHOUT_FOCUS_CHANNEL,
     hyperfideDesktopBrowserSetVisibleRequestSchema,
+    isAuthorized,
     (args) => manager.setVisibleWithoutFocus(args),
   );
   registerRequestCommand(
     HYPERFIDE_DESKTOP_BROWSER_FIND_IN_PAGE_CHANNEL,
     hyperfideDesktopBrowserFindInPageRequestSchema,
+    isAuthorized,
     (args) => manager.findInPage(args),
   );
   registerRequestCommand(
     HYPERFIDE_DESKTOP_BROWSER_STOP_FIND_IN_PAGE_CHANNEL,
     hyperfideDesktopBrowserStopFindInPageRequestSchema,
+    isAuthorized,
     (args) => manager.stopFindInPage(args),
   );
   registerRequestCommand(
     HYPERFIDE_DESKTOP_BROWSER_DETACH_CHANNEL,
     hyperfideDesktopBrowserTabRefSchema,
+    isAuthorized,
     ({ hostWindow, request }) =>
       manager.detach({ hostWindow, tabId: request.tabId }),
   );
   registerRequestCommand(
     HYPERFIDE_DESKTOP_BROWSER_SET_THREAD_DISCARDED_CHANNEL,
     hyperfideDesktopBrowserSetThreadDiscardedRequestSchema,
+    isAuthorized,
     (args) => manager.setThreadDiscarded(args),
   );
   ipcMain.handle(
     HYPERFIDE_DESKTOP_BROWSER_LIST_THREADS_WITH_TABS_CHANNEL,
     (event) => {
-      if (BrowserWindow.fromWebContents(event.sender) === null) return [];
+      if (
+        !isAuthorized(event) ||
+        BrowserWindow.fromWebContents(event.sender) === null
+      )
+        return [];
       const tabs = manager.listTabs({
         hostWebContentsId: event.sender.id,
         threadId: null,
@@ -119,30 +138,35 @@ export function registerDesktopBrowserIpc(
   registerRequestCommand(
     HYPERFIDE_DESKTOP_BROWSER_FOCUS_CHANNEL,
     hyperfideDesktopBrowserTabRefSchema,
+    isAuthorized,
     ({ hostWindow, request }) =>
       manager.focus({ hostWindow, tabId: request.tabId }),
   );
   registerRequestCommand(
     HYPERFIDE_DESKTOP_BROWSER_GO_BACK_CHANNEL,
     hyperfideDesktopBrowserTabRefSchema,
+    isAuthorized,
     ({ hostWindow, request }) =>
       manager.goBack({ hostWindow, tabId: request.tabId }),
   );
   registerRequestCommand(
     HYPERFIDE_DESKTOP_BROWSER_GO_FORWARD_CHANNEL,
     hyperfideDesktopBrowserTabRefSchema,
+    isAuthorized,
     ({ hostWindow, request }) =>
       manager.goForward({ hostWindow, tabId: request.tabId }),
   );
   registerRequestCommand(
     HYPERFIDE_DESKTOP_BROWSER_RELOAD_CHANNEL,
     hyperfideDesktopBrowserTabRefSchema,
+    isAuthorized,
     ({ hostWindow, request }) =>
       manager.reload({ hostWindow, tabId: request.tabId }),
   );
   registerRequestCommand(
     HYPERFIDE_DESKTOP_BROWSER_STOP_CHANNEL,
     hyperfideDesktopBrowserTabRefSchema,
+    isAuthorized,
     ({ hostWindow, request }) =>
       manager.stop({ hostWindow, tabId: request.tabId }),
   );
@@ -152,11 +176,15 @@ export function registerDesktopBrowserIpc(
       event,
       payload: unknown,
     ): Promise<HyperfideDesktopBrowserEvaluateResult> => {
+      if (!isAuthorized(event)) {
+        return { ok: false, error: "Browser host window is not authorized" };
+      }
       const hostWindow = BrowserWindow.fromWebContents(event.sender);
       if (hostWindow === null) {
         return { ok: false, error: "Browser host window is not available" };
       }
-      const parsed = hyperfideDesktopBrowserEvaluateRequestSchema.safeParse(payload);
+      const parsed =
+        hyperfideDesktopBrowserEvaluateRequestSchema.safeParse(payload);
       if (!parsed.success) {
         return { ok: false, error: "Invalid browser page evaluation request" };
       }
