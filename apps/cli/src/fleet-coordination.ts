@@ -79,4 +79,3 @@ export function registerFleetCoordinationCommands(program: Command): void {
       }
     });
 }
-
