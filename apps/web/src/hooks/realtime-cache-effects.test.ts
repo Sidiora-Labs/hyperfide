@@ -322,8 +322,8 @@ describe("resuming released watches", () => {
     },
     {
       label: "thread terminals",
-      queryKey: terminalsQueryKey({ kind: "thread", threadId: "thr_1" }),
-      target: { kind: "thread-detail", threadId: "thr_1" } as const,
+      queryKey: terminalsQueryKey({ kind: "thread", threadId: "thr_2" }),
+      target: { kind: "thread-detail", threadId: "thr_2" } as const,
     },
   ])(
     "refetches the active $label family when its released watch resumes",
