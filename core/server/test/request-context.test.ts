@@ -49,6 +49,44 @@ describe("request context", () => {
       hasAddress: false,
     });
   });
+
+  it("does not treat a loopback proxy peer as a trusted remote address", async () => {
+    const app = await new Hono();
+    app.use("*", async (context, next) => {
+      captureTrustedRemoteAddress(context);
+      await next();
+    });
+    app.get("/", (context) =>
+      context.json({
+        address: getTrustedRemoteAddress(context),
+      }),
+    );
+
+    for (const header of [
+      ["forwarded", "for=203.0.113.10"],
+      ["x-forwarded-for", "203.0.113.10"],
+      ["x-forwarded-host", "public.example"],
+      ["x-forwarded-proto", "https"],
+      ["x-real-ip", "203.0.113.10"],
+    ]) {
+      const response = await app.fetch(
+        new Request("http://example.test/", {
+          headers: { [header[0]]: header[1] },
+        }),
+        {
+          incoming: {
+            socket: {
+              remoteAddress: "127.0.0.1",
+            },
+          },
+        },
+      );
+
+      await expect(response.json()).resolves.toEqual({
+        address: undefined,
+      });
+    }
+  });
   it("resolves the app surface from the client header and falls back to api", async () => {
     const app = await new Hono();
     app.get("/", (context) =>

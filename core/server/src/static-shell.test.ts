@@ -78,4 +78,16 @@ describe("app shell serving", () => {
     const res = await app.request("/assets/stale-chunk.js");
     expect(res.status).toBe(404);
   });
+
+  it("rejects encoded dot-segment traversal instead of serving the shell", async () => {
+    for (const path of [
+      "/%2e%2e/secret.txt",
+      "/%2e%2e%2fsecret.txt",
+      "/nested/%2E%2E/%2e%2e/secret.txt",
+      "/%252e%252e/secret.txt",
+    ]) {
+      const res = await app.request(path);
+      expect(res.status, path).toBe(404);
+    }
+  });
 });

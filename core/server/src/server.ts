@@ -24,7 +24,7 @@ import { createNodeWebSocket } from "@hono/node-ws";
 import { createHash, randomUUID } from "node:crypto";
 import { readFile, stat } from "node:fs/promises";
 import { performance } from "node:perf_hooks";
-import { extname, join, resolve } from "node:path";
+import { extname, isAbsolute, join, relative, resolve } from "node:path";
 import { Hono } from "hono";
 import { terminalWebSocketQuerySchema } from "@hyperfide/server-contract";
 import { compress } from "hono/compress";
@@ -320,6 +320,27 @@ const STATIC_MIME_TYPES: Record<string, string> = {
 export function registerStaticAppRoutes(app: Hono, staticDir: string): void {
   const root = resolve(staticDir);
 
+  const hasUnsafeStaticPath = (urlPath: string): boolean => {
+    let decodedPath = urlPath;
+    // Decode repeatedly so a proxy/router that performs more than one decode
+    // cannot turn a previously harmless path into a dot segment later.
+    for (let pass = 0; pass < 3; pass += 1) {
+      let nextPath: string;
+      try {
+        nextPath = decodeURIComponent(decodedPath);
+      } catch {
+        return true;
+      }
+      if (nextPath === decodedPath) break;
+      decodedPath = nextPath;
+    }
+
+    for (const segment of decodedPath.split(/[\\/]/u)) {
+      if (segment === "." || segment === "..") return true;
+    }
+    return decodedPath.includes("\\");
+  };
+
   const serveStaticAppFile = async (args: {
     acceptEncodingHeader: string | undefined;
     contentType: string;
@@ -369,8 +390,22 @@ export function registerStaticAppRoutes(app: Hono, staticDir: string): void {
 
   app.get("*", async (context) => {
     const urlPath = context.req.path === "/" ? "/index.html" : context.req.path;
-    const filePath = join(root, urlPath);
-    if (!filePath.startsWith(root)) {
+    // Use the raw URL pathname as well as the router path. Some adapters
+    // decode percent escapes before exposing `req.path`, while others leave
+    // them encoded; either form must reject traversal rather than falling
+    // through to the app shell.
+    const rawUrlPath = new URL(context.req.url).pathname;
+    if (hasUnsafeStaticPath(urlPath) || hasUnsafeStaticPath(rawUrlPath)) {
+      return context.notFound();
+    }
+    const filePath = resolve(root, urlPath.replace(/^\//u, ""));
+    const pathFromRoot = relative(root, filePath);
+    if (
+      pathFromRoot === ".." ||
+      pathFromRoot.startsWith("..\\") ||
+      pathFromRoot.startsWith("../") ||
+      isAbsolute(pathFromRoot)
+    ) {
       return context.notFound();
     }
     try {

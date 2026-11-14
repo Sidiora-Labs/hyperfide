@@ -18,8 +18,25 @@ import {
 import { issueHostEnrollKey } from "../services/hosts/host-enrollment.js";
 import { requireBearerToken } from "./auth.js";
 
-function assertLoopbackRequest(remoteAddress: string | undefined): void {
-  if (remoteAddress && isLoopbackAddress(remoteAddress)) {
+function assertLoopbackRequest(
+  context: GateAuthHeaderReader,
+  remoteAddress: string | undefined,
+): void {
+  // A reverse proxy can make its own socket appear loopback. Forwarding
+  // headers are not trusted as an address, so their presence disqualifies the
+  // request from this local-only enrollment route.
+  const hasForwardedAddress = [
+    "forwarded",
+    "x-forwarded-for",
+    "x-forwarded-host",
+    "x-forwarded-proto",
+    "x-real-ip",
+  ].some((header) => context.req.header(header) !== undefined);
+  if (
+    !hasForwardedAddress &&
+    remoteAddress &&
+    isLoopbackAddress(remoteAddress)
+  ) {
     return;
   }
   throw new ApiError(
@@ -61,7 +78,7 @@ export function registerInternalHostRoutes(app: Hono, deps: AppDeps): void {
           "Machine credentials cannot mint host enrollment keys",
         );
       }
-      assertLoopbackRequest(getTrustedRemoteAddress(context));
+      assertLoopbackRequest(context, getTrustedRemoteAddress(context));
       const issued = await issueHostEnrollKey(deps, {
         enrollSource: "loopback",
         ...(payload.hostId ? { hostId: payload.hostId } : {}),

@@ -7,7 +7,8 @@ import {
 } from "@hyperfide/config/app-surface";
 import type { Context } from "hono";
 
-export const TRUSTED_REMOTE_ADDRESS_CONTEXT_KEY = "hyperfideTrustedRemoteAddress";
+export const TRUSTED_REMOTE_ADDRESS_CONTEXT_KEY =
+  "hyperfideTrustedRemoteAddress";
 const GATE_AUTH_HEADER_NAME = "x-hyperfide-gate-auth";
 const GATE_MACHINE_ID_HEADER_NAME = "x-hyperfide-gate-machine-id";
 type GateAuthKind = "machine" | "session";
@@ -47,6 +48,21 @@ function isTunnelIngressContext(context: Context): boolean {
 
 export function captureTrustedRemoteAddress(context: Context): void {
   if (isTunnelIngressContext(context)) {
+    context.set(TRUSTED_REMOTE_ADDRESS_CONTEXT_KEY, undefined);
+    return;
+  }
+  // A reverse proxy's socket is commonly loopback even when the original
+  // client is remote. Forwarded address/authority headers are therefore an
+  // explicit boundary: they must never make a proxy connection eligible for
+  // loopback-only routes. We do not trust their values; their presence simply
+  // means that the peer address is not authoritative for this request.
+  if (
+    context.req.header("forwarded") !== undefined ||
+    context.req.header("x-forwarded-for") !== undefined ||
+    context.req.header("x-forwarded-host") !== undefined ||
+    context.req.header("x-forwarded-proto") !== undefined ||
+    context.req.header("x-real-ip") !== undefined
+  ) {
     context.set(TRUSTED_REMOTE_ADDRESS_CONTEXT_KEY, undefined);
     return;
   }

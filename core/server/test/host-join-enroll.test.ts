@@ -115,6 +115,35 @@ describe("host enroll routes", () => {
     }
   });
 
+  it("rejects loopback proxy peers for enroll-key requests", async () => {
+    const harness = await createTestAppHarness({ appUrl: undefined });
+    const app = await createInternalHostRouteApp({
+      deps: harness.deps,
+      trustedRemoteAddress: "127.0.0.1",
+    });
+
+    try {
+      const response = await app.request("/hosts/enroll-key", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-forwarded-for": "203.0.113.10",
+        },
+        body: JSON.stringify({
+          hostId: "host_proxy_enroll_key",
+        }),
+      });
+
+      expect(response.status).toBe(400);
+      expect(await readJson(response)).toMatchObject({
+        code: "unsupported_host",
+      });
+      expect(await getHost(harness.db, "host_proxy_enroll_key")).toBeNull();
+    } finally {
+      await harness.cleanup();
+    }
+  });
+
   it("rejects machine-gated enroll-key requests even from loopback", async () => {
     const harness = await createTestAppHarness({ appUrl: undefined });
     const app = await createInternalHostRouteApp({
