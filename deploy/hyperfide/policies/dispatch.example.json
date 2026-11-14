@@ -187,6 +187,7 @@
     "fleet.views.entities",
     "fleet.views.observe",
     "fleet.views.snapshot",
+    "fleet.views.ledger",
     "frontier.check",
     "frontier.inspect",
     "frontier.outcome",

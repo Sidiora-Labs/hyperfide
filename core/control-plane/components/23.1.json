@@ -11,6 +11,7 @@
   "actions": [
     "fleet.views.describe",
     "fleet.views.snapshot",
+    "fleet.views.ledger",
     "fleet.views.observe",
     "fleet.views.entities"
   ],
