@@ -6,6 +6,7 @@ import {assertPrimaryTransaction} from '../storage/transactions.js';
 import {lockRun} from '../events/outbox.js';
 import {FoundationError} from '../policy/programme.js';
 import {loadExecutionPacket,loadPreparationIntent} from '../hierarchy/packets.js';
+import {text} from '../hierarchy/packages.js';
 import {assertInvocation} from '../transport/protocol.js';
 import type {InvocationContext} from '../transport/protocol.js';
 import {actorFor,boundedInteger,canonical,claimTask,decimal,digest,dimensions,dispatchRecipients,fail,fields,
