@@ -1506,6 +1506,7 @@ describe("ThreadDetailPromptArea", () => {
     });
 
     expect(screen.getByTestId("submit-mode").textContent).toBe("ready:");
+    expect(screen.getByTestId("composer-hidden").textContent).toBe("false");
   });
 
   it("wires the Plan exit action to the current thread", () => {
