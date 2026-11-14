@@ -10,15 +10,22 @@ import {
 export const SHELL_ROUTE_PATH = "/webview";
 
 const NATIVE_ONLY_PREFIXES = [
-  "/connect",
   "/settings/servers",
-  "/settings/machines",
   "/settings/device",
   "/settings/notifications",
 ] as const;
 
-function isNativeOnlyShellPath(path: string): boolean {
-  return pathMatchesPrefix(path, NATIVE_ONLY_PREFIXES);
+const NATIVE_ROUTE_ALIASES = {
+  "/connect": "/settings/servers/add",
+  "/settings/machines": "/settings/device",
+} as const;
+
+function nativeShellPath(path: string): string | null {
+  const pathname = path.split("?", 1)[0] ?? "";
+  const alias =
+    NATIVE_ROUTE_ALIASES[pathname as keyof typeof NATIVE_ROUTE_ALIASES];
+  if (alias !== undefined) return `${alias}${path.slice(pathname.length)}`;
+  return pathMatchesPrefix(path, NATIVE_ONLY_PREFIXES) ? path : null;
 }
 
 interface ShellHrefParams {
@@ -56,8 +63,9 @@ export function resolveShellIncomingLink(
           profileId: null,
         };
       }
-      if (isNativeOnlyShellPath(link.path)) {
-        return { kind: "navigate", path: link.path, profileId: null };
+      const nativePath = nativeShellPath(link.path);
+      if (nativePath !== null) {
+        return { kind: "navigate", path: nativePath, profileId: null };
       }
       return {
         kind: "navigate",
@@ -82,11 +90,20 @@ export function resolveShellIncomingLink(
         };
       }
       const switching = match.profile.id !== context.activeProfileId;
+      const targetPath = `${match.pathname}${link.search}`;
+      const nativePath = nativeShellPath(targetPath);
+      if (nativePath !== null) {
+        return {
+          kind: "navigate",
+          path: nativePath,
+          profileId: switching ? match.profile.id : null,
+        };
+      }
       return {
         kind: "navigate",
         path: shellHref({
           profileId: switching ? match.profile.id : null,
-          path: `${match.pathname}${link.search}`,
+          path: targetPath,
         }),
         profileId: switching ? match.profile.id : null,
       };

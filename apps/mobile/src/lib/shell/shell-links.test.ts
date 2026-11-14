@@ -17,8 +17,12 @@ describe("resolveShellIncomingLink", () => {
   it.each([
     ["hyperfide://", "/webview"],
     ["hyperfide://threads/thr_1", "/webview?path=%2Fthreads%2Fthr_1"],
-    ["hyperfide://connect?code=ABCD-EFGH", "/connect?code=ABCD-EFGH"],
+    [
+      "hyperfide://connect?code=ABCD-EFGH",
+      "/settings/servers/add?code=ABCD-EFGH",
+    ],
     ["hyperfide://settings/servers/add", "/settings/servers/add"],
+    ["hyperfide://settings/machines", "/settings/device"],
     ["hyperfide://settings/device", "/settings/device"],
     ["hyperfide://settings/notifications", "/settings/notifications"],
     ["hyperfide://settings", "/webview?path=%2Fsettings"],
@@ -33,9 +37,9 @@ describe("resolveShellIncomingLink", () => {
   });
 
   it("hides developer routes in a release bundle", () => {
-    expect(resolveShellIncomingLink("hyperfide://dev/webview-spike", context)).toEqual(
-      { kind: "navigate", path: "/", profileId: null },
-    );
+    expect(
+      resolveShellIncomingLink("hyperfide://dev/webview-spike", context),
+    ).toEqual({ kind: "navigate", path: "/", profileId: null });
     expect(
       resolveShellIncomingLink("hyperfide://dev/webview-spike", {
         ...context,
@@ -50,10 +54,39 @@ describe("resolveShellIncomingLink", () => {
 
   it("opens a web link on the profile that owns it", () => {
     expect(
-      resolveShellIncomingLink("https://bee.hyperfide.example/threads/x?a=1", context),
+      resolveShellIncomingLink(
+        "https://bee.hyperfide.example/threads/x?a=1",
+        context,
+      ),
     ).toEqual({
       kind: "navigate",
       path: "/webview?path=%2Fthreads%2Fx%3Fa%3D1",
+      profileId: null,
+    });
+  });
+
+  it("routes native web links to existing screens and keeps the target profile", () => {
+    expect(
+      resolveShellIncomingLink(
+        "http://10.0.0.7:38886/settings/machines",
+        context,
+      ),
+    ).toEqual({
+      kind: "navigate",
+      path: "/settings/device",
+      profileId: "p_lan",
+    });
+  });
+
+  it("preserves native-link query parameters when using an existing screen", () => {
+    expect(
+      resolveShellIncomingLink(
+        "https://bee.hyperfide.example/connect?code=ABCD-EFGH",
+        context,
+      ),
+    ).toEqual({
+      kind: "navigate",
+      path: "/settings/servers/add?code=ABCD-EFGH",
       profileId: null,
     });
   });
@@ -105,7 +138,10 @@ describe("resolveShellIncomingLink", () => {
 
   it("leaves a foreign scheme alone", () => {
     expect(
-      resolveShellIncomingLink("exp+hyperfide-app://expo-development-client", context),
+      resolveShellIncomingLink(
+        "exp+hyperfide-app://expo-development-client",
+        context,
+      ),
     ).toEqual({ kind: "passthrough" });
   });
 });
