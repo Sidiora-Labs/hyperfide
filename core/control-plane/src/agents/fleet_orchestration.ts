@@ -665,20 +665,23 @@ export function createComponent(ctx: ComponentContext): Component {
             delegation_id: null,
             manager_generation: null,
           });
-          await assertFleetBootstrapCohortBind(tx, i, expected);
           const old = (
             await tx.query(
               "SELECT * FROM hyperfide.fleet_cohorts WHERE organisation_id=$1 AND run_id=$2 FOR UPDATE",
               keys(i),
             )
           ).rows[0];
+          const next = (BigInt(expected) + 1n).toString();
+          const retry = Boolean(old && old.id === id && old.host_id === host &&
+            old.authority_epoch === i.principal.deployment_epoch && old.leader_session_id === i.principal.actor_id &&
+            String(old.leader_generation) === generation && String(old.cohort_generation) === next);
+          if (!retry) await assertFleetBootstrapCohortBind(tx, i, expected);
           if (
-            String(old?.cohort_generation ?? "0") !== expected ||
+            !retry && (String(old?.cohort_generation ?? "0") !== expected ||
             (old && old.id !== id)
-          )
+          ))
             fleetError("FLEET_COHORT_STALE");
-          const next = (BigInt(expected) + 1n).toString(),
-            identity = localProcessIdentity();
+          const identity = retry ? old.controller_identity : localProcessIdentity();
           await tx.query(
             "INSERT INTO hyperfide.fleet_cohorts(organisation_id,run_id,id,host_id,authority_epoch,leader_session_id,leader_generation,cohort_generation,controller_identity) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) ON CONFLICT(organisation_id,run_id) DO UPDATE SET host_id=EXCLUDED.host_id,authority_epoch=EXCLUDED.authority_epoch,leader_session_id=EXCLUDED.leader_session_id,leader_generation=EXCLUDED.leader_generation,cohort_generation=EXCLUDED.cohort_generation,controller_identity=EXCLUDED.controller_identity",
             [
@@ -702,6 +705,7 @@ export function createComponent(ctx: ComponentContext): Component {
             cohort_generation: next,
             controller_identity: identity,
             model_session_observed: false,
+            ...(retry ? { replayed: true } : {}),
           };
         });
       }),
@@ -759,6 +763,11 @@ export function createComponent(ctx: ComponentContext): Component {
         return transact(i, async (tx) => {
           const a = await assertFleetActor(tx, i, b),
             p = keys(i);
+          const delegation = b.actor_role === "WAVE_MANAGER"
+            ? (await tx.query("SELECT budget FROM hyperfide.fleet_delegations WHERE organisation_id=$1 AND run_id=$2 AND package_id=$3 AND manager_session_id=$4 AND manager_generation=$5 FOR SHARE", [...p, b.delegation_id, b.actor_id, b.manager_generation])).rows[0]
+            : null;
+          if (b.actor_role === "WAVE_MANAGER" && (!delegation || !object(delegation.budget))) fleetError("FLEET_DELEGATION_STALE");
+          const managerBudget = object(delegation?.budget) ? delegation.budget : null;
           const run = (
             await tx.query(
               "SELECT spec_revision_id::text,spec_generation::text,state_version::text,clock_timestamp() AS observed_at FROM hyperfide.runs WHERE organisation_id=$1 AND id=$2 FOR SHARE",
@@ -976,12 +985,17 @@ export function createComponent(ctx: ComponentContext): Component {
               },
             };
           });
-          const pools = (
+          let pools = (
             await tx.query(
               "SELECT p.id::text,p.provider,p.environment_key,p.region,p.state,p.state_version::text,p.profile_id::text,e.content_digest AS preparation_digest,e.runtime_platform,e.manifest->'profile'->'resources' AS resources,e.manifest->'profile'->'image'->>'digest' AS image_digest,pc.configuration_digest,pc.document->'pool'->>'preparation_digest' AS configured_preparation_digest,COALESCE(pc.document->'pool'->'execution_role'->>'kind','UNKNOWN') AS declared_execution_role,pc.document->'pool'->'execution_role'->>'schema_version' AS execution_role_schema_version,(SELECT jsonb_agg(DISTINCT w.capacity_kind ORDER BY w.capacity_kind) FROM hyperfide.worker_slots w JOIN hyperfide.sandboxes s ON s.organisation_id=w.organisation_id AND s.id=w.sandbox_id AND s.boot_generation=w.boot_generation WHERE s.organisation_id=p.organisation_id AND s.pool_id=p.id AND w.state IN('READY','ALLOCATED','DRAINING')) AS observed_slot_capacity_kinds FROM hyperfide.provider_pools p LEFT JOIN hyperfide.environment_profiles e ON e.organisation_id=p.organisation_id AND e.id=p.profile_id LEFT JOIN hyperfide.provider_pool_configurations pc ON pc.organisation_id=p.organisation_id AND pc.pool_id=p.id AND pc.active WHERE p.organisation_id=$1 ORDER BY p.id LIMIT 100",
               [p[0]],
             )
           ).rows;
+          if (managerBudget) {
+            const providers = Array.isArray(managerBudget.provider_ids) ? managerBudget.provider_ids : [];
+            const profiles = Array.isArray(managerBudget.profile_ids) ? managerBudget.profile_ids : [];
+            pools = pools.filter(pool => providers.includes(pool.provider) && profiles.includes(String(pool.profile_id)));
+          }
           let bootstrapSupport: Record<string, FleetBootstrapSupport> = {};
           if (pools.length) {
             try {
@@ -1043,8 +1057,8 @@ export function createComponent(ctx: ComponentContext): Component {
           ).rows;
           const pending = (
             await tx.query(
-              "SELECT id::text,actor_id::text,state,reason,updated_at FROM hyperfide.fleet_reasoning WHERE organisation_id=$1 AND run_id=$2 AND ($3::uuid IS NULL OR actor_id=$3) AND state<>'COMPLETED' ORDER BY created_at,id LIMIT 100",
-              [...p, b.actor_role === "PRIMARY" ? null : b.actor_id],
+              "SELECT r.id::text,r.actor_id::text,r.state,r.reason,r.updated_at FROM hyperfide.fleet_reasoning r WHERE r.organisation_id=$1 AND r.run_id=$2 AND ($3::uuid IS NULL OR (r.actor_id=$3 AND EXISTS(SELECT 1 FROM hyperfide.fleet_observations o WHERE o.organisation_id=r.organisation_id AND o.run_id=r.run_id AND o.id=r.observation_id AND o.body->>'delegation_id' IS NOT DISTINCT FROM $4::text))) AND r.state<>'COMPLETED' ORDER BY r.created_at,r.id LIMIT 100",
+              [...p, b.actor_role === "PRIMARY" ? null : b.actor_id, b.actor_role === "PRIMARY" ? null : b.delegation_id],
             )
           ).rows;
           const receipts = (
@@ -2053,6 +2067,14 @@ export function createComponent(ctx: ComponentContext): Component {
             )
           ).rows[0];
           if (!o) fleetError("FLEET_OBSERVATION_MISSING");
+          const currentSources=await readFleetRepositoryPins(tx,i.principal.organisation_id,i.principal.run_id);
+          if (object(o.body) && Object.hasOwn(o.body,"sources") && canonical(o.body.sources)!==canonical(currentSources)) fleetError("FLEET_SOURCE_STALE");
+          if (object(o.body) && object(o.body.binding)) {
+            const observed=o.body.binding;
+            if (observed.actor_id!==b.actor_id || observed.actor_role!==b.actor_role || observed.authority_epoch!==b.authority_epoch ||
+              String(observed.leader_generation)!==b.leader_generation || observed.delegation_id!==b.delegation_id ||
+              String(observed.manager_generation??"")!==String(b.manager_generation??"")) fleetError("FLEET_OBSERVATION_STALE");
+          }
           const ids = v.context_observation_ids ?? [observation];
           if (
             !Array.isArray(ids) ||
@@ -2074,6 +2096,7 @@ export function createComponent(ctx: ComponentContext): Component {
             ).rows[0];
             if (
               !page ||
+              object(page.body) && object(page.body.binding) && (page.body.binding.actor_id!==b.actor_id || page.body.binding.actor_role!==b.actor_role || page.body.binding.authority_epoch!==b.authority_epoch || String(page.body.binding.leader_generation)!==b.leader_generation || page.body.binding.delegation_id!==b.delegation_id || String(page.body.binding.manager_generation??"")!==String(b.manager_generation??"")) ||
               String(page.cohort_generation) !== String(o.cohort_generation) ||
               [
                 "source_revision",

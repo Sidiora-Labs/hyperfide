@@ -10,6 +10,24 @@ import {validateDecision} from '../contracts/fleet/index.mjs';
 export type FleetDecision=ReturnType<typeof validateDecision>;
 export interface FleetActorBinding {actor_id:string;actor_role:'PRIMARY'|'WAVE_MANAGER';authority_epoch:string;leader_generation:string;delegation_id:string|null;manager_generation:string|null}
 export function fleetError(code:string):never{throw new FoundationError(code,'Fleet operation refused: '+code);}
+function sourceRevisionValid(value: string): boolean {
+ return /^(?:git:[0-9a-f]{40}|git:[0-9a-f]{64}|sha256:[0-9a-f]{64})$/.test(value) && !/(?:git|sha256):0+$/.test(value);
+}
+function validateSourcePins(sources: Awaited<ReturnType<typeof readFleetRepositoryPins>>): void {
+ if (!sources.length) fleetError('FLEET_SOURCE_UNAVAILABLE');
+ for (const source of sources) {
+  const revision=fleetSourceRevision(source);
+  if (!revision || !sourceRevisionValid(revision) || typeof source.repository_id !== 'string' || !source.repository_id)
+   fleetError('FLEET_SOURCE_STALE');
+ }
+}
+function bindingMatches(body: unknown,b: FleetActorBinding): boolean {
+ if(!object(body)||!object(body.binding)) return true;
+ const observed=body.binding;
+ return observed.actor_id===b.actor_id && observed.actor_role===b.actor_role && observed.authority_epoch===b.authority_epoch &&
+  String(observed.leader_generation)===b.leader_generation && observed.delegation_id===b.delegation_id &&
+  String(observed.manager_generation??'')===String(b.manager_generation??'');
+}
 export function localProcessIdentity(pid=process.pid):{pid:number;start_time:string;kernel_boot_id:string}{
  const stat=readFileSync('/proc/'+pid+'/stat','utf8');const fields=stat.slice(stat.lastIndexOf(')')+2).split(' ');
  return {pid,start_time:fields[19]!,kernel_boot_id:readFileSync('/proc/sys/kernel/random/boot_id','utf8').trim()};
@@ -38,12 +56,13 @@ export async function withAdmittedDecision(tx:PrimaryTransaction,i:InvocationCon
  await assertFleetActor(tx,i,d);
  const prior=(await tx.query('SELECT * FROM hyperfide.fleet_effect_receipts WHERE organisation_id=$1 AND run_id=$2 AND operation_id=$3',[...p,d.operation_id])).rows[0];
  if(prior){if(prior.payload_digest!==digest||prior.decision_id!==d.decision_id)fleetError('FLEET_OPERATION_CONFLICT');return {...prior.result,replayed:true};}
- const stored=(await tx.query('SELECT d.*,r.state AS reasoning_state,o.cohort_generation AS observed_cohort_generation FROM hyperfide.fleet_decisions d JOIN hyperfide.fleet_reasoning r ON r.organisation_id=d.organisation_id AND r.run_id=d.run_id AND r.id=d.reasoning_id JOIN hyperfide.fleet_observations o ON o.organisation_id=r.organisation_id AND o.run_id=r.run_id AND o.id=r.observation_id WHERE d.organisation_id=$1 AND d.run_id=$2 AND d.id=$3 FOR SHARE OF d,r',[...p,d.decision_id])).rows[0];
+ const stored=(await tx.query('SELECT d.*,r.state AS reasoning_state,o.cohort_generation AS observed_cohort_generation,o.body AS observation_body FROM hyperfide.fleet_decisions d JOIN hyperfide.fleet_reasoning r ON r.organisation_id=d.organisation_id AND r.run_id=d.run_id AND r.id=d.reasoning_id JOIN hyperfide.fleet_observations o ON o.organisation_id=r.organisation_id AND o.run_id=r.run_id AND o.id=r.observation_id WHERE d.organisation_id=$1 AND d.run_id=$2 AND d.id=$3 FOR SHARE OF d,r,o',[...p,d.decision_id])).rows[0];
  if(!stored||stored.reasoning_state!=='COMPLETED'||stored.payload_digest!==digest||canonical(stored.body)!==canonical(d))fleetError('FLEET_MODEL_DECISION_REQUIRED');
  const cohort=(await tx.query('SELECT cohort_generation FROM hyperfide.fleet_cohorts WHERE organisation_id=$1 AND run_id=$2 FOR SHARE',p)).rows[0];if(String(cohort?.cohort_generation)!==String(stored.observed_cohort_generation))fleetError('FLEET_OBSERVATION_STALE');
  const current=(await tx.query('SELECT spec_revision_id::text FROM hyperfide.runs WHERE organisation_id=$1 AND id=$2 FOR SHARE',p)).rows[0];
  if(!current||current.spec_revision_id!==d.spec_revision)fleetError('FLEET_SPEC_STALE');
- const sources=await readFleetRepositoryPins(tx,i.principal.organisation_id,i.principal.run_id);if(fleetSourceRevision(sources[0])!==d.source_revision)fleetError('FLEET_SOURCE_STALE');
+ const sources=await readFleetRepositoryPins(tx,i.principal.organisation_id,i.principal.run_id);validateSourcePins(sources);if(fleetSourceRevision(sources[0])!==d.source_revision)fleetError('FLEET_SOURCE_STALE');
+ if(stored && (!bindingMatches(stored.observation_body,b) || object(stored.observation_body) && Object.hasOwn(stored.observation_body,'sources') && canonical(stored.observation_body.sources)!==canonical(sources))) fleetError('FLEET_OBSERVATION_STALE');
  const session=(await tx.query('SELECT plan_generation::text FROM hyperfide.fleet_actor_sessions WHERE organisation_id=$1 AND run_id=$2 AND session_id=$3 FOR UPDATE',[...p,d.actor_id])).rows[0];
  if(session?.plan_generation!==d.expected_version)fleetError('FLEET_PLAN_STALE');
  if(d.actor_role==='WAVE_MANAGER')await getFleetDelegation(tx,i,d);
