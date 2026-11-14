@@ -7,7 +7,7 @@
   "registered_variant": "case:hyperfide-source-control/SCM-024/full",
   "registry": {
     "path": "tests/hyperfide/source-control/registry.json",
-    "sha256": "5379f8bfbf1bfd71546fc127263da683819d91dba66234aa028b695170b58874"
+    "sha256": "082f41fff8be19a89b0593349d376a15fc7f9c0c60a211a4012213dd56e85d0f"
   },
   "claims": {
     "path": "tests/hyperfide/source-control/claims.json",
@@ -35,8 +35,8 @@
     },
     {
       "path": "tests/hyperfide/qualify.py",
-      "sha256": "facde05a960bb5650b4f77533cca9e05c42ea48beaeb0cb2928d70b2139d2c1a",
-      "size": 57877
+      "sha256": "efea46e369930c06481ee46cec86da8737d49179fa7757401620343fd2cc230a",
+      "size": 59890
     },
     {
       "path": "tests/hyperfide/check-evidence.py",
@@ -80,8 +80,8 @@
     },
     {
       "path": "spec/hyperfide-source-control/tools/validate_spec.py",
-      "sha256": "a4e77e8321e83f5f97f1b286f724b345e7133614ce6c3844e9d33a2b601ad780",
-      "size": 25371
+      "sha256": "b0c44699c98eb79dc8440ca715261f5990418b564ce0796c1cc1a0cab563aa58",
+      "size": 25777
     },
     {
       "path": "tests/hyperfide/cases/source_control/0_2.py",
@@ -95,8 +95,8 @@
     },
     {
       "path": "tests/hyperfide/cases/source_control/7_2.py",
-      "sha256": "932d82fd9cecb5b7b97871dc88245f0ec6b1b86e54c5c8eca136500ec678a255",
-      "size": 8630
+      "sha256": "2018b6ffb9fcda403ba13e80e8955663c39909ffb6f4371e836de3dad2437c47",
+      "size": 32370
     },
     {
       "path": "tests/hyperfide/source-control/full_case/verifier_manifest.py",
@@ -110,13 +110,13 @@
     },
     {
       "path": "tests/hyperfide/support/fleet_live_qualification.py",
-      "sha256": "d1bf81aedc9b73152ba1de6a9d5d3d284329bb3a6060916b73e1649335cb37bd",
-      "size": 137525
+      "sha256": "c733d6a8a0ca1bfea1710c38f00497f00113d10f00ce6d3d48abbcaae468ed01",
+      "size": 154274
     },
     {
       "path": "tests/hyperfide/cases/source_control/0_9.py",
-      "sha256": "450712e946ee5db4686c6fd2b89c2a0cf362de7bdf82ab039dea24f2e78d6d93",
-      "size": 31929
+      "sha256": "3e8bf384ffdfe4b30674ca98954abc614fbce825f53a987af37e3a502792d89d",
+      "size": 53206
     }
   ],
   "seed": 23,

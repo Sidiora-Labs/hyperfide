@@ -7,7 +7,7 @@
   "registered_variant": "case:hyperfide-source-control/SCM-023/api-cli-ui",
   "registry": {
     "path": "tests/hyperfide/source-control/registry.json",
-    "sha256": "5379f8bfbf1bfd71546fc127263da683819d91dba66234aa028b695170b58874"
+    "sha256": "082f41fff8be19a89b0593349d376a15fc7f9c0c60a211a4012213dd56e85d0f"
   },
   "claims": {
     "path": "tests/hyperfide/source-control/claims.json",
@@ -50,8 +50,8 @@
     },
     {
       "path": "tests/hyperfide/support/native_source_product_browser.mjs",
-      "sha256": "cae689e848d99ec2c1ceb86ece0f1821381959ec9ba641eb27261db46d0f7f3d",
-      "size": 29074
+      "sha256": "968cefe30e909e3f0adc09ce54c5b1c1cc407d0419c29185ed0b2624fd34162c",
+      "size": 54420
     },
     {
       "path": "package.json",
@@ -60,8 +60,8 @@
     },
     {
       "path": "pnpm-lock.yaml",
-      "sha256": "3a2765093c398a466f0bf695bb226672b2f8930a05573a4bf8ba8f14341595b3",
-      "size": 1146172
+      "sha256": "0f1aede75f8f30d6eebd36515e95a0ffa0fb136afa43371cf44aabb5fbc5c110",
+      "size": 1146285
     },
     {
       "path": "plugins/hyperfide-source-control/README.md",
@@ -70,13 +70,13 @@
     },
     {
       "path": "plugins/hyperfide-source-control/app.tsx",
-      "sha256": "cada7e01fe530735fd8abf0a36e2d6cadb9641a514b644853b8180002a4462c9",
-      "size": 12069
+      "sha256": "dcb24a682f513c3d617d28e1b720635ca9778398e9dba4deebc625296b4c6212",
+      "size": 18646
     },
     {
       "path": "plugins/hyperfide-source-control/contract.ts",
-      "sha256": "42e1d85647537d158af318e79b9b32cb6a4cb2a100a192fa11b777cd355eacc7",
-      "size": 7168
+      "sha256": "af5521cc0381bdd9a9468e1e55d45b3f2c8446617e655fd1e78dee1ed8ef14e3",
+      "size": 10841
     },
     {
       "path": "plugins/hyperfide-source-control/package.json",
@@ -85,13 +85,13 @@
     },
     {
       "path": "plugins/hyperfide-source-control/runtime.ts",
-      "sha256": "ab0e0103013865b846801617ccf41a3c777b32e04cd4d95f1f09a9dc29b4822f",
-      "size": 12292
+      "sha256": "737d7e15070563ff143604f322b2e3336e82d95faad55a61e745fa88351c44ad",
+      "size": 17671
     },
     {
       "path": "plugins/hyperfide-source-control/server.ts",
-      "sha256": "745e0865cab02d57780e527dc97310bbe13c9467d27e712c6ae92657823e90c6",
-      "size": 9855
+      "sha256": "e2e0d87513c63e38c72f1bac4ece3860eb26db51e92d971936fcada2a46f4afb",
+      "size": 14255
     },
     {
       "path": "plugins/hyperfide-source-control/tsconfig.json",
@@ -100,8 +100,8 @@
     },
     {
       "path": "plugins/environment-slices/contract.ts",
-      "sha256": "9b375417f782352a8d438bb669aea150fd579011f756a77f23f4ee2871a9ee9e",
-      "size": 4129
+      "sha256": "d81b8e20dc7b34ef818ec9ac70a573e29cba52a1a0fd336ad65743c8906443e1",
+      "size": 5617
     },
     {
       "path": "plugins/environment-slices/host.ts",
