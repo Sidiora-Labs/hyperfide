@@ -587,8 +587,10 @@ export class SourceQueries {
       // before processing entries so an oversized page cannot evade the
       // caller's byte budget merely because its entries produce no output.
       meter.addBytes(
-        Buffer.byteLength(canonicalJSON(a.entries)) +
-          Buffer.byteLength(canonicalJSON(b.entries)),
+        [...a.entries, ...b.entries].reduce(
+          (bytes, entry) => bytes + Buffer.byteLength(canonicalJSON(entry)),
+          0,
+        ),
       );
       const old = new Map(a.entries.map((entry) => [entry.name, entry])),
         next = new Map(b.entries.map((entry) => [entry.name, entry]));
