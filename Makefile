@@ -29,7 +29,15 @@ LIB       = $(BUILD)/libcg.a          # everything except main.o, for tests
 UNIT_SRCS = $(wildcard tests/unit/test_*.c)
 UNIT_BINS = $(patsubst tests/unit/%.c,$(BUILD)/%,$(UNIT_SRCS))
 
-all: $(BIN) $(COMPAT_BIN)
+all: parser-provenance $(BIN) $(COMPAT_BIN)
+
+# Do not compile unverified vendored grammars.  The checker validates the
+# complete file set and byte hashes against the pinned provenance manifests.
+.PHONY: parser-provenance
+parser-provenance:
+	tools/repository/vendor-parsers.sh
+
+$(BIN): parser-provenance
 
 $(BIN): $(OBJS) Makefile
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) -Wl,--disable-new-dtags,-rpath,'$$ORIGIN/../lib/hyperfide' -o $@ $(OBJS) $(LDLIBS) $(NATIVE_LIBRARIES)

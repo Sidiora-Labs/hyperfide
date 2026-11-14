@@ -94,7 +94,7 @@ python3 tests/hyperfide/check-evidence.py --campaign /tmp/hyperfide/campaign-27.
 
 The runner prints one JSON object such as `{"status": "PASS", "receipt_id": "...", "campaign_dir": "...", "scope": "task-component", "full_case_status": "INCOMPLETE", "diagnostics": []}` and exits 0 on PASS, 1 on a failed run and 2 when it is blocked. A task-component PASS never qualifies the full acceptance case, a provider or a release. A check result whose `seal_authentication` is `unanchored-consistency-only` shows internal consistency, not authenticated custody. Some cases need the PostgreSQL fixture or credentials named in their registration and are blocked without them.
 
-`make release` runs `scripts/release.sh`, which builds a checksummed release tree and never publishes it. It needs `--output DIR`, a committed and clean checkout, `HYPERFIDE_BUILD_PLACEMENT=remote`, Linux x64, Node 24.22.0, npm 11.19.1 and Python 3.14.8. It is not a local test command. `make release` passes no `--output`, so in this revision it stops with a usage error; call `scripts/release.sh --output DIR` directly.
+`make release` runs `tools/repository/release.sh`, which builds a checksummed release tree and never publishes it. It needs `--output DIR`, a committed and clean checkout, `HYPERFIDE_BUILD_PLACEMENT=remote`, Linux x64, Node 24.22.0, npm 11.19.1 and Python 3.14.8. It is not a local test command. `make release` passes no `--output`, so in this revision it stops with a usage error; call `tools/repository/release.sh --output DIR` directly.
 
 CI (`.github/workflows/ci.yml`) runs `make`, `make unit` and `make integration` on pushes to `main` and on pull requests. It does not run the services type check or the qualification harness, so run those yourself.
 

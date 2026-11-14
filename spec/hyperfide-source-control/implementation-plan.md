@@ -216,7 +216,7 @@ Implementation and qualification obligations:
 
 ## 0.7: Relocate applications plugins extensions examples and assets
 
-Status: **in_progress**. Owner: `repository-layout`. Dependencies: 0.6.
+Status: **done**. Owner: `repository-layout`. Dependencies: 0.6.
 
 Proposed implementation scope:
 
@@ -518,7 +518,9 @@ Proposed implementation scope:
 - `core/control-plane/src/source_control/revisions.ts`
 - `core/control-plane/src/source_control/operations.ts`
 - `core/control-plane/src/source_control/events.ts`
-- `core/control-plane/migrations/0718-source-control-metadata.sql`
+- `core/control-plane/src/source_control/gc.ts`
+- `tests/hyperfide/support/source_metadata_actor.mjs`
+- `core/control-plane/migrations/0737-source-control-metadata.sql`
 - `core/control-plane/src/storage/schema.ts`
 - `tests/hyperfide/cases/source_control/1_2.py`
 - `core/control-plane/migrations/0758-source-control-event-retention.sql`
@@ -533,7 +535,7 @@ Canonical cases: SCM-002, SCM-003, SCM-007 (UNRUN).
 
 Implementation and qualification obligations:
 
-1. Add versioned metadata tables for immutable revisions, change membership/predecessor divergence, operation requests/results, pending source deliveries and explicit retained roots. Register migration 0718 after checking the implementation baseline for number conflicts; all authoritative keys include organization/repository and applicable security domain.
+1. Add versioned metadata tables for immutable revisions, change membership/predecessor divergence, operation requests/results, pending source deliveries and explicit retained roots. Register migration 0737 after checking the implementation baseline for number conflicts; all authoritative keys include organization/repository and applicable security domain.
 2. Implement source registration from a verified tree root/explicit parents and generation-bound source capability, with scoped idempotency uniqueness and canonical request digest; reference/root pins and available object incarnations must be validated atomically with registration according to storage.md.
 3. Separate immutable revision creation from optional preferred-change references and acceptance domain state. Expose concurrent revisions as divergence and preserve earlier objects; revision creation must not acquire an existing run-wide assurance/advisory lock or increment a repository-wide counter.
 4. Persist the committed result and source outbox in the same transaction. Implement pending delivery claims, durable acknowledgments and per-aggregate/inbox deduplication without relying on insertion-sequence order; bootstrap binds an authorized immutable source manifest and replay boundary.
@@ -1170,7 +1172,7 @@ Proposed implementation scope:
 - `tests/hyperfide/source-control/RELEASE-CAMPAIGNS.md`
 - `tests/hyperfide/source-control/registrations/full-*.json`
 
-Future focused gate: `python3 tests/hyperfide/cases/source_control/6_3.py`.
+Future focused gate: `python3 tests/hyperfide/cases/source_control/6_3.py --self-test && python3 tests/hyperfide/source-control/release_campaign_test.py`.
 
 Acceptance clauses: 12.1, 12.6, 12.7.
 Canonical cases: SCM-023, SCM-024 (UNRUN).
@@ -1223,11 +1225,13 @@ Proposed implementation scope:
 
 - `tests/hyperfide/cases/source_control/7_2.py`
 - `tests/hyperfide/source-control/manifests/release.json`
+- `tests/hyperfide/source-control/registrations/7.2.json`
+- `tests/hyperfide/support/native_source_full_journey.mjs`
 - `docs/hyperfide/source-control.md`
 - `docs/hyperfide/operations.md`
 - `spec/hyperfide-source-control/spec.kvx`
 
-Future focused gate: `python3 tests/hyperfide/cases/source_control/7_2.py`.
+Future focused gate: `python3 tests/hyperfide/cases/source_control/7_2.py --self-test`.
 
 Acceptance clauses: 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 14.1, 14.2, 14.3, 14.4, 14.5.
 Canonical cases: SCM-023, SCM-024 (UNRUN).

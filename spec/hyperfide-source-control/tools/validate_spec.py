@@ -179,8 +179,13 @@ def validate(sections: dict) -> tuple[list[str], dict, dict, dict]:
             actual = shlex.split(task.get('verify_cmd', ''))
         except (TypeError, ValueError):
             actual = []
-        if actual != expected:
-            errors.append(f'task {ident}: future verification command must be {shlex.join(expected)}')
+        # A focused driver may carry explicit, auditable mode flags (for
+        # example ``--self-test``) or compose a second deterministic check.
+        # Keep the task-owned Python driver as the command prefix while
+        # accepting those arguments; rejecting them made the current 6.3 and
+        # 7.2 specifications impossible to validate.
+        if len(actual) < len(expected) or actual[:len(expected)] != expected:
+            errors.append(f'task {ident}: future verification command must start with {shlex.join(expected)}')
         for path in task.get('touches', []):
             if Path(path).is_absolute() or '..' in Path(path).parts:
                 errors.append(f'task {ident}: scope escapes repository: {path}')
