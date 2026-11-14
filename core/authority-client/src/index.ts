@@ -212,6 +212,7 @@ export async function createAuthorityClient(configuration: AuthorityConfiguratio
       invoke<PluginStateEntry[]>("authority.plugin-state", input, identity),
     operator: (signal?: AbortSignal) => invoke<Operator>("authority.operator", {}, undefined, signal),
     health: (signal?: AbortSignal) => invoke<{status: "ready"}>("authority.health", {}, undefined, signal),
+    fleetLedger: (signal?: AbortSignal) => invoke<Record<string, unknown>>("fleet.views.ledger", {}, undefined, signal, "23.1"),
     receipt: (id: string, signal?: AbortSignal) => invoke<Receipt | null>("authority.receipt.read", {id}, undefined, signal),
     evidence: (evidenceDigest: string, signal?: AbortSignal) => invoke<{digest: string; bytes_b64: string} | null>("authority.evidence.read", {digest: evidenceDigest}, undefined, signal),
     transaction: (writes: readonly AuthorityWrite[], identity: TransactionIdentity, signal?: AbortSignal) =>

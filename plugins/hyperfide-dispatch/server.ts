@@ -13,6 +13,7 @@ import { registerImageBuilder } from "./src/image-builder/rpc.js";
 import { createServerBackend, registerServerImageBuilder } from "./src/server-backend.js";
 import { registerManagerDecisions } from "./src/manager.js";
 import { dispatchSettings, registerDispatcher } from "./src/server-runtime.js";
+import { authorityConfiguration, createAuthorityClient } from "@hyperfide/authority";
 
 export function createFleetPlugin(
   backend: FleetBackend,
@@ -31,6 +32,11 @@ export default function dispatchPlugin(api: HyperfidePluginApi) {
   const settings = dispatchSettings(api);
   registerManagerDecisions(api);
   registerFleetRpc(api, createServerBackend(api, async () => {
+    const authority = authorityConfiguration(process.env);
+    if (authority) {
+      const client = await createAuthorityClient(authority);
+      return authoritativeLedgerSchema.parse(await client.fleetLedger());
+    }
     const pluginId = (await settings.get()).dispatch_controlPlanePlugin?.trim();
     if (!pluginId) return null;
     return api.sdk.plugins.callRpc({
