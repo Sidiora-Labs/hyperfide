@@ -1,7 +1,10 @@
 import { flushSync } from "react-dom";
 import { Icon, type IconName } from "@hyperfide/shared-ui/icon";
 import { Button } from "@hyperfide/shared-ui/button";
-import type { FollowUpSubmitMode, PromptDraftState } from "@hyperfide/client-core";
+import type {
+  FollowUpSubmitMode,
+  PromptDraftState,
+} from "@hyperfide/client-core";
 import {
   memo,
   useCallback,
@@ -183,6 +186,7 @@ export interface FollowUpPromptBoxProps {
   isPrimaryComposer?: boolean;
   showScrollToBottomButton?: boolean;
   pendingInteraction?: ReactNode;
+  pendingInteractionBlocksComposer?: boolean;
 }
 
 type FollowUpPromptBoxWithComposerProps = Omit<
@@ -259,10 +263,12 @@ function FollowUpPromptBoxWithComposer({
   isPrimaryComposer = true,
   showScrollToBottomButton = true,
   pendingInteraction = null,
+  pendingInteractionBlocksComposer,
 }: FollowUpPromptBoxWithComposerProps) {
   const submitMode = composer.submitMode;
   const hasPendingInteraction =
-    pendingInteraction !== null && pendingInteraction !== undefined;
+    pendingInteractionBlocksComposer ??
+    (pendingInteraction !== null && pendingInteraction !== undefined);
   const isStopping = submitMode.kind === "queue-while-stopping";
   const canQueueFollowUp = submitMode.kind === "queue" || isStopping;
   const canSubmit = submitMode.kind === "ready" || canQueueFollowUp;

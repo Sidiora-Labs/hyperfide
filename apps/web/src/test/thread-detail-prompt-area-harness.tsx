@@ -102,6 +102,7 @@ vi.mock("@/components/promptbox/FollowUpPromptBox", async () => {
       execution,
       executionReadOnly,
       pendingInteraction,
+      pendingInteractionBlocksComposer,
       permission,
       permissionReadOnly,
       pluginComposerHost,
@@ -165,6 +166,7 @@ vi.mock("@/components/promptbox/FollowUpPromptBox", async () => {
       };
       executionReadOnly?: boolean;
       pendingInteraction?: ReactNode;
+      pendingInteractionBlocksComposer?: boolean;
       permission: { value?: string };
       permissionReadOnly?: boolean;
       pluginComposerHost?: PluginComposerHost | null;
@@ -197,7 +199,9 @@ vi.mock("@/components/promptbox/FollowUpPromptBox", async () => {
         </div>
         <div data-testid="composer-boundary" />
         <div data-testid="composer-hidden">
-          {composer === null || pendingInteraction ? "true" : "false"}
+          {composer === null || pendingInteractionBlocksComposer
+            ? "true"
+            : "false"}
         </div>
         <div data-testid="submit-mode">
           {composer?.submitMode.kind}:{composer?.submitMode.reason ?? ""}

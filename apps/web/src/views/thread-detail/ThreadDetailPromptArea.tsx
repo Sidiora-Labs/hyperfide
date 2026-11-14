@@ -2344,8 +2344,13 @@ export function ThreadDetailPromptArea({
     <FollowUpPromptBox
       id={THREAD_DETAIL_COMPOSER_TEXTAREA_ID}
       attachments={bottomAttachmentsConfig}
-      stack={pendingInteractionNode ? pendingInteractionStack : promptStack}
+      stack={
+        pendingInteractionNode !== null && hasComposerBlockingPendingInteraction
+          ? pendingInteractionStack
+          : promptStack
+      }
       pendingInteraction={pendingInteractionNode}
+      pendingInteractionBlocksComposer={hasComposerBlockingPendingInteraction}
       activePromptMode={isHandoffSelection ? null : activePromptMode}
       composer={shouldHideComposer ? null : bottomComposerConfig}
       pluginComposerHost={normalPluginComposerHost}
