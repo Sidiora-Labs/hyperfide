@@ -1,6 +1,7 @@
 import {
   createPendingInteraction,
   getActivePendingInteractionForThread,
+  getActiveStoredTurnId,
   hasTurnBoundActivePendingInteractionForThread,
   getEnvironment,
   getPendingInteraction,
@@ -455,6 +456,21 @@ export class PendingInteractionLifecycle {
       return {
         outcome: "rejected",
         reason: unsupportedReason,
+      };
+    }
+
+    // A daemon may retry an interaction after the provider has already
+    // advanced the thread. Keep stale provider requests out of the durable
+    // pending-interactions table even when the route-level check raced that
+    // advancement.
+    const activeTurnId = await getActiveStoredTurnId(
+      this.deps.db,
+      interaction.threadId,
+    );
+    if (activeTurnId !== interaction.turnId) {
+      return {
+        outcome: "rejected",
+        reason: "Interactive request belongs to a completed or stale turn",
       };
     }
 

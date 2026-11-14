@@ -61,6 +61,11 @@ syntax runtime also bounds source size to 32 MiB, traversal to 500,000 nodes
 and depth 512, and applies a two-second timeout to the parse stage. That
 timeout is not an end-to-end indexing time limit.
 
+`tools/repository/vendor-parsers.sh` verifies the pinned runtime revision,
+grammar provenance records, and checked-in SHA-256 manifests for every
+vendored input. `make` runs this check before compiling the native executable;
+changing a parser byte, metadata file, or vendored file set fails the build.
+
 ## Relationships and evidence
 
 Symbols retain their owner, qualified name, source span and available
