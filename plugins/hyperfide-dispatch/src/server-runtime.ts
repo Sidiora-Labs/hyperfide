@@ -85,6 +85,16 @@ export function registerDispatcher(api: HyperfidePluginApi, settings: DispatchSe
           }
           return result;
         },
+        async reconcile(id) {
+          const current = (await this.list()).find((entry) => entry.id === id);
+          if (!current) return { state: "ABSENT" as const };
+          if (["stopped", "destroyed", "absent", "failed"].includes(current.status.toLowerCase()))
+            return { state: "STOPPED" as const };
+          // Provider presence alone cannot prove the task process outcome.
+          // Keep the claim in reconciliation custody until a provider-specific
+          // adapter supplies a terminal absence observation.
+          return { state: "UNKNOWN" as const, reason: "Provider machine remains present" };
+        },
       };
       const readTasks = async () => api.sdk.plugins.callRpc({
         pluginId: "hyperfide-spec", method: "tasks",
@@ -133,6 +143,10 @@ export function registerDispatcher(api: HyperfidePluginApi, settings: DispatchSe
               await git("git", ["bundle", "create", path, options!.dispatcher.integrationRef], { cwd: repository });
               return { tip, bundle: await readFile(path) };
             } finally { await rm(temporary, { recursive: true, force: true }); }
+          },
+          async reconcile(job) {
+            if (!job.machine || !machines.reconcile) return { state: "UNKNOWN" as const, reason: "Provider reconciliation unavailable" };
+            return machines.reconcile(job.machine);
           },
           async packet(id) {
             const task = (await readTasks()).find(task => task.id === id);

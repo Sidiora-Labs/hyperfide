@@ -14,7 +14,33 @@ export const stages = [
   "failed",
 ] as const;
 const timestamp = z.string().datetime();
+const authorityRole = z.enum(["PRIMARY", "FEATURE_MANAGER", "OPERATOR", "UNKNOWN"]);
+const authorityMode = z.enum(["manager", "legacy-nonadaptive"]);
+const authorityCapability = z.enum(["read", "legacy-mutate", "manager-decision"]);
+export const fleetAuthoritySchema = z.object({
+  /** Which planner owns mutations for this ledger. */
+  mode: authorityMode,
+  state: z.string().min(1),
+  actorRole: authorityRole.nullable(),
+  capabilities: z.array(authorityCapability),
+  authorityEpoch: z.string().nullable(),
+  leaderGeneration: z.string().nullable(),
+  delegationId: z.string().nullable(),
+  managerGeneration: z.string().nullable(),
+  asOf: timestamp,
+});
 export const ledgerSchema = z.object({
+  authority: fleetAuthoritySchema.default({
+    mode: "manager",
+    state: "UNKNOWN",
+    actorRole: null,
+    capabilities: ["read"],
+    authorityEpoch: null,
+    leaderGeneration: null,
+    delegationId: null,
+    managerGeneration: null,
+    asOf: "1970-01-01T00:00:00.000Z",
+  }),
   machines: z.array(
     z.object({
       id: z.string(),
@@ -35,6 +61,7 @@ export const ledgerSchema = z.object({
       finished: timestamp.nullable(),
       log: z.string(),
       source: z.string().optional(),
+      reconciliation: z.string().optional(),
     }),
   ),
   budget: z.object({
@@ -71,7 +98,16 @@ export const importLedgersSchema = z.object({
     z.object({
       id: z.string().min(1),
       task: z.string().min(1),
-      state: z.enum(["claimed", "running", "succeeded", "failed"]),
+      // UNKNOWN and RECONCILING are durable observations, not terminal
+      // failures. They must survive imports and remain visible to operators.
+      state: z.enum([
+        "claimed",
+        "running",
+        "succeeded",
+        "failed",
+        "unknown",
+        "reconciling",
+      ]),
       attempt: z.number().int().nonnegative(),
       keyId: z.string(),
       commits: z.array(z.string()),
@@ -81,6 +117,7 @@ export const importLedgersSchema = z.object({
       worker: z.string().optional(),
       log: z.string().max(16384).optional(),
       error: z.string().optional(),
+      reconciliation: z.string().optional(),
       events: z
         .array(z.object({ stage: z.enum(stages), at: timestamp }))
         .optional(),

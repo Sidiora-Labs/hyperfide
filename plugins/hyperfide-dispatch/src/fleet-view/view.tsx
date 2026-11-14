@@ -86,6 +86,8 @@ export function FleetView() {
   }
   const selected =
     ledger?.jobs.find((job) => job.id === selectedId) ?? ledger?.jobs[0];
+  const canLegacyMutate =
+    ledger?.authority.capabilities.includes("legacy-mutate") ?? false;
   const matches = (item: { state: string }) =>
     (states.length === 0 || states.includes(item.state)) &&
     JSON.stringify(item).toLowerCase().includes(query.toLowerCase());
@@ -141,6 +143,30 @@ export function FleetView() {
         ) : (
           <>
             <section
+              aria-label="Authority"
+              className="rounded-md border border-border p-4 space-y-2"
+            >
+              <h2 className="font-semibold">Authority</h2>
+              <p>
+                Mode: {ledger.authority.mode} | State: {ledger.authority.state}
+              </p>
+              <p>
+                Role: {ledger.authority.actorRole ?? "Unknown"} | Capabilities:{" "}
+                {ledger.authority.capabilities.join(", ")}
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Authority epoch: {ledger.authority.authorityEpoch ?? "Unknown"}{" "}
+                | As of: {ledger.authority.asOf}
+              </p>
+              {ledger.authority.mode === "manager" && (
+                <p role="status" className="text-sm text-muted-foreground">
+                  Manager-directed dispatch is read-only here. Submit an
+                  admitted manager decision through the authenticated authority
+                  route.
+                </p>
+              )}
+            </section>
+            <section
               aria-label="Budget"
               className="rounded-md border border-border p-4 space-y-3"
             >
@@ -156,43 +182,52 @@ export function FleetView() {
                 until: {ledger.budget.backoffUntil ?? "None"}
               </p>
               <p>Dispatch {ledger.budget.paused ? "paused" : "active"}</p>
-              <fieldset disabled={busy} className="flex flex-wrap gap-3">
-                <Button
-                  onClick={() =>
-                    void action({
-                      kind: ledger.budget.paused ? "resume" : "pause",
-                    })
-                  }
-                >
-                  {ledger.budget.paused ? "Resume dispatch" : "Pause dispatch"}
-                </Button>
-                <label>
-                  Cap{" "}
-                  <Input
-                    aria-label="Cap"
-                    type="number"
-                    min={ledger.budget.cap}
-                    max={ledger.budget.maximum}
-                    step="1"
-                    value={cap}
-                    onChange={(event) => setCap(event.target.value)}
-                  />
-                </label>
-                <Button
-                  disabled={
-                    cap.trim() === "" ||
-                    !Number.isSafeInteger(Number(cap)) ||
-                    Number(cap) <= ledger.budget.cap ||
-                    ledger.budget.cap >= ledger.budget.maximum
-                  }
-                  onClick={() =>
-                    void action({ kind: "raiseCap", cap: Number(cap) })
-                  }
-                >
-                  Raise cap
-                </Button>
-                <Button onClick={refresh}>Refresh</Button>
-              </fieldset>
+              {canLegacyMutate ? (
+                <fieldset disabled={busy} className="flex flex-wrap gap-3">
+                  <Button
+                    onClick={() =>
+                      void action({
+                        kind: ledger.budget.paused ? "resume" : "pause",
+                      })
+                    }
+                  >
+                    {ledger.budget.paused
+                      ? "Resume dispatch"
+                      : "Pause dispatch"}
+                  </Button>
+                  <label>
+                    Cap{" "}
+                    <Input
+                      aria-label="Cap"
+                      type="number"
+                      min={ledger.budget.cap}
+                      max={ledger.budget.maximum}
+                      step="1"
+                      value={cap}
+                      onChange={(event) => setCap(event.target.value)}
+                    />
+                  </label>
+                  <Button
+                    disabled={
+                      cap.trim() === "" ||
+                      !Number.isSafeInteger(Number(cap)) ||
+                      Number(cap) <= ledger.budget.cap ||
+                      ledger.budget.cap >= ledger.budget.maximum
+                    }
+                    onClick={() =>
+                      void action({ kind: "raiseCap", cap: Number(cap) })
+                    }
+                  >
+                    Raise cap
+                  </Button>
+                  <Button onClick={refresh}>Refresh</Button>
+                </fieldset>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  Budget controls are unavailable without the legacy mutation
+                  capability.
+                </p>
+              )}
             </section>
             <section aria-label="Machines" className="overflow-x-auto">
               <h2 className="font-semibold mb-3">Machines</h2>
@@ -209,7 +244,7 @@ export function FleetView() {
                           "State",
                           "Job",
                           "Age",
-                          "Action",
+                          ...(canLegacyMutate ? ["Action"] : []),
                         ].map((label) => (
                           <th key={label}>{label}</th>
                         ))}
@@ -227,16 +262,21 @@ export function FleetView() {
                           </td>
                           <td>{machine.job ?? "None"}</td>
                           <td>{elapsed(machine.createdAt, null, now)}</td>
-                          <td>
-                            <Button
-                              disabled={busy}
-                              onClick={() =>
-                                void action({ kind: "destroy", id: machine.id })
-                              }
-                            >
-                              Destroy {machine.id}
-                            </Button>
-                          </td>
+                          {canLegacyMutate && (
+                            <td>
+                              <Button
+                                disabled={busy}
+                                onClick={() =>
+                                  void action({
+                                    kind: "destroy",
+                                    id: machine.id,
+                                  })
+                                }
+                              >
+                                Destroy {machine.id}
+                              </Button>
+                            </td>
+                          )}
                         </tr>
                       ))}
                     </tbody>
@@ -262,7 +302,7 @@ export function FleetView() {
                           "Started",
                           "Duration",
                           "Log tail",
-                          "Action",
+                          ...(canLegacyMutate ? ["Action"] : []),
                         ].map((label) => (
                           <th key={label}>{label}</th>
                         ))}
@@ -294,11 +334,19 @@ export function FleetView() {
                                   ? "error"
                                   : job.state === "succeeded"
                                     ? "success"
-                                    : "muted"
+                                    : job.state === "unknown" ||
+                                        job.state === "reconciling"
+                                      ? "warning"
+                                      : "muted"
                               }
                             >
                               {job.state}
                             </ResourceStatus>
+                            {job.reconciliation && (
+                              <small className="block text-muted-foreground">
+                                {job.reconciliation}
+                              </small>
+                            )}
                           </td>
                           <td>{job.attempt}</td>
                           <td>{job.worker ?? "Unassigned"}</td>
@@ -312,16 +360,23 @@ export function FleetView() {
                               View log
                             </Button>
                           </td>
-                          <td>
-                            <Button
-                              disabled={busy || job.finished !== null}
-                              onClick={() =>
-                                void action({ kind: "cancel", id: job.id })
-                              }
-                            >
-                              Cancel {job.id}
-                            </Button>
-                          </td>
+                          {canLegacyMutate && (
+                            <td>
+                              <Button
+                                disabled={
+                                  busy ||
+                                  job.finished !== null ||
+                                  job.state === "unknown" ||
+                                  job.state === "reconciling"
+                                }
+                                onClick={() =>
+                                  void action({ kind: "cancel", id: job.id })
+                                }
+                              >
+                                Cancel {job.id}
+                              </Button>
+                            </td>
+                          )}
                         </tr>
                       ))}
                     </tbody>

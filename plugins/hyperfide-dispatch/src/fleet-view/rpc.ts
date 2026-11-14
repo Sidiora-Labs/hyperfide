@@ -1,4 +1,8 @@
-import type { HyperfidePluginApi } from "@hyperfide/plugin-sdk";
+import {
+  experimental_PluginRpcRefusal,
+  type ExperimentalPluginRpcHandlerContext,
+  type HyperfidePluginApi,
+} from "@hyperfide/plugin-sdk";
 import {
   actionSchema,
   fleetRpcContract,
@@ -33,6 +37,11 @@ export function createFleetHandlers(backend: FleetBackend) {
     const operation = queue.then(async () => {
       const action = actionSchema.parse(input);
       const ledger = await fleetLedger();
+      if (!ledger.authority.capabilities.includes("legacy-mutate")) {
+        throw new Error(
+          "MANAGER_DECISION_REQUIRED: use the authenticated managerDecision tool",
+        );
+      }
       switch (action.kind) {
         case "cancel":
           if (!ledger.jobs.some((job) => job.id === action.id))
@@ -82,7 +91,26 @@ export function registerFleetRpc(
   api: Pick<HyperfidePluginApi, "rpc">,
   backend: FleetBackend,
 ) {
-  api.rpc.register(fleetRpcContract, createFleetHandlers(backend), {
+  const handlers = createFleetHandlers(backend);
+  const requireClient = (context: ExperimentalPluginRpcHandlerContext) => {
+    if (context.experimental_caller.kind !== "client") {
+      throw new experimental_PluginRpcRefusal({
+        code: "forbidden",
+        message: "Fleet mutations require an authenticated client principal",
+      });
+    }
+  };
+  api.rpc.register(fleetRpcContract, {
+    fleetLedger: handlers.fleetLedger,
+    fleetAction: (input, context) => {
+      requireClient(context);
+      return handlers.fleetAction(input);
+    },
+    fleetImportLedgers: (input, context) => {
+      requireClient(context);
+      return handlers.fleetImportLedgers(input);
+    },
+  }, {
     experimental_discoverable: true,
     experimental_description: "Read and control the dispatch fleet",
   });

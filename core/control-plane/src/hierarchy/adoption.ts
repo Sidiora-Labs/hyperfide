@@ -15,7 +15,7 @@ import {gateway,trustedActor,operation,ready,record,uuid,decimal,text,strings,re
 import type {TrustedActor,Scope} from './packages.js';
 import {validateExecutionInputs} from './packets.js';
 import {parseComputeToken,assertCurrentCompute} from '../scheduler/leases.js';
-import {dimensions,validateResourceVector,reserveCapacity,lockSandboxBudget,reserveSandboxResources,inspectSandboxCharge,markSandboxReleasePending} from '../scheduler/claim.js';
+import {applyExecutionControl,dimensions,validateResourceVector,reserveCapacity,lockSandboxBudget,reserveSandboxResources,inspectSandboxCharge,markSandboxReleasePending} from '../scheduler/claim.js';
 const CHECKSUM='sha256:'+createHash('sha256').update(readFileSync(new URL('../../migrations/0034-child-sessions.sql',import.meta.url))).digest('hex');
 const TABLES=['hierarchy_supervisor_registrations','hierarchy_child_registrations','hierarchy_child_reservations','hierarchy_leadership_selections','hierarchy_child_usage','hierarchy_child_releases','hierarchy_adoptions','hierarchy_adoption_acknowledgements'];
 async function schema(tx:PrimaryTransaction):Promise<void>{
@@ -341,7 +341,10 @@ export function createComponent(context:ComponentContext):Component{
    const found=await liveDescendants(tx,a,{package_ids:loaded.package_ids});requireAccounted(found);
    for(const d of loaded.snapshot.filter(x=>x.status==='ACCOUNTED')){
     const now=found.find(x=>x.session_id===d.session_id);
-    if(now&&now.status==='ACCOUNTED'&&!continues(d,now))return refuse('ADOPTION_DESCENDANT_CHANGED','A recorded descendant changed executor or identity; propose a fresh adoption');
+    // A handoff may race a worker restart.  The successor can adopt an
+    // unchanged executor; a changed live executor is retained for quiescence
+    // in the acknowledgement transaction below rather than silently becoming
+    // successor-owned compute.
    }
    return {...loaded,observed:found.filter(x=>x.status==='ACCOUNTED').map(identity)};
   });
@@ -357,7 +360,14 @@ export function createComponent(context:ComponentContext):Component{
     if(continues(d,now)){adopted.push(d.session_id);continue;}
     // A different live seat on the same task replacing a healthy one is a restart, not continuation.
     const replacement=after.some(x=>x.task_id===d.task_id&&x.kind===d.kind&&x.session_id!==d.session_id&&!before.observed.some(y=>y.session_id===x.session_id));
-    restarted||=replacement;notAdopted.push({session_id:d.session_id,reason:replacement?'REPLACED':now?String(now.reason??'CHANGED'):'ENDED'});
+    restarted||=replacement;
+    if(now&&now.status==='ACCOUNTED'){
+     // Stop is an authority hold, not a claim release.  Capacity and the
+     // predecessor attempt remain charged until the native runner reports
+     // quiescence through the normal scheduler release path.
+     await applyExecutionControl(tx,a,{scope_kind:'ATTEMPT',scope_id:d.attempt_id,mode:'STOP',operation_id:randomUUID(),reason:'Manager handoff requires quiescence of a changed live assignment'});
+     notAdopted.push({session_id:d.session_id,reason:replacement?'REPLACED_QUIESCE_REQUESTED':'CHANGED_QUIESCE_REQUESTED'});
+    }else notAdopted.push({session_id:d.session_id,reason:replacement?'REPLACED':now?String(now.reason??'CHANGED'):'ENDED'});
    }
    for(const d of loaded.snapshot.filter(x=>x.status!=='ACCOUNTED'))notAdopted.push({session_id:d.session_id,reason:String(d.reason)});
    const result={adopted:adopted.sort(),not_adopted:notAdopted.sort((x,y)=>x.session_id.localeCompare(y.session_id)),before_digest:hash(before.observed),after_digest:hash(after.map(identity)),workers_restarted:restarted};

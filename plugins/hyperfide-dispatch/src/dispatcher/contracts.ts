@@ -72,6 +72,13 @@ export interface TaskRunner {
     key: string,
   ): Promise<RunnerResult>;
 }
+export interface ReconciliationJob {
+  id: string;
+  task: string;
+  state: "claimed" | "running" | "succeeded" | "failed" | "unknown" | "reconciling";
+  attempt: number;
+  machine?: string;
+}
 export interface DispatcherOptions {
   planning?: "manager" | "legacy-nonadaptive" | "native";
   directory: string;
@@ -84,6 +91,14 @@ export interface DispatcherOptions {
   limits(): Promise<{ global: number; host: number; otherRunning: number }>;
   checkpoint(): Promise<string>;
   integration(): Promise<AssignmentDescriptor | LegacyIntegrationInput>;
+  /** Reconcile a persisted job with the provider before a restart can
+   * release its task claim.  Unknown or running observations retain the
+   * claim and become reconciliation-only until a later observation proves
+   * provider absence. */
+  reconcile?(job: ReconciliationJob, machine?: SandboxMachine): Promise<{
+    state: "ABSENT" | "STOPPED" | "RUNNING" | "UNKNOWN";
+    reason?: string;
+  }>;
   assignment?(task: string, attempt: number): Promise<AssignmentDescriptor>;
   packet(task: string): Promise<TaskPacket>;
   prepare: string;

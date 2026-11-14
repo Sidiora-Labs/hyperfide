@@ -1,4 +1,15 @@
 {
+  "authority": {
+    "mode": "legacy-nonadaptive",
+    "state": "ACTIVE",
+    "actorRole": "OPERATOR",
+    "capabilities": ["read", "legacy-mutate"],
+    "authorityEpoch": null,
+    "leaderGeneration": null,
+    "delegationId": null,
+    "managerGeneration": null,
+    "asOf": "2026-10-23T10:00:00.000Z"
+  },
   "machines": [
     {
       "id": "machine-1",

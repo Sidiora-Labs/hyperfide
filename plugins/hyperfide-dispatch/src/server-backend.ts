@@ -3,6 +3,7 @@ import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
 import type { FleetBackend } from "./fleet-view/rpc.js";
+import { fleetAuthoritySchema } from "./fleet-view/contract.js";
 import type { JobLedger } from "./dispatcher/dispatcher.js";
 import { openDispatchStorage, migrateDispatchDirectory } from "./storage.js";
 import { imageBuilderContract } from "./image-builder/rpc.js";
@@ -15,6 +16,36 @@ const featuresSchema = z.array(
     tasks: z.array(z.object({ id: z.string(), status: z.string() })),
   }),
 );
+
+type PlanningState = {
+  mode?: string;
+  state?: string;
+  actorRole?: string | null;
+  authorityEpoch?: string | null;
+  leaderGeneration?: string | null;
+  delegationId?: string | null;
+  managerGeneration?: string | null;
+};
+
+function authorityView(planning: PlanningState | undefined) {
+  const mode = planning?.mode === "legacy-nonadaptive" ? "legacy-nonadaptive" : "manager";
+  const actorRole = ["PRIMARY", "FEATURE_MANAGER", "OPERATOR", "UNKNOWN"].includes(
+    planning?.actorRole ?? "",
+  )
+    ? (planning?.actorRole as "PRIMARY" | "FEATURE_MANAGER" | "OPERATOR" | "UNKNOWN")
+    : null;
+  return fleetAuthoritySchema.parse({
+    mode,
+    state: planning?.state ?? (mode === "manager" ? "WAITING_FOR_MANAGER" : "ACTIVE"),
+    actorRole,
+    capabilities: mode === "legacy-nonadaptive" ? ["read", "legacy-mutate"] : ["read", "manager-decision"],
+    authorityEpoch: planning?.authorityEpoch ?? null,
+    leaderGeneration: planning?.leaderGeneration ?? null,
+    delegationId: planning?.delegationId ?? null,
+    managerGeneration: planning?.managerGeneration ?? null,
+    asOf: new Date().toISOString(),
+  });
+}
 
 export function createServerBackend(api: HyperfidePluginApi): FleetBackend {
   // Open lazily: the SDK and its registered providers are available after bind.
@@ -41,7 +72,7 @@ export function createServerBackend(api: HyperfidePluginApi): FleetBackend {
       .filter((entry) => entry.key.startsWith("job:"))
       .map((entry) => entry.value as JobLedger);
   const requireLegacy = async () => {
-    const planning = await (await store()).get("fleet.planning") as { mode?: string } | undefined;
+    const planning = await (await store()).get("fleet.planning") as PlanningState | undefined;
     if (planning?.mode !== "legacy-nonadaptive") throw new Error("MANAGER_DECISION_REQUIRED: use the authenticated managerDecision tool");
   };
   const destroyMachine = async (id: string) => {
@@ -71,7 +102,7 @@ export function createServerBackend(api: HyperfidePluginApi): FleetBackend {
   };
   return {
     async readLedger() {
-      const planning = await (await store()).get("fleet.planning") as { mode?: string; state?: string } | undefined;
+      const planning = await (await store()).get("fleet.planning") as PlanningState | undefined;
       const [hosts, providers, records, projects] = await Promise.all([
         api.sdk.hosts.list(),
         api.sdk.hosts.experimental_listProviders(),
@@ -128,6 +159,7 @@ export function createServerBackend(api: HyperfidePluginApi): FleetBackend {
         }
       }
       return {
+        authority: authorityView(planning),
         machines: [...sandboxMachines, ...hosts
           .filter((host) =>
             providers.some((p) => p.id === host.machineProviderId),
@@ -158,6 +190,7 @@ export function createServerBackend(api: HyperfidePluginApi): FleetBackend {
           finished: job.finished ?? null,
           log: job.log ?? job.error ?? "",
           source: job.source,
+          reconciliation: job.reconciliation,
         })),
         budget: {
           ...budget,

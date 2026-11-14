@@ -101,6 +101,36 @@ describe("Fleet ledger dashboard", () => {
     expect(handlers.destroyMachine).toHaveBeenCalledWith("machine-1");
   });
 
+  it("renders manager-directed ledgers without legacy mutation controls", async () => {
+    const source = backend();
+    source.ledger.authority = {
+      mode: "manager",
+      state: "WAITING_FOR_MANAGER",
+      actorRole: "FEATURE_MANAGER",
+      capabilities: ["read", "manager-decision"],
+      authorityEpoch: "authority-epoch",
+      leaderGeneration: "leader-generation",
+      delegationId: "delegation",
+      managerGeneration: "manager-generation",
+      asOf: "2026-10-23T10:00:00.000Z",
+    };
+    const { slot } = await mount(source);
+    expect(
+      slot.getByRole("region", { name: "Authority" }).textContent,
+    ).toContain("FEATURE_MANAGER");
+    expect(
+      slot.getByText(/Manager-directed dispatch is read-only/),
+    ).toBeTruthy();
+    expect(slot.queryByRole("button", { name: "Pause dispatch" })).toBeNull();
+    expect(slot.queryByRole("button", { name: "Resume dispatch" })).toBeNull();
+    expect(slot.queryByRole("button", { name: "Raise cap" })).toBeNull();
+    expect(slot.queryByLabelText("Cap")).toBeNull();
+    expect(slot.queryByRole("button", { name: "Cancel job-1" })).toBeNull();
+    expect(
+      slot.queryByRole("button", { name: "Destroy machine-1" }),
+    ).toBeNull();
+  });
+
   it("renders empty ledgers and pending tasks", async () => {
     const source = backend();
     source.ledger.machines = [];

@@ -22,6 +22,8 @@ export interface EligibleTask {
 export interface EligibleResult {
  availability:'AVAILABLE'|'UNAVAILABLE';reason?:string;authority:'CANDIDATE_DISCOVERY';observed_at:string;
  spec_revision_id:string;spec_generation:string;eligible:EligibleTask[];excluded:{task_id:string;reason:string}[];
+ /** Candidate discovery is a scan, not an implicit first-page plan. */
+ complete:boolean;has_more:boolean;next_task_key:string|null;next_cursor:string|null;scanned:number;
 }
 /** D4: a predecessor waiting on a blocking Ask holds its dependants, whatever milestone the edge names. */
 export async function requireNoAskWait(tx:PrimaryTransaction,scope:SchedulerScope,task_id:string,wave:number):Promise<void>{
@@ -33,9 +35,10 @@ export async function requireNoAskWait(tx:PrimaryTransaction,scope:SchedulerScop
  const wait=waits.rows[0];
  if(wait)fail('PREDECESSOR_WAITING_ON_ASK','Predecessor '+wait.task_key+' is blocked on Ask '+wait.blocked_ask);
 }
-export async function eligibleTasks(tx:PrimaryTransaction,input:SchedulerScope&{pool_id:string;profile_id?:string;limit?:number;preparation?:boolean},invocation?:InvocationContext):Promise<EligibleResult>{
+export async function eligibleTasks(tx:PrimaryTransaction,input:SchedulerScope&{pool_id:string;profile_id?:string;limit?:number;after_task_key?:string;preparation?:boolean},invocation?:InvocationContext):Promise<EligibleResult>{
  assertPrimaryTransaction(tx);await lockRun(tx,input);
  const limit=boundedInteger(input.limit??100,'limit',1,500);
+ const after=input.after_task_key===undefined?null:text(input.after_task_key,'after_task_key',512);
  let ownedPackages:string[]|null=null;
  if(invocation){
   assertInvocation(invocation);await invocation.guard(tx);
@@ -51,15 +54,22 @@ export async function eligibleTasks(tx:PrimaryTransaction,input:SchedulerScope&{
  [input.organisation_id,input.run_id]);
  const current=run.rows[0];if(!current)fail('RUN_MISSING','Candidate discovery requires an existing run');
  const result:EligibleResult={availability:'AVAILABLE',authority:'CANDIDATE_DISCOVERY',observed_at:current.observed_at,
- spec_revision_id:current.spec_revision_id,spec_generation:current.spec_generation,eligible:[],excluded:[]};
+ spec_revision_id:current.spec_revision_id,spec_generation:current.spec_generation,eligible:[],excluded:[],complete:true,has_more:false,next_task_key:null,next_cursor:null,scanned:0};
  if(!['READY','RUNNING'].includes(current.state))return {...result,availability:'UNAVAILABLE',reason:'RUN_NOT_ADMITTING'};
  const tasks=await tx.query<{id:string;task_key:string;state_version:string;spec_revision_id:string;spec_generation:string;criteria_digest:string;feature_package_id:string;current_attempt_id:string|null;wave:number;generation:string}>(
  "SELECT * FROM hyperfide.tasks t WHERE organisation_id=$1 AND run_id=$2 AND state IN ('PENDING','READY','FAILED','STALE') "+
  "AND NOT(t.definition ? 'retirement') AND NOT EXISTS(SELECT 1 FROM hyperfide.attempts a WHERE a.organisation_id=t.organisation_id AND a.run_id=t.run_id AND a.task_id=t.id AND a.compute_authority='CURRENT') "+
  "AND NOT EXISTS(SELECT 1 FROM hyperfide.submission_custodies c WHERE c.organisation_id=t.organisation_id AND c.run_id=t.run_id AND c.task_id=t.id AND c.authority='ACTIVE') "+
- "AND ($4::uuid[] IS NULL OR t.feature_package_id=ANY($4::uuid[])) ORDER BY wave,task_key,id LIMIT $3",
- [input.organisation_id,input.run_id,limit,ownedPackages]);
- for(const task of tasks.rows){
+ "AND ($4::uuid[] IS NULL OR t.feature_package_id=ANY($4::uuid[])) AND ($5::text IS NULL OR t.task_key>$5) ORDER BY wave,task_key,id LIMIT $3",
+ [input.organisation_id,input.run_id,limit+1,ownedPackages,after]);
+ const complete=tasks.rows.length<=limit;
+ const page=tasks.rows.slice(0,limit);
+ result.complete=complete;
+ result.has_more=!complete;
+ result.next_task_key=complete?null:(page.at(-1)?.task_key??null);
+ result.next_cursor=result.next_task_key;
+ result.scanned=page.length;
+ for(const task of page){
   try{
    await assertNoExecutionHold(tx,input,{package_id:task.feature_package_id,...(task.current_attempt_id?{attempt_id:task.current_attempt_id}:{}),operation:'ADMISSION'});
    await requireNoAskWait(tx,input,task.id,task.wave);
@@ -390,11 +400,11 @@ export function createComponent(_startup:ComponentContext):Component{
     release:scheduler.release.bind(scheduler),registerProofReader:scheduler.registerProofReader.bind(scheduler)});
   return {apiVersion:1,capabilities:{'scheduler.resources.v1':capability},close:()=>scheduler.close(),actions:{
     'scheduler.resources.eligible':async(value,context)=>{
-      const input=fields(value,['organisation_id','run_id','pool_id','authority_epoch','leader_generation'],['package_id','package_generation','profile_id','limit']);
+      const input=fields(value,['organisation_id','run_id','pool_id','authority_epoch','leader_generation'],['package_id','package_generation','profile_id','limit','after_task_key']);
       const scope=scopeOf(input),actor=actorFor(context,scope,input);
       return gatewayFor(context).withPrimaryTransaction({timeoutMs:10000,maxRetries:2,signal:context.signal},async tx=>{
         await requireQueueActor(tx,scope,actor,uuid(input.authority_epoch,'authority_epoch'),undefined,input.package_id===undefined?undefined:uuid(input.package_id,'package_id'));
-        return eligibleTasks(tx,{...scope,pool_id:uuid(input.pool_id,'pool_id'),...(input.profile_id===undefined?{}:{profile_id:uuid(input.profile_id,'profile_id')}),...(input.limit===undefined?{}:{limit:boundedInteger(input.limit,'limit',1,500)})},invocationFor(context));
+        return eligibleTasks(tx,{...scope,pool_id:uuid(input.pool_id,'pool_id'),...(input.profile_id===undefined?{}:{profile_id:uuid(input.profile_id,'profile_id')}),...(input.limit===undefined?{}:{limit:boundedInteger(input.limit,'limit',1,500)}),...(input.after_task_key===undefined?{}:{after_task_key:text(input.after_task_key,'after_task_key',512)})},invocationFor(context));
       });
     },
     'scheduler.resources.demand':async(value,context)=>{

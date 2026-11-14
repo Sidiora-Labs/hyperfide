@@ -11,7 +11,7 @@ import {
 export interface JobLedger {
   id: string;
   task: string;
-  state: "claimed" | "running" | "succeeded" | "failed";
+  state: "claimed" | "running" | "succeeded" | "failed" | "unknown" | "reconciling";
   attempt: number;
   machine?: string;
   keyId: string;
@@ -19,6 +19,7 @@ export interface JobLedger {
   assignment?: AssignmentDescriptor;
   submission?: import("@hyperfide/source-control").SourceFleetSubmission;
   error?: string;
+  reconciliation?: string;
   cancelled?: boolean;
   started?: string;
   finished?: string;
@@ -106,24 +107,58 @@ export class Dispatcher {
     const ownedJobs = [...this.jobs.values()].filter(
       (job) => !job.source || job.source === "dispatcher",
     );
-    const owned = new Set(ownedJobs.map((job) => job.machine));
-    for (const machine of await this.options.machines.list()) {
-      if (
-        owned.has(machine.id) ||
-        machine.name?.startsWith("hyperfide-dispatch-")
-      )
-        await (await this.options.machines.connect(machine.id)).destroy();
-    }
+    const providerMachines = await this.options.machines.list();
+    const owned = new Set(ownedJobs.map((job) => job.machine).filter(Boolean));
+    const reconciled = new Set<string>();
     for (const job of ownedJobs) {
+      const machine = job.machine
+        ? providerMachines.find((candidate) => candidate.id === job.machine)
+        : undefined;
+      let observation: { state: "ABSENT" | "STOPPED" | "RUNNING" | "UNKNOWN"; reason?: string };
+      try {
+        // The optional provider reconciler is the only trusted source for a
+        // restart decision.  The compatibility fallback preserves the legacy
+        // adapter's prior behaviour when no provider observation hook exists.
+        observation = this.options.reconcile
+          ? await this.options.reconcile(
+              { id: job.id, task: job.task, state: job.state, attempt: job.attempt, machine: job.machine },
+              machine ? await this.options.machines.connect(machine.id) : undefined,
+            )
+          : job.state === "unknown" || job.state === "reconciling"
+            ? { state: "UNKNOWN" }
+            : { state: machine ? "STOPPED" : "ABSENT" };
+      } catch (error) {
+        observation = { state: "UNKNOWN", reason: String(error) };
+      }
+      if (observation.state === "RUNNING" || observation.state === "UNKNOWN") {
+        job.state = "reconciling";
+        job.error = observation.reason ?? "Provider outcome requires reconciliation";
+        await this.save(job);
+        if (machine) reconciled.add(machine.id);
+        continue;
+      }
       if (job.state === "running" || job.state === "claimed") {
         job.state = "failed";
-        job.error = "Dispatcher restarted";
+        job.error = observation.reason ?? "Dispatcher restarted";
         job.finished = new Date(this.now()).toISOString();
         (job.events ??= []).push({ stage: "failed", at: job.finished });
         await this.save(job);
       }
-      // A crash can occur after saving a terminal state but before releasing its claim.
+      if (machine) {
+        await (await this.options.machines.connect(machine.id)).destroy();
+        reconciled.add(machine.id);
+      }
+      // A crash can occur after saving a terminal state but before releasing
+      // its claim; release only after the provider proved absence/stoppage.
       await this.options.spec.release(job.task, job.id);
+    }
+    for (const machine of providerMachines) {
+      if (
+        !reconciled.has(machine.id) &&
+        (owned.has(machine.id) || machine.name?.startsWith("hyperfide-dispatch-"))
+      ) {
+        await (await this.options.machines.connect(machine.id)).destroy();
+      }
     }
     this.initialized = true;
     const control = (await this.storage.get("fleet.control")) as

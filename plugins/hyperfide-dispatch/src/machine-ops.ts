@@ -14,6 +14,11 @@ export interface SandboxMachineOps {
   list(): Promise<
     { id: string; name?: string; status: string; createdAt?: string }[]
   >;
+  /** Provider inventory observation used during dispatcher restart. */
+  reconcile?(id: string): Promise<{
+    state: "ABSENT" | "STOPPED" | "RUNNING" | "UNKNOWN";
+    reason?: string;
+  }>;
 }
 export interface SandboxMachine {
   id: string;
