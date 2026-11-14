@@ -19,6 +19,7 @@ interface CreateDaemonOptions {
   releaseLock: () => Promise<void>;
   flushEvents?: () => Promise<void>;
   shutdownRuntimes?: () => Promise<void>;
+  onShutdownRequested?: () => void;
   onStart?: () => Promise<void>;
   signalSource?: SignalSource;
   exitProcess?: (code: number) => void;
@@ -117,6 +118,7 @@ export function createDaemon(options: CreateDaemonOptions): HostDaemon {
     }
 
     armShutdownExitWatchdog();
+    options.onShutdownRequested?.();
 
     stopPromise = (async () => {
       unregisterSignalHandlers();

@@ -22,7 +22,9 @@ interface HookOperation {
   outcome: HookOutcome;
   path: string;
   kind: "setup" | "teardown";
+  expiry: ReturnType<typeof setTimeout> | null;
 }
+const ENVIRONMENT_HOOK_REGISTRY_TTL_MS = 5 * 60 * 1000;
 const operations = new WeakMap<
   object,
   Map<string, HookOperation | "cancelled">
@@ -37,6 +39,20 @@ function controllers(
     operations.set(options.runtimeManager, active);
   }
   return active;
+}
+
+function scheduleOperationExpiry(
+  options: CommandDispatchOptions,
+  operationId: string,
+  operation: HookOperation,
+): void {
+  operation.expiry = setTimeout(() => {
+    const active = operations.get(options.runtimeManager);
+    if (active?.get(operationId) === operation) {
+      active.delete(operationId);
+    }
+  }, ENVIRONMENT_HOOK_REGISTRY_TTL_MS);
+  operation.expiry.unref?.();
 }
 
 export async function runEnvironmentHook(
@@ -92,13 +108,19 @@ export async function runEnvironmentHook(
       return {};
     },
   );
-  active.set(command.operationId, {
+  const operation: HookOperation = {
     controller,
     done,
     outcome,
     path: command.path,
     kind: command.kind,
-  });
+    expiry: null,
+  };
+  active.set(command.operationId, operation);
+  void done.then(
+    () => scheduleOperationExpiry(options, command.operationId, operation),
+    () => scheduleOperationExpiry(options, command.operationId, operation),
+  );
   return done;
 }
 
@@ -110,6 +132,12 @@ export async function cancelEnvironmentHook(
   const operation = active.get(command.operationId);
   if (operation === undefined || operation === "cancelled") {
     active.set(command.operationId, "cancelled");
+    const timeout = setTimeout(() => {
+      if (active.get(command.operationId) === "cancelled") {
+        active.delete(command.operationId);
+      }
+    }, ENVIRONMENT_HOOK_REGISTRY_TTL_MS);
+    timeout.unref?.();
     return { status: "unknown" };
   }
   operation.controller.abort();

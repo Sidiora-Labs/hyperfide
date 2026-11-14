@@ -904,6 +904,9 @@ export async function createHostDaemonApp(
     },
     logger: options.logger,
     releaseLock: options.releaseLock,
+    onShutdownRequested: () => {
+      void connection.shutdown();
+    },
     ...(options.exitProcess ? { exitProcess: options.exitProcess } : {}),
     flushEvents: async () => {
       await eventSink.flush();

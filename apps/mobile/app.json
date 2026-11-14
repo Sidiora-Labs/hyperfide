@@ -12,6 +12,7 @@
       "bundleIdentifier": "app.hyperfide.mobile",
       "supportsTablet": true,
       "associatedDomains": ["applinks:hyperfide.dev"],
+      "associatedDomains": ["applinks:hyperfide.dev"],
       "icon": {
         "light": "./assets/icon.png",
         "dark": "./assets/ios-icon-dark.png"
@@ -30,6 +31,19 @@
     },
     "android": {
       "package": "app.hyperfide.mobile",
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "category": ["BROWSABLE", "DEFAULT"],
+          "data": [
+            {
+              "scheme": "https",
+              "host": "hyperfide.dev"
+            }
+          ]
+        }
+      ],
       "intentFilters": [
         {
           "action": "VIEW",

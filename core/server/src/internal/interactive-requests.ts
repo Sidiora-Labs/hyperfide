@@ -12,7 +12,11 @@ import {
   isUserQuestionPendingInteractionPayload,
   parseExtensionKind,
 } from "@hyperfide/domain";
-import { getThread, hasStoredTurnStarted } from "@hyperfide/db";
+import {
+  getActiveStoredTurnId,
+  getThread,
+  hasStoredTurnStarted,
+} from "@hyperfide/db";
 import { sliceUtf16Head } from "@hyperfide/text-utils";
 import { isParentNotifiableChildThread } from "../services/threads/thread-parent.js";
 import type { Hono } from "hono";
@@ -187,6 +191,29 @@ export function registerInternalInteractiveRequestRoutes(
           "turn_start_not_ready",
           "Turn start has not been stored yet; retry interactive request registration",
           true,
+        );
+      }
+
+      const activeTurnId = await getActiveStoredTurnId(
+        deps.db,
+        payload.interaction.threadId,
+      );
+      if (activeTurnId !== payload.interaction.turnId) {
+        deps.logger.warn(
+          {
+            providerId: payload.interaction.providerId,
+            providerRequestId: payload.interaction.providerRequestId,
+            providerThreadId: payload.interaction.providerThreadId,
+            threadId: payload.interaction.threadId,
+            turnId: payload.interaction.turnId,
+            activeTurnId,
+          },
+          "interactive request arrived for a completed or stale turn",
+        );
+        throw new ApiError(
+          409,
+          "stale_turn",
+          "Interactive request belongs to a completed or stale turn",
         );
       }
 

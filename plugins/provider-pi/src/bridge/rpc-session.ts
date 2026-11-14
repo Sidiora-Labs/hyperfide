@@ -123,7 +123,9 @@ function readinessTimeoutMs(): number {
 const CHANNEL_REQUEST_TIMEOUT_MS = 30_000;
 const AGENT_END_LEAF_TIMEOUT_MS = 5_000;
 
-type PiSessionConstructionOutcome = { ok: true } | { ok: false; error: Error };
+type PiSessionConstructionOutcome =
+  | { ok: true }
+  | { ok: false; error: Error; retryable?: boolean };
 
 function waitForPiTransientAuthRetry(): Promise<void> {
   return new Promise((resolve) =>
@@ -142,7 +144,11 @@ export async function runPiTransientAuthConstruction(args: {
     if (outcome.ok) {
       return;
     }
-    if (attempt >= PI_TRANSIENT_AUTH_MAX_RETRIES || args.isClosed()) {
+    if (
+      outcome.retryable === false ||
+      attempt >= PI_TRANSIENT_AUTH_MAX_RETRIES ||
+      args.isClosed()
+    ) {
       throw outcome.error;
     }
     args.discardFailedAttempt();
@@ -320,12 +326,23 @@ export class PiRpcSession {
     });
     this.child = child;
 
-    const state = await this.getState(CHANNEL_REQUEST_TIMEOUT_MS);
-    await this.awaitReady(readinessTimeoutMs(), child);
+    let state: PiRpcSessionState;
+    try {
+      state = await this.getState(CHANNEL_REQUEST_TIMEOUT_MS);
+      await this.awaitReady(readinessTimeoutMs(), child);
+    } catch (error) {
+      const normalized = asError(error);
+      return {
+        ok: false,
+        error: normalized,
+        retryable: normalized.message.startsWith("No API key found for "),
+      };
+    }
     if (state.model?.provider === "unknown") {
       return {
         ok: false,
         error: new Error("Pi has no authenticated model provider available."),
+        retryable: false,
       };
     }
     const wanted = this.options.model;
@@ -343,6 +360,7 @@ export class PiRpcSession {
               : "") +
             ". Check that the provider is authenticated.",
         ),
+        retryable: false,
       };
     }
     return { ok: true };
