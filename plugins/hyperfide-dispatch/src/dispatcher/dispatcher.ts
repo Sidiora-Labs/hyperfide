@@ -3,7 +3,11 @@ import type { PluginStorage } from "@hyperfide/authority";
 import { openDispatchStorage, migrateDispatchDirectory } from "../storage";
 import { randomUUID } from "node:crypto";
 import type { SandboxMachine } from "../machine-ops";
-import type { DispatcherOptions } from "./contracts";
+import {
+  legacyAssignment,
+  type AssignmentDescriptor,
+  type DispatcherOptions,
+} from "./contracts";
 export interface JobLedger {
   id: string;
   task: string;
@@ -12,6 +16,8 @@ export interface JobLedger {
   machine?: string;
   keyId: string;
   commits: string[];
+  assignment?: AssignmentDescriptor;
+  submission?: import("@hyperfide/source-control").SourceFleetSubmission;
   error?: string;
   cancelled?: boolean;
   started?: string;
@@ -34,13 +40,20 @@ export class Dispatcher {
   private stopped = false;
   private activeMachines = new Map<string, SandboxMachine>();
   private shutdown = new AbortController();
-  setPrepare(command: string) { this.options.prepare = command; }
+  setPrepare(command: string) {
+    this.options.prepare = command;
+  }
   async stop() {
     this.stopped = true;
     this.shutdown.abort();
     await this.serial;
-    if (this.options.planning === "legacy-nonadaptive")
-      await Promise.allSettled([...this.activeMachines.values()].map(machine => machine.destroy()));
+    if (
+      this.options.planning === "legacy-nonadaptive" ||
+      this.options.planning === "native"
+    )
+      await Promise.allSettled(
+        [...this.activeMachines.values()].map((machine) => machine.destroy()),
+      );
     await this.drain();
   }
   private storage!: PluginStorage;
@@ -77,9 +90,16 @@ export class Dispatcher {
         this.jobs.set(data.id, data);
       }
     }
-    if (this.options.planning !== "legacy-nonadaptive") {
+    if (
+      this.options.planning !== "legacy-nonadaptive" &&
+      this.options.planning !== "native"
+    ) {
       this.initialized = true;
-      await this.storage.put("fleet.planning", { mode: "manager", state: "WAITING_FOR_MANAGER", authority: "CONTROL_PLANE" });
+      await this.storage.put("fleet.planning", {
+        mode: "manager",
+        state: "WAITING_FOR_MANAGER",
+        authority: "CONTROL_PLANE",
+      });
       return;
     }
     // This directory is a single dispatcher lease. A restart interrupts its live jobs.
@@ -123,7 +143,11 @@ export class Dispatcher {
   private async schedule() {
     if (this.stopped) return;
     if (!this.initialized) throw new Error("Call start before tick");
-    if (this.options.planning !== "legacy-nonadaptive") return;
+    if (
+      this.options.planning !== "legacy-nonadaptive" &&
+      this.options.planning !== "native"
+    )
+      return;
     if (this.now() < this.backoffUntil) return;
     const control = (await this.storage.get("fleet.control")) as
       | { cap: number; paused: boolean }
@@ -139,11 +163,27 @@ export class Dispatcher {
         limits.global - limits.otherRunning,
       ),
     );
-    const integration = await this.options.integration();
+    const supplied = await this.options.integration();
+    const integration =
+      "backend" in supplied ? supplied : legacyAssignment(supplied);
+    if (this.options.planning === "native" && integration.backend !== "native")
+      throw new Error(
+        "Native routing requires a versioned native assignment descriptor",
+      );
+    const revision =
+      integration.backend === "native"
+        ? integration.revision_id
+        : integration.tip;
     for (const job of this.jobs.values()) {
-      if (job.state === "succeeded" && !job.events?.some(event => event.stage === "merged") &&
-          await this.options.spec.merged(job.task, integration.tip)) {
-        (job.events ??= []).push({ stage: "merged", at: new Date(this.now()).toISOString() });
+      if (
+        job.state === "succeeded" &&
+        !job.events?.some((event) => event.stage === "merged") &&
+        (await this.options.spec.merged(job.task, revision))
+      ) {
+        (job.events ??= []).push({
+          stage: "merged",
+          at: new Date(this.now()).toISOString(),
+        });
         await this.save(job);
       }
     }
@@ -161,9 +201,7 @@ export class Dispatcher {
       if (
         !(
           await Promise.all(
-            task.requires.map((id) =>
-              this.options.spec.merged(id, integration.tip),
-            ),
+            task.requires.map((id) => this.options.spec.merged(id, revision)),
           )
         ).every(Boolean)
       )
@@ -206,7 +244,7 @@ export class Dispatcher {
   private async execute(
     job: JobLedger,
     key: string,
-    integration: { tip: string; bundle: Uint8Array },
+    integration: AssignmentDescriptor,
   ) {
     try {
       for (let attempt = 1; attempt <= 2; attempt++) {
@@ -234,18 +272,36 @@ export class Dispatcher {
             at: new Date(this.now()).toISOString(),
           });
           await this.save(job);
-          await machine.writeFile(
-            "/tmp/hyperfide-integration.bundle",
-            integration.bundle,
-          );
-          const prep = await machine.exec(
-            `git fetch /tmp/hyperfide-integration.bundle && git checkout --detach '${integration.tip.replaceAll("'", "'\\''")}' && ${this.options.prepare}`,
-            { cwd: "/workspace" },
-          );
+          const assignment = this.options.assignment
+            ? await this.options.assignment(job.task, attempt)
+            : integration;
+          job.assignment = assignment;
+          let prepare = this.options.prepare;
+          if (assignment.backend === "native") {
+            if (assignment.task_id !== job.task)
+              throw new Error("Native assignment task mismatch");
+            await machine.writeFile(
+              "/tmp/hyperfide-assignment.json",
+              Buffer.from(JSON.stringify(assignment)),
+              { mode: 0o600 },
+            );
+          } else {
+            if (assignment.compatibility !== "git-tip-bundle-v1")
+              throw new Error("Unsupported legacy compatibility");
+            await machine.writeFile(
+              "/tmp/hyperfide-integration.bundle",
+              assignment.bundle,
+            );
+            prepare = `git fetch /tmp/hyperfide-integration.bundle && git checkout --detach '${assignment.tip.replaceAll("'", "'\\''")}' && ${prepare}`;
+          }
+          const prep = await machine.exec(prepare, { cwd: "/workspace" });
           if (prep.exitCode || prep.timedOut)
             throw new Error(prep.stdout + prep.stderr);
           const result = await this.options.runner.run(
-            await this.options.packet(job.task),
+            {
+              ...(await this.options.packet(job.task)),
+              assignment: job.assignment,
+            },
             machine,
             key,
           );
@@ -268,7 +324,12 @@ export class Dispatcher {
             /\b429\b/.test((result.stdout ?? "") + (result.stderr ?? ""))
           )
             throw new Error(result.stdout + "\n" + result.stderr);
+          if (job.assignment?.backend === "native" && !result.submission)
+            throw new Error(
+              "Native runner exited without durable source submission",
+            );
           job.commits = result.commits;
+          job.submission = result.submission;
           job.state = "succeeded";
           delete job.error;
           break;
@@ -309,12 +370,19 @@ export class Dispatcher {
         while (!this.stopped && this.backoffUntil > this.now()) {
           await (
             this.options.wait ??
-            ((ms) => new Promise<void>((resolve) => {
-              const finish = () => { clearTimeout(timer); this.shutdown.signal.removeEventListener("abort", finish); resolve(); };
-              const timer = setTimeout(finish, ms);
-              this.shutdown.signal.addEventListener("abort", finish, { once: true });
-              if (this.stopped) finish();
-            }))
+            ((ms) =>
+              new Promise<void>((resolve) => {
+                const finish = () => {
+                  clearTimeout(timer);
+                  this.shutdown.signal.removeEventListener("abort", finish);
+                  resolve();
+                };
+                const timer = setTimeout(finish, ms);
+                this.shutdown.signal.addEventListener("abort", finish, {
+                  once: true,
+                });
+                if (this.stopped) finish();
+              }))
           )(this.backoffUntil - this.now());
         }
       }

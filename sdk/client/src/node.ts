@@ -4,7 +4,11 @@ import {
   DEFAULT_HOST_DAEMON_LOCAL_BIND_HOST,
 } from "@hyperfide/host-daemon-contract";
 import { createGuideArea } from "./areas/guide.js";
-import { createHyperfideSdk, type HyperfideSdk, type HyperfideSdkAreas } from "./core.js";
+import {
+  createHyperfideSdk,
+  type HyperfideSdk,
+  type HyperfideSdkAreas,
+} from "./core.js";
 import { createNodeWebsocketFactory } from "./node-websocket.js";
 import {
   createRequestTimeoutFetch,
@@ -62,7 +66,9 @@ export function createNodeTransport(
   });
 }
 
-export function createNodeHyperfideSdk(args: CreateNodeHyperfideSdkArgs = {}): HyperfideSdk {
+export function createNodeHyperfideSdk(
+  args: CreateNodeHyperfideSdkArgs = {},
+): HyperfideSdk {
   return createHyperfideSdk({
     context: args.context,
     guide: createGuideArea(),
@@ -94,7 +100,11 @@ export {
   createRequestTimeoutFetch,
   DEFAULT_HYPERFIDE_REQUEST_TIMEOUT_MS,
 };
-export { HyperfideHttpError, HyperfideRequestTimeoutError } from "./response.js";
+export {
+  HyperfideHttpError,
+  HyperfideRequestTimeoutError,
+} from "./response.js";
+export { SystemInstallError } from "./areas/system.js";
 export {
   pluginMutationResponseSchema,
   type PluginMutationResponse,

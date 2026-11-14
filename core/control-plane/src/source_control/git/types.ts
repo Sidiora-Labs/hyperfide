@@ -1,4 +1,4 @@
-import type {SourceProjectionPolicy} from "./provenance.js";
+import type { SourceProjectionPolicy } from "./provenance.js";
 import type { SourceContext, SourceSQL } from "../metadata.js";
 import type { SourceScope } from "../contracts.js";
 
@@ -26,13 +26,31 @@ export interface GitPublicationMapping {
 export interface SourceGitCredential {
   authorization_header: string;
   expires_at: string;
+  cleanup_key?: string;
+}
+export interface SourceGitCredentialState {
+  schema_version: 1;
+  expires_at: string;
+  cleanup_key?: string;
+}
+export interface SourceGitProtection {
+  rules_digest?: string;
+}
+export interface SourceGitProtectionObservation {
+  repository_identity: string;
+  rules_digest: string;
 }
 export interface GitPushResult {
   outcome: "ACCEPTED" | "REJECTED" | "UNKNOWN";
   code: string;
 }
 export interface SourceGitTransport {
-  observe(ref: string, signal?: AbortSignal): Promise<string | null>;
+  observe(
+    ref: string,
+    signal?: AbortSignal,
+    credential?: SourceGitCredential | null,
+  ): Promise<string | null>;
+  cleanupCredential?(state: SourceGitCredentialState): Promise<void>;
   authorize?(): Promise<SourceGitCredential | null>;
   push(input: {
     target_ref: string;
@@ -52,6 +70,11 @@ export interface SourceGitDestination {
   remote_key: string;
   allowed_refs: readonly string[];
   transport: SourceGitTransport;
+  observeProtection?(
+    ref: string,
+    credential: SourceGitCredential,
+    signal?: AbortSignal,
+  ): Promise<SourceGitProtectionObservation>;
   projection_policy?: SourceProjectionPolicy;
 }
 export interface AcceptedPublicationSource {
@@ -67,7 +90,11 @@ export interface SourcePublicationOptions {
     context: SourceContext,
     acceptanceId: string,
   ): Promise<AcceptedPublicationSource>;
-  authorizePath?(tx:SourceSQL,context:SourceContext,path:string):Promise<void>;
+  authorizePath?(
+    tx: SourceSQL,
+    context: SourceContext,
+    path: string,
+  ): Promise<void>;
   authorizeRevision(
     tx: SourceSQL,
     context: SourceContext,

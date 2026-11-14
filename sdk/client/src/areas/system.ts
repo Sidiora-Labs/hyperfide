@@ -1,4 +1,6 @@
 import { mobileAppDownloads } from "@hyperfide/domain";
+import { z } from "zod";
+import { HyperfideHttpError } from "../response.js";
 import type {
   MachineEnvironmentReplace,
   MachineEnvironmentSet,
@@ -51,6 +53,186 @@ import {
 
 export interface SystemAttentionArgs {
   signal?: AbortSignal;
+}
+
+export const systemInstallErrorCodes = [
+  "FLEET_INSTALL_INVALID",
+  "FLEET_INSTALL_NOT_FOUND",
+  "FLEET_INSTALL_SUPERSEDED",
+  "FLEET_INSTALL_STALE",
+  "FLEET_INSTALL_STALE_OWNER",
+  "FLEET_INSTALL_SLOT_STALE",
+  "FLEET_INSTALL_SCOPE",
+  "FLEET_INSTALL_EXPIRED",
+  "FLEET_INSTALL_CLOCK",
+  "FLEET_INSTALL_IMAGE_EVIDENCE_REQUIRED",
+  "FLEET_INSTALL_ENVIRONMENT_MISMATCH",
+  "FLEET_INSTALL_PATH",
+  "FLEET_INSTALL_INPUT_MISMATCH",
+  "FLEET_INSTALL_DEPENDENCY_INTEGRITY",
+  "FLEET_INSTALL_DEPENDENCY_FAILED",
+  "FLEET_INSTALL_CONFIGURATION_MISSING",
+  "FLEET_INSTALL_CONFIGURATION_PIN",
+] as const;
+export type SystemInstallErrorCode = (typeof systemInstallErrorCodes)[number];
+
+export class SystemInstallError extends HyperfideHttpError {
+  declare readonly code: SystemInstallErrorCode;
+  constructor(
+    code: SystemInstallErrorCode,
+    message: string,
+    status: number,
+    body: unknown,
+  ) {
+    super({ code, message, status, body });
+    this.name = "SystemInstallError";
+  }
+}
+
+const installDigestSchema = z.string().regex(/^sha256:[0-9a-f]{64}$/);
+const installStatusSchema = z
+  .object({
+    admission: z
+      .object({
+        operation_id: z.uuid(),
+        environment_id: z.string(),
+        environment_generation: z.number().int().positive(),
+        sandbox_id: z.uuid(),
+        boot_id: z.uuid(),
+        boot_generation: z.string().regex(/^[1-9][0-9]*$/),
+        input_digest: installDigestSchema,
+        admission_digest: installDigestSchema,
+        source_revision: z.string(),
+      })
+      .passthrough(),
+    state: z.enum(["ADMITTED", "READY"]),
+    receipt: z.record(z.string(), z.unknown()).nullable(),
+    receipt_digest: installDigestSchema.nullable(),
+  })
+  .passthrough();
+export type SystemInstallStatusResult = z.infer<typeof installStatusSchema>;
+export interface SystemInstallStatusArgs {
+  operationId: string;
+  runId: string;
+  /** Canonical control-plane HTTPS origin, separate from the web API. */
+  authorityUrl: string;
+  /** Sign these exact bytes with the enrolled runner identity. */
+  authenticate(request: {
+    endpoint: string;
+    method: "POST";
+    body: Uint8Array;
+    signal: AbortSignal;
+  }): HeadersInit | Promise<HeadersInit>;
+  signal?: AbortSignal;
+}
+
+async function readInstallStatus(
+  transport: CreateSdkAreaArgs["transport"],
+  input: SystemInstallStatusArgs,
+): Promise<SystemInstallStatusResult> {
+  const origin = new URL(input.authorityUrl);
+  if (origin.protocol !== "https:" || origin.origin !== input.authorityUrl) {
+    throw new TypeError(
+      "Install status requires a canonical control-plane HTTPS origin",
+    );
+  }
+  z.uuid().parse(input.runId);
+  z.uuid().parse(input.operationId);
+  const operationId = crypto.randomUUID();
+  const payload = new TextEncoder().encode(
+    JSON.stringify({
+      run_id: input.runId,
+      component: "fleet-install",
+      action: "fleet.install.status",
+      input: { operation_id: input.operationId },
+      expected_version: null,
+      authority: null,
+    }),
+  );
+  const hash = new Uint8Array(await crypto.subtle.digest("SHA-256", payload));
+  const body = new TextEncoder().encode(
+    JSON.stringify({
+      protocol_version: 1,
+      operation_id: operationId,
+      idempotency_key: operationId,
+      correlation_id: operationId,
+      causation_id: null,
+      payload_digest:
+        "sha256:" +
+        Array.from(hash, (byte) => byte.toString(16).padStart(2, "0")).join(""),
+      payload_b64: btoa(String.fromCharCode(...payload))
+        .replaceAll("+", "-")
+        .replaceAll("/", "_")
+        .replace(/=+$/, ""),
+    }),
+  );
+  const signal = input.signal
+    ? AbortSignal.any([input.signal, AbortSignal.timeout(15000)])
+    : AbortSignal.timeout(15000);
+  const endpoint = new URL("/v1/invoke", origin).href;
+  const headers = new Headers(
+    await input.authenticate({
+      endpoint,
+      method: "POST",
+      body: body.slice(),
+      signal,
+    }),
+  );
+  headers.set("content-type", "application/json");
+  const response = await transport.fetch(endpoint, {
+    method: "POST",
+    body,
+    headers,
+    signal,
+  });
+  const value: unknown = await response.json();
+  const envelope = z
+    .object({
+      protocol_version: z.literal(1),
+      operation_id: z.literal(operationId),
+      ok: z.boolean(),
+      result: z.unknown().optional(),
+      error: z
+        .object({ code: z.string(), message: z.string() })
+        .passthrough()
+        .optional(),
+    })
+    .passthrough()
+    .parse(value);
+  if (!envelope.ok) {
+    if (!envelope.error)
+      throw new Error("Control-plane install error is missing");
+    const { code, message } = envelope.error;
+    const typedCode = systemInstallErrorCodes.find(
+      (candidate) => candidate === code,
+    );
+    if (typedCode)
+      throw new SystemInstallError(typedCode, message, response.status, value);
+    throw new HyperfideHttpError({
+      code,
+      message,
+      status: response.status,
+      body: value,
+    });
+  }
+  if (!response.ok)
+    throw new Error(
+      "Control-plane install response has inconsistent HTTP status",
+    );
+  const result = installStatusSchema.parse(envelope.result);
+  if (
+    result.admission.operation_id !== input.operationId ||
+    (result.state === "READY"
+      ? !result.receipt ||
+        !result.receipt_digest ||
+        result.receipt.receipt_digest !== result.receipt_digest
+      : result.receipt !== null || result.receipt_digest !== null)
+  ) {
+    throw new Error(
+      "Control-plane install status differs from the requested operation or readiness state",
+    );
+  }
+  return result;
 }
 
 export interface SystemConfigArgs {
@@ -153,6 +335,9 @@ export interface SystemUiPreferencesArea {
 }
 
 export interface SystemArea {
+  installStatus(
+    args: SystemInstallStatusArgs,
+  ): Promise<SystemInstallStatusResult>;
   setMachineEnvironmentVariable(
     input: MachineEnvironmentSet,
   ): Promise<MachineEnvironmentList>;
@@ -264,6 +449,9 @@ export function createSystemArea(args: CreateSdkAreaArgs): SystemArea {
   };
   return {
     uiPreferences,
+    installStatus(input) {
+      return readInstallStatus(transport, input);
+    },
     async setMachineEnvironmentVariable(input) {
       return transport.readJson(
         transport.api.v1.settings["machine-environment"].$post({ json: input }),

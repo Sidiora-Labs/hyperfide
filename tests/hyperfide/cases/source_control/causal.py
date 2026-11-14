@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Verify causal reads at the authenticated source HTTP boundary."""
+"""Verify causal reads and bounded replica routing at the authenticated HTTP boundary."""
 import importlib.util
 from pathlib import Path
 ROOT = Path(__file__).resolve().parents[4]
@@ -12,4 +12,5 @@ if __name__ == '__main__':
         '0738-source-control-capabilities.sql', '0739-source-control-workspaces.sql',
         '0740-source-control-transformations.sql', '0741-source-control-acceptance.sql',
         '0743-source-control-assurance.sql', '0752-source-control-recovery.sql',
+        '0761-source-control-ancestry-index.sql',
     ], timeout=240))

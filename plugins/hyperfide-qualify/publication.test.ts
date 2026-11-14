@@ -1,10 +1,22 @@
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
+import { createInterface } from "node:readline";
+import { SourceControlClient } from "../../sdk/source-control/src/client.js";
+import type { SourceScope } from "../../sdk/source-control/src/contracts.js";
+import {
+  mkdir,
+  mkdtemp,
+  readFile,
+  rename,
+  rm,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   WavePublication,
+  createNativeExportAdapter,
   type Publication,
   type PublicationHost,
 } from "./publication";
@@ -285,3 +297,161 @@ describe("local wave publication", () => {
     ).toBe(true);
   });
 });
+
+async function native_publication_uses_the_real_source_client_without_git_worktrees() {
+  const historical = await prepare();
+  const script = fileURLToPath(
+    new URL(
+      "../../tests/hyperfide/cases/source_control/5_1.py",
+      import.meta.url,
+    ),
+  );
+  const child = spawn("python3", [script, "--publication-host"], {
+    stdio: ["pipe", "pipe", "pipe"],
+    detached: true,
+  });
+  let stderr = "";
+  child.stderr.on("data", (chunk) => {
+    stderr = (stderr + chunk.toString()).slice(-8192);
+  });
+  const exited = new Promise<number | null>((resolve) =>
+    child.once("close", resolve),
+  );
+  const originalPath = process.env.PATH;
+  let movedGit = false;
+  try {
+    const ready = await new Promise<{
+      endpoint: string;
+      scope: SourceScope;
+      token: string;
+      acceptance_id: string;
+      revision_id: string;
+      remote: string;
+    }>((resolve, reject) => {
+      const timeout = setTimeout(
+        () =>
+          reject(new Error("Native source host startup timed out: " + stderr)),
+        90000,
+      );
+      const lines = createInterface({ input: child.stdout });
+      child.once("error", (error) => {
+        clearTimeout(timeout);
+        reject(error);
+      });
+      child.once("close", (code) => {
+        clearTimeout(timeout);
+        reject(new Error("Native source host exited " + code + ": " + stderr));
+      });
+      lines.on("line", (line) => {
+        if (line.startsWith("NATIVE_PUBLICATION_HOST ")) {
+          clearTimeout(timeout);
+          resolve(JSON.parse(line.slice("NATIVE_PUBLICATION_HOST ".length)));
+        }
+      });
+    });
+    const client = new SourceControlClient({
+      endpoint: ready.endpoint,
+      scope: ready.scope,
+      token: ready.token,
+      timeout_ms: 30000,
+    });
+    host.native = createNativeExportAdapter({
+      schema_version: 1,
+      client,
+      request: {
+        acceptance_id: ready.acceptance_id,
+        destination_id: "primary",
+        target_ref: "refs/heads/main",
+        expected_old_oid: null,
+      },
+    });
+    const gitExecutable = execFileSync("sh", ["-c", "command -v git"], {
+      encoding: "utf8",
+    }).trim();
+    const commands = join(root, "native-git-commands");
+    const executables = join(root, "executables");
+    await mkdir(executables);
+    await writeFile(commands, "");
+    await writeFile(
+      join(executables, "git"),
+      `#!/bin/sh\nprintf '%s\\n' "$@" >> '${commands}'\nexec '${gitExecutable}' "$@"\n`,
+      { mode: 0o755 },
+    );
+    process.env.PATH = executables + ":" + originalPath;
+    await rename(join(repo, ".git"), join(root, "historical-git"));
+    movedGit = true;
+    service = new WavePublication(host);
+    expect(await prepare()).toEqual(historical);
+    wave.asks = [];
+    wave.wave = 5;
+    const input = {
+      feature: "fixture",
+      wave: 5,
+      base: ready.revision_id,
+      baseBranch: "main",
+      remote: "primary",
+    };
+    const publication = await service.prepare(input);
+    expect(publication.native?.schema_version).toBe(1);
+    expect(publication.native?.result.status).toBe("QUEUED");
+    expect(publication.native?.result.revision_id).toBe(ready.revision_id);
+    expect(
+      (await client.publication(publication.native!.operation_id)).status,
+    ).toBe("QUEUED");
+    expect(await readFile(commands, "utf8")).toBe("");
+    expect(git(ready.remote, "for-each-ref", "--format=%(refname)")).toBe("");
+    // The independent oracle uses Git; the publisher has no Git repository to invoke.
+    await writeFile(commands, "");
+    await expect(service.publish("fixture", 5)).rejects.toThrow("permission");
+    grant();
+    wave.tasks[0].lanes[0].status = "failed";
+    await expect(service.publish("fixture", 5)).rejects.toThrow("Wave changed");
+    wave.tasks[0].lanes[0].status = "passed";
+    const configured = host.native;
+    host.native = {
+      ...configured,
+      request: { ...configured.request, destination_id: "mirror" },
+    };
+    await expect(service.publish("fixture", 5)).rejects.toThrow(
+      "binding changed",
+    );
+    host.native = configured;
+    service = new WavePublication(host);
+    expect(await service.prepare(input)).toEqual(publication);
+    const published = await service.publish("fixture", 5);
+    expect(published.pushed).toBe(true);
+    expect(published.native?.result.status).toBe("PUBLISHED");
+    expect(published.head).toMatch(/^git:sha1:[a-f0-9]{40}$/);
+    expect(await readFile(commands, "utf8")).toBe("");
+    process.env.PATH = originalPath;
+    expect(git(ready.remote, "rev-parse", "refs/heads/main")).toBe(
+      published.head.slice(9),
+    );
+    expect(git(ready.remote, "show", "refs/heads/main:main.txt")).toBe(
+      "candidate: plugin native publication",
+    );
+    child.stdin.end("close\n");
+    expect(await exited).toBe(0);
+    expect(await new WavePublication(host).publish("fixture", 5)).toEqual(
+      published,
+    );
+    expect(await new WavePublication(host).prepare(input)).toEqual(published);
+  } finally {
+    process.env.PATH = originalPath;
+    if (movedGit)
+      await rename(join(root, "historical-git"), join(repo, ".git"));
+    if (child.exitCode === null) {
+      child.stdin.end("close\n");
+      const timeout = setTimeout(() => {
+        if (child.pid) process.kill(-child.pid, "SIGTERM");
+      }, 15000);
+      await exited;
+      clearTimeout(timeout);
+    }
+  }
+}
+it(
+  native_publication_uses_the_real_source_client_without_git_worktrees.name,
+  native_publication_uses_the_real_source_client_without_git_worktrees,
+  120000,
+);

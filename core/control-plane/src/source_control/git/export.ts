@@ -6,6 +6,7 @@ import {
   sourceScopeValues,
 } from "../metadata.js";
 import type { SourceContext, SourceSQL } from "../metadata.js";
+import { SourceRetentionService } from "../retention.js";
 import { reserveSourceOperation } from "../operations.js";
 import type { SourceObjectService } from "../objects.js";
 import type { PersistentTree } from "../trees.js";
@@ -15,6 +16,8 @@ import type { GitProjectionMapping } from "./projection.js";
 import { gitRef, rawGitOid } from "./transport.js";
 import type {
   SourceGitDestination,
+  SourceGitCredential,
+  SourceGitCredentialState,
   SourcePublicationOptions,
 } from "./types.js";
 
@@ -72,6 +75,8 @@ interface Stored {
   operation_state: string;
   projection_lineage: string;
   base_checkpoint_generation: string | null;
+  credential_state: SourceGitCredentialState | null;
+  cleanup_debt: boolean;
 }
 const terminal = new Set([
   "PUBLISHED",
@@ -108,6 +113,11 @@ export class SourceGitPublicationService {
         throw new SourceControlError(
           "INVALID_DESTINATION",
           "Publication destinations require unique bounded identifiers and explicit refs",
+        );
+      if (destination.provider !== "local" && !destination.observeProtection)
+        throw new SourceControlError(
+          "PROTECTION_UNSATISFIED",
+          "Hosted destinations require provider protection observation",
         );
       if (destination.projection_policy) {
         const policy = parseProjectionPolicy(destination.projection_policy);
@@ -278,11 +288,20 @@ export class SourceGitPublicationService {
           ],
         )
       ).rows[0];
-      const protection = await this.metadata.protectRoot(
+      const protection = await SourceRetentionService.acquire(
         tx,
         context.scope,
-        accepted.root_tree_id,
-        "publication:" + operation.operation_id,
+        {
+          root_id: SourceRetentionService.producerRootId(
+            context.scope,
+            "EXPORT",
+            context.principal_id + "/" + operation.operation_id,
+            accepted.root_tree_id,
+          ),
+          owner_kind: "EXPORT",
+          owner_id: context.principal_id + "/" + operation.operation_id,
+          object_id: accepted.root_tree_id,
+        },
       );
       const result: SourcePublicationResult = {
         schema_version: 1,
@@ -412,6 +431,17 @@ export class SourceGitPublicationService {
         storage.checkpoint_generation ?? null,
       ],
     );
+    if (terminal.has(status))
+      await SourceRetentionService.release(tx, context.scope, {
+        root_id: SourceRetentionService.producerRootId(
+          context.scope,
+          "EXPORT",
+          context.principal_id + "/" + row.operation_id,
+          row.root_tree_id,
+        ),
+        owner_kind: "EXPORT",
+        owner_id: context.principal_id + "/" + row.operation_id,
+      });
     return result;
   }
   private async settle(
@@ -535,6 +565,7 @@ export class SourceGitPublicationService {
     context: SourceContext,
     row: Stored,
     signal?: AbortSignal,
+    credential?: SourceGitCredential | null,
   ): Promise<SourcePublicationResult> {
     const destination = this.destination(
       context,
@@ -543,7 +574,11 @@ export class SourceGitPublicationService {
     );
     let observed: string | null;
     try {
-      observed = await destination.transport.observe(row.target_ref, signal);
+      observed = await destination.transport.observe(
+        row.target_ref,
+        signal,
+        credential,
+      );
     } catch {
       return this.settle(context, row.operation_id, "OUTCOME_UNKNOWN", {
         code: "REMOTE_OBSERVATION_FAILED",
@@ -569,6 +604,115 @@ export class SourceGitPublicationService {
     options: { signal?: AbortSignal } = {},
   ): Promise<SourcePublicationResult> {
     parseUUID(operationId);
+    try {
+      return await this.resumePending(context, operationId, options);
+    } finally {
+      await this.settleCredentialDebt(
+        context,
+        context,
+        operationId,
+        "source.publications.resume",
+      );
+    }
+  }
+  private async rememberCredential(
+    context: SourceContext,
+    operationId: string,
+    credential: SourceGitCredential,
+  ): Promise<void> {
+    const state: SourceGitCredentialState = {
+      schema_version: 1,
+      expires_at: credential.expires_at,
+      ...(credential.cleanup_key !== undefined
+        ? { cleanup_key: credential.cleanup_key }
+        : {}),
+    };
+    if (
+      !credential.authorization_header ||
+      /[\r\n]/.test(credential.authorization_header) ||
+      !Number.isFinite(Date.parse(state.expires_at)) ||
+      Date.parse(state.expires_at) <= Date.now() ||
+      (state.cleanup_key !== undefined &&
+        !/^[A-Za-z0-9._:-]{1,256}$/.test(state.cleanup_key))
+    )
+      throw new SourceControlError(
+        "EXPIRED_CREDENTIAL",
+        "A current bounded publication credential is required",
+      );
+    await this.metadata.transaction(async (tx) => {
+      await this.metadata.guard(tx, context, "source.publications.resume");
+      const row = await this.row(tx, context, operationId, true);
+      if (row.cleanup_debt)
+        throw new SourceControlError(
+          "CREDENTIAL_CLEANUP_REQUIRED",
+          "Previous publication credential cleanup remains unresolved",
+        );
+      if (row.status !== "QUEUED" && row.status !== "READY")
+        throw new SourceControlError(
+          "PUBLICATION_FENCED",
+          "Publication is no longer awaiting dispatch",
+        );
+      await tx.query(
+        "UPDATE hyperfide.source_git_publications SET credential_state=$6,cleanup_debt=true,credential_expires_at=$7,updated_at=clock_timestamp() WHERE organisation_id=$1 AND repository_id=$2 AND security_domain_id=$3 AND principal_id=$4 AND operation_id=$5",
+        [...key(context, operationId), state, state.expires_at],
+      );
+    });
+  }
+  private async settleCredentialDebt(
+    context: SourceContext,
+    owner: PublicationOwner,
+    operationId: string,
+    action:
+      | "source.publications.resume"
+      | "source.publications.cancel"
+      | "source.recovery.reconcile",
+  ): Promise<void> {
+    const row = await this.metadata.transaction(async (tx) => {
+      await this.metadata.guard(tx, context, action);
+      return (
+        await tx.query(
+          "SELECT request,credential_state,cleanup_debt,target_ref,configuration_digest FROM hyperfide.source_git_publications WHERE organisation_id=$1 AND repository_id=$2 AND security_domain_id=$3 AND principal_id=$4 AND operation_id=$5",
+          key(owner, operationId),
+        )
+      ).rows[0] as
+        | Pick<
+            Stored,
+            | "request"
+            | "credential_state"
+            | "cleanup_debt"
+            | "target_ref"
+            | "configuration_digest"
+          >
+        | undefined;
+    });
+    if (!row?.cleanup_debt || !row.credential_state) return;
+    const destination = this.destination(
+      context,
+      row.request.destination_id,
+      row.target_ref,
+    );
+    if (this.binding(destination) !== row.configuration_digest) return;
+    if (Date.parse(row.credential_state.expires_at) > Date.now()) {
+      if (!destination.transport.cleanupCredential) return;
+      try {
+        await destination.transport.cleanupCredential(row.credential_state);
+      } catch {
+        return;
+      }
+    }
+    await this.metadata.transaction(async (tx) => {
+      await this.metadata.guard(tx, context, action);
+      await tx.query(
+        "UPDATE hyperfide.source_git_publications SET credential_state=NULL,cleanup_debt=false,credential_expires_at=NULL,updated_at=clock_timestamp() WHERE organisation_id=$1 AND repository_id=$2 AND security_domain_id=$3 AND principal_id=$4 AND operation_id=$5 AND credential_state=$6::jsonb",
+        [...key(owner, operationId), JSON.stringify(row.credential_state)],
+      );
+    });
+  }
+  private async resumePending(
+    context: SourceContext,
+    operationId: string,
+    options: { signal?: AbortSignal },
+  ): Promise<SourcePublicationResult> {
     let row = await this.snapshot(context, operationId);
     if (terminal.has(row.status)) return row.result;
     if (row.status === "DISPATCHED" || row.status === "OUTCOME_UNKNOWN")
@@ -579,9 +723,48 @@ export class SourceGitPublicationService {
       row.target_ref,
     );
     options.signal?.throwIfAborted();
+    if (row.cleanup_debt) {
+      await this.settleCredentialDebt(
+        context,
+        context,
+        operationId,
+        "source.publications.resume",
+      );
+      row = await this.snapshot(context, operationId);
+      if (row.cleanup_debt)
+        throw new SourceControlError(
+          "CREDENTIAL_CLEANUP_REQUIRED",
+          "Previous publication credential cleanup remains unresolved",
+        );
+    }
+    const credential = (await destination.transport.authorize?.()) ?? null;
+    if (credential)
+      await this.rememberCredential(context, operationId, credential);
+    if (destination.observeProtection && !credential)
+      throw new SourceControlError(
+        "PROTECTION_UNSATISFIED",
+        "Protection must use the publication credential",
+      );
+    const protection =
+      credential && destination.observeProtection
+        ? await destination.observeProtection(
+            row.target_ref,
+            credential,
+            options.signal,
+          )
+        : null;
+    if (
+      protection &&
+      protection.repository_identity !== destination.repository_identity
+    )
+      throw new SourceControlError(
+        "PROTECTION_UNSATISFIED",
+        "Observed repository identity differs from configuration",
+      );
     const observed = await destination.transport.observe(
       row.target_ref,
       options.signal,
+      credential,
     );
     if (observed !== row.expected_old_oid)
       return this.settle(
@@ -678,7 +861,21 @@ export class SourceGitPublicationService {
       return terminal.has(row.status)
         ? row.result
         : this.reconcile(context, row, options.signal);
-    const credential = (await destination.transport.authorize?.()) ?? null;
+    if (protection && credential && destination.observeProtection) {
+      const current = await destination.observeProtection(
+        row.target_ref,
+        credential,
+        options.signal,
+      );
+      if (
+        current.repository_identity !== protection.repository_identity ||
+        current.rules_digest !== protection.rules_digest
+      )
+        throw new SourceControlError(
+          "PROTECTION_UNSATISFIED",
+          "Destination protection changed before dispatch",
+        );
+    }
     const admitted = await this.metadata.transaction(async (tx) => {
       await this.metadata.guard(tx, context, "source.publications.resume");
       const current = await this.row(tx, context, operationId, true);
@@ -726,9 +923,32 @@ export class SourceGitPublicationService {
       context,
       await this.snapshot(context, operationId),
       options.signal,
+      credential,
     );
   }
   async reconcileRecovery(
+    operatorContext: SourceContext,
+    input: { operation_id: string; principal_id: string },
+    signal?: AbortSignal,
+  ): Promise<SourcePublicationResult> {
+    parseUUID(input.operation_id, "operation_id");
+    parseUUID(input.principal_id, "principal_id");
+    try {
+      return await this.reconcileRecoveryPending(
+        operatorContext,
+        input,
+        signal,
+      );
+    } finally {
+      await this.settleCredentialDebt(
+        operatorContext,
+        { scope: operatorContext.scope, principal_id: input.principal_id },
+        input.operation_id,
+        "source.recovery.reconcile",
+      );
+    }
+  }
+  private async reconcileRecoveryPending(
     operatorContext: SourceContext,
     input: { operation_id: string; principal_id: string },
     signal?: AbortSignal,
@@ -847,6 +1067,22 @@ export class SourceGitPublicationService {
     });
   }
   async cancel(
+    context: SourceContext,
+    operationId: string,
+  ): Promise<SourcePublicationResult> {
+    parseUUID(operationId);
+    try {
+      return await this.cancelPending(context, operationId);
+    } finally {
+      await this.settleCredentialDebt(
+        context,
+        context,
+        operationId,
+        "source.publications.cancel",
+      );
+    }
+  }
+  private async cancelPending(
     context: SourceContext,
     operationId: string,
   ): Promise<SourcePublicationResult> {

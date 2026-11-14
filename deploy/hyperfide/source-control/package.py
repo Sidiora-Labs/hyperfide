@@ -16,6 +16,8 @@ import tempfile
 
 ROOT=Path(__file__).resolve().parents[3]
 EXCLUDED={'.git','.env','__pycache__'}
+LEGACY_MIGRATION_PROFILE='git-source-pre-native-0736-v1'
+FIRST_NATIVE_MIGRATION=736
 
 def canonical(value):return json.dumps(value,sort_keys=True,separators=(',',':'),ensure_ascii=False).encode()
 def digest(path):
@@ -76,9 +78,10 @@ def safe_copy(source,target,expected,mode=None):
     target.chmod(mode if mode is not None else (0o755 if expected['mode']&0o111 else 0o644))
 DEPENDENCIES=r'''
 const fs=require('node:fs'),path=require('node:path'),{createRequire}=require('node:module');
-const root=process.argv[1],pkg=JSON.parse(fs.readFileSync(path.join(root,'package.json'))),graph={},entries={};
-function resolve(name,base){const req=createRequire(path.join(base,'package.json'));for(const dir of req.resolve.paths(name)??[]){const file=path.join(dir,name,'package.json');if(fs.existsSync(file)&&JSON.parse(fs.readFileSync(file)).name)return fs.realpathSync(file)}try{const file=req.resolve(name+'/package.json');if(JSON.parse(fs.readFileSync(file)).name)return fs.realpathSync(file)}catch{}let p=path.dirname(req.resolve(name));for(;;){const file=path.join(p,'package.json');if(fs.existsSync(file)&&JSON.parse(fs.readFileSync(file)).name)return fs.realpathSync(file);const parent=path.dirname(p);if(parent===p)throw Error('Missing named package '+name);p=parent}}
-function visit(file){if(graph[file])return;const pkg=JSON.parse(fs.readFileSync(file)),deps={};graph[file]={name:pkg.name,version:pkg.version,deps};for(const name of Object.keys({...pkg.dependencies,...pkg.optionalDependencies,...pkg.peerDependencies}).sort()){try{const child=resolve(name,path.dirname(file));deps[name]=child;visit(child)}catch(error){if(!pkg.optionalDependencies?.[name]&&!pkg.peerDependenciesMeta?.[name]?.optional)throw error}}}
+const root=process.argv[1],workspace=fs.realpathSync(process.argv[2]),pkg=JSON.parse(fs.readFileSync(path.join(root,'package.json'))),graph={},entries={};
+function inside(directory){const relative=path.relative(workspace,path.resolve(directory));return relative===''||(!relative.startsWith('..'+path.sep)&&relative!=='..'&&!path.isAbsolute(relative))}
+function resolve(name,base){const requiring=path.join(base,'package.json'),req=createRequire(requiring);for(const dir of req.resolve.paths(name+'/package.json')??[]){if(!inside(dir))continue;const file=path.join(dir,name,'package.json');if(fs.existsSync(file)&&JSON.parse(fs.readFileSync(file)).name)return fs.realpathSync(file)}throw Object.assign(Error('Missing named package '+name+' required by '+requiring),{code:'MODULE_NOT_FOUND'})}
+function visit(file){if(graph[file])return;const pkg=JSON.parse(fs.readFileSync(file)),deps={};graph[file]={name:pkg.name,version:pkg.version,deps};for(const name of Object.keys({...pkg.dependencies,...pkg.optionalDependencies,...pkg.peerDependencies}).sort()){let child;try{child=resolve(name,path.dirname(file))}catch(error){if(error.code==='MODULE_NOT_FOUND'&&(pkg.optionalDependencies?.[name]||pkg.peerDependenciesMeta?.[name]?.optional))continue;throw error}deps[name]=child;visit(child)}}
 for(const name of Object.keys(pkg.dependencies).sort()){const file=resolve(name,root);entries[name]=file;visit(file)}
 console.log(JSON.stringify({entries,graph}));
 '''
@@ -96,6 +99,26 @@ def input_inventory(service,files=None,trees=None,values=None):
 
 def input_digest(service):return hashlib.sha256(canonical(input_inventory(service))).hexdigest()
 
+def release_contract(node,service,graph,positions,inputs):
+    """Describe compatibility and the exact installed closure, without claiming qualification."""
+    command="import {pathToFileURL} from 'node:url';const c=await import(pathToFileURL(process.argv[1]));console.log(JSON.stringify({source_format_version:c.SOURCE_FORMAT.version,protocol_version:c.SOURCE_PROTOCOL_VERSION}));"
+    versions=json.loads(subprocess.check_output([str(node),'--input-type=module','-e',command,str(service/'dist/source_control/contracts.js')],text=True))
+    migrations={path.name:file_record(path)['sha256'] for path in sorted((service/'migrations').glob('*.sql'))}
+    legacy={name:pin for name,pin in migrations.items() if int(name[:4])<FIRST_NATIVE_MIGRATION}
+    if not legacy or not any(int(name[:4])==FIRST_NATIVE_MIGRATION for name in migrations):raise RuntimeError('Declared legacy migration boundary is absent')
+    dependencies={}
+    for filename,record in graph['graph'].items():
+        position=positions[filename];prefix='dependencies/'+position+'/'
+        inventory={key.removeprefix(prefix):value for key,value in inputs.items() if key.startswith(prefix)}
+        if not record['name'] or not record['version'] or not inventory:raise RuntimeError('Unpinned runtime dependency')
+        dependencies[position]={'name':record['name'],'version':record['version'],'path':'services/node_modules/.hyperfide/'+position,'content_sha256':hashlib.sha256(canonical(inventory)).hexdigest(),'dependencies':{key:positions[value] for key,value in record['deps'].items()}}
+    return {'schema_version':1,'kind':'hyperfide-native-source-release-contract',**versions,
+        'dependencies':dependencies,'dependency_entries':{key:positions[value] for key,value in graph['entries'].items()},
+        'upgrade_compatibility':{'profile_id':LEGACY_MIGRATION_PROFILE,'first_native_migration':FIRST_NATIVE_MIGRATION,'legacy_migrations':legacy,'target_migrations':migrations,
+            'preserved_tables':['source_objects','spec_revisions'],'legacy_object_namespace':'git:sha1:',
+            'native_object_namespace':'sha256:','backup_manifest_version':2,'legacy_backup_restore':'REFUSED_BACKUP_FORMAT_UNSUPPORTED',
+            'source_cutover':'REQUIRES_SEPARATE_QUALIFIED_MIGRATION','deployment_qualification':'UNQUALIFIED'}}
+
 def native_ready():
     if subprocess.run(['make','-q','hyperfide'],cwd=ROOT,capture_output=True).returncode:raise RuntimeError('Native CLI is stale; build hyperfide before packaging')
     native=ROOT/'build/hyperfide-native';sources=[ROOT/'Makefile',ROOT/'tools/repository/hyperfide-native-components.py']
@@ -110,16 +133,17 @@ def build(output,node,service_root=None,sdk_root=None):
     stamp_command=[str(node),str(ROOT/'deploy/hyperfide/dist-stamp.mjs'),'check',str(service)]
     subprocess.run(stamp_command,check=True,capture_output=True);native_ready()
     if subprocess.check_output([str(node),'--version'],text=True).strip()!='v'+json.loads((service/'package.json').read_text())['engines']['node']:raise RuntimeError('Pinned Node runtime required')
-    resolved=subprocess.run([str(node),'-e',DEPENDENCIES,str(service)],text=True,capture_output=True)
+    resolved=subprocess.run([str(node),'-e',DEPENDENCIES,str(service),str(ROOT)],text=True,capture_output=True)
     if resolved.returncode:raise RuntimeError('Production dependency closure failed: '+resolved.stderr[-1200:])
     graph=json.loads(resolved.stdout)
     items=sorted(graph['graph'],key=lambda filename:(graph['graph'][filename]['name'],graph['graph'][filename]['version'],filename))
     allowed=[(ROOT/'node_modules').resolve(),(ROOT/'core/control-plane/node_modules').resolve()]
-    if any(not any(Path(filename).resolve().is_relative_to(root) for root in allowed) for filename in items):raise RuntimeError('Dependency resolves outside approved installed roots')
+    for filename in items:
+        if not any(Path(filename).resolve().is_relative_to(root) for root in allowed):raise RuntimeError('Dependency resolves outside approved installed roots: '+filename+'; approved roots: '+', '.join(map(str,allowed)))
     sdk_arguments=['--sdk-root',str(Path(sdk_root).resolve())] if sdk_root else []
     bundle_command=[str(node),str(ROOT/'deploy/hyperfide/source-control/bundle.mjs'),'--inputs',*sdk_arguments]
     bundles=json.loads(subprocess.check_output(bundle_command,cwd=ROOT,text=True))
-    files={'runtime/node':node,'bin/hyperfide':ROOT/'hyperfide','bin/hyperfide-native':ROOT/'build/hyperfide-native','builder/package.py':Path(__file__).resolve(),'builder/pnpm-lock.yaml':ROOT/'pnpm-lock.yaml'}
+    files={'runtime/node':node,'bin/hyperfide':ROOT/'hyperfide','bin/hyperfide-native':ROOT/'build/hyperfide-native','builder/package.py':Path(__file__).resolve(),'builder/pnpm-lock.yaml':ROOT/'pnpm-lock.yaml','builder/recovery-profile.schema.json':Path(__file__).with_name('recovery-profile.schema.json')}
     for filename in bundles['files']:
         path=Path(filename).resolve()
         if not path.is_relative_to(ROOT):raise RuntimeError('Bundle input escapes workspace')
@@ -149,6 +173,7 @@ def build(output,node,service_root=None,sdk_root=None):
     layout={'entries':{key:positions[value] for key,value in graph['entries'].items()},'dependencies':{positions[name]:{key:positions[value] for key,value in data['deps'].items()} for name,data in graph['graph'].items()}}
     bundle_layout={key:[Path(name).resolve().relative_to(ROOT).as_posix() for name in names] for key,names in bundles.items()}
     before=input_inventory(service,files,trees,{'dependency-layout':layout,'bundle-inputs':bundle_layout})
+    contract=release_contract(node,service,graph,positions,before)
     fingerprint=hashlib.sha256(canonical(before)).hexdigest()
     output.mkdir(parents=True,exist_ok=True)
     if any(output.iterdir()):raise RuntimeError('Output directory must be empty')
@@ -179,6 +204,8 @@ export LD_LIBRARY_PATH="$root/lib/hyperfide${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
 exec "$root/runtime/node" "$root/services/dist/source_control/server.js" "$@"
 '''
         (stage/'bin/source-control').write_text(launcher);(stage/'bin/source-control').chmod(0o755)
+        (stage/'source-release-manifest.json').write_bytes(canonical({**contract,'source_inputs_sha256':fingerprint}))
+        safe_copy(files['builder/recovery-profile.schema.json'],stage/'recovery-profile.schema.json',before['builder/recovery-profile.schema.json'])
         if bundles!=json.loads(subprocess.check_output(bundle_command,cwd=ROOT,text=True)) or before!=input_inventory(service,files,trees,{'dependency-layout':layout,'bundle-inputs':bundle_layout}):raise RuntimeError('Runtime input closure changed during packaging')
         subprocess.run(stamp_command,check=True,capture_output=True);native_ready()
         for path in stage.rglob('*'):
@@ -190,7 +217,7 @@ exec "$root/runtime/node" "$root/services/dist/source_control/server.js" "$@"
                 if not path.exists() or not path.resolve().is_relative_to(stage):raise RuntimeError('External or missing packaged dependency link')
                 shipped[name]={'kind':'symlink','target':os.readlink(path)}
             elif path.is_file():shipped[name]=file_record(path)
-        manifest={'schema_version':1,'kind':'hyperfide-native-source-runtime','profile':'linux-'+platform.machine(),'source_format_version':1,'protocol_version':1,'node_version':subprocess.check_output([str(node),'--version'],text=True).strip(),'source_inputs_sha256':fingerprint,'input_manifest':before,'service_stamp':json.loads((service/'dist/.source-digest.json').read_text()),'files':shipped}
+        manifest={'schema_version':1,'kind':'hyperfide-native-source-runtime','profile':'linux-'+platform.machine(),'source_format_version':contract['source_format_version'],'protocol_version':contract['protocol_version'],'node_version':subprocess.check_output([str(node),'--version'],text=True).strip(),'source_inputs_sha256':fingerprint,'input_manifest':before,'service_stamp':json.loads((service/'dist/.source-digest.json').read_text()),'files':shipped}
         (stage/'runtime-manifest.json').write_bytes(canonical(manifest))
         target=output/'native-source-runtime.tar.gz'
         with target.open('wb') as raw,gzip.GzipFile(filename='',mode='wb',fileobj=raw,mtime=0,compresslevel=6) as zipped,tarfile.open(fileobj=zipped,mode='w',format=tarfile.GNU_FORMAT) as archive:
@@ -199,7 +226,8 @@ exec "$root/runtime/node" "$root/services/dist/source_control/server.js" "$@"
                 if info.isfile():
                     with path.open('rb') as content:archive.addfile(info,content)
                 else:archive.addfile(info)
-        record={'schema_version':1,'kind':'hyperfide-native-source-package','runtime_manifest_sha256':digest(stage/'runtime-manifest.json'),'artifact':{'roles':['service','host','native','cli','sdk'],'path':target.name,'sha256':digest(target),'size':target.stat().st_size},'source_inputs_sha256':fingerprint}
+        shutil.copyfile(stage/'source-release-manifest.json',output/'source-release-manifest.json')
+        record={'schema_version':1,'kind':'hyperfide-native-source-package','runtime_manifest_sha256':digest(stage/'runtime-manifest.json'),'release_manifest_sha256':digest(stage/'source-release-manifest.json'),'artifact':{'roles':['service','host','native','cli','sdk'],'path':target.name,'sha256':digest(target),'size':target.stat().st_size},'source_inputs_sha256':fingerprint}
         (output/'package-manifest.json').write_bytes(canonical(record));return record
 
 def main():

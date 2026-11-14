@@ -13,6 +13,7 @@ import {
   sourceScopeValues,
 } from "./metadata.js";
 import type { SourceContext, SourceSQL } from "./metadata.js";
+import { SourceRetentionService } from "./retention.js";
 import { reserveSourceOperation } from "./operations.js";
 import { evidenceIds, verifyCandidateEvidence } from "./evidence.js";
 import type {
@@ -81,6 +82,62 @@ export interface CreateCandidateInput extends CandidateMutation {
   dependencies: CandidateDependency[];
   inputs: CandidateInputs;
   transformation_version: string;
+}
+export interface ImportedCandidateRequest {
+  domain_id: string;
+  expected_generation: string;
+  expected_revision_id: string;
+  dependencies: CandidateDependency[];
+  inputs: Omit<CandidateInputs, "source" | "dependency">;
+  transformation_version: string;
+}
+export function parseImportedCandidateRequest(
+  value: unknown,
+): ImportedCandidateRequest {
+  const request = shape(value, [
+    "domain_id",
+    "expected_generation",
+    "expected_revision_id",
+    "dependencies",
+    "inputs",
+    "transformation_version",
+  ]);
+  parseUUID(request.domain_id);
+  positiveGeneration(request.expected_generation as string);
+  parseObjectId(request.expected_revision_id);
+  if (!Array.isArray(request.dependencies) || request.dependencies.length > 256)
+    sourceFailure("INVALID_REQUEST", "Bounded candidate dependencies required");
+  const dependencies = validateCandidateDependencies(request.dependencies);
+  const inputs = shape(request.inputs, [
+    "toolchain",
+    "configuration",
+    "graph",
+    "contract",
+  ]);
+  Object.values(inputs).forEach(parseObjectId);
+  if (
+    typeof request.transformation_version !== "string" ||
+    !request.transformation_version.length ||
+    Buffer.byteLength(request.transformation_version) > 128
+  )
+    sourceFailure(
+      "INVALID_REQUEST",
+      "Explicit bounded transformation version required",
+    );
+  canonicalBytes(request);
+  return {
+    domain_id: request.domain_id as string,
+    expected_generation: request.expected_generation as string,
+    expected_revision_id: request.expected_revision_id as string,
+    dependencies,
+    inputs: {
+      toolchain: inputs.toolchain as string,
+      configuration: inputs.configuration as string,
+      graph: inputs.graph as string,
+      contract: inputs.contract as string,
+    },
+    transformation_version: request.transformation_version,
+  };
 }
 export interface NativeIntegrationDomain {
   schema_version: 1;
@@ -173,25 +230,83 @@ export function nativeCandidateSourceDigest(
 export function nativeCandidateDependencyDigest(
   dependencies: readonly CandidateDependency[],
 ): string {
-  return sourceDigest(dependencies.map(value=>value.execution_dependency??value));
+  return sourceDigest(
+    dependencies.map((value) => value.execution_dependency ?? value),
+  );
 }
-export function validateCandidateDependencies(input: readonly CandidateDependency[]): CandidateDependency[] {
-  const dependencies=input.map(value=>{
-    shape(value, ["revision_id", ...(value.execution_dependency===undefined?[]:["execution_dependency"])]);
+export function validateCandidateDependencies(
+  input: readonly CandidateDependency[],
+): CandidateDependency[] {
+  const dependencies = input.map((value) => {
+    shape(value, [
+      "revision_id",
+      ...(value.execution_dependency === undefined
+        ? []
+        : ["execution_dependency"]),
+    ]);
     parseObjectId(value.revision_id);
-    if(value.execution_dependency===undefined)return {...value};
-    const record=value.execution_dependency;
-    shape(record,["predecessor_run_id","predecessor_task_id","milestone","state","current_custody_id","repository_id","source_object_id","custody_generation","authority","qualification_outcome","source_backend","security_domain_id","qualification_id"]);
-    for(const key of ["predecessor_run_id","predecessor_task_id","current_custody_id","repository_id","security_domain_id"] as const)parseUUID(record[key]);
-    parseObjectId(record.source_object_id);parseObjectId(record.qualification_id);
+    if (value.execution_dependency === undefined) return { ...value };
+    const record = value.execution_dependency;
+    shape(record, [
+      "predecessor_run_id",
+      "predecessor_task_id",
+      "milestone",
+      "state",
+      "current_custody_id",
+      "repository_id",
+      "source_object_id",
+      "custody_generation",
+      "authority",
+      "qualification_outcome",
+      "source_backend",
+      "security_domain_id",
+      "qualification_id",
+    ]);
+    for (const key of [
+      "predecessor_run_id",
+      "predecessor_task_id",
+      "current_custody_id",
+      "repository_id",
+      "security_domain_id",
+    ] as const)
+      parseUUID(record[key]);
+    parseObjectId(record.source_object_id);
+    parseObjectId(record.qualification_id);
     positiveGeneration(record.custody_generation);
-    if(!["QUALIFIED","INTEGRATED"].includes(record.milestone)||!["QUALIFIED","INTEGRATING","INTEGRATED"].includes(record.state)||record.authority!=="ACTIVE"||record.qualification_outcome!=="PASS"||record.source_backend!=="native"||record.source_object_id!==value.revision_id)sourceFailure("INVALID_REQUEST","Exact native execution dependency provenance required");
-    return {...value,execution_dependency:{...record}};
+    if (
+      !["QUALIFIED", "INTEGRATED"].includes(record.milestone) ||
+      !["QUALIFIED", "INTEGRATING", "INTEGRATED"].includes(record.state) ||
+      record.authority !== "ACTIVE" ||
+      record.qualification_outcome !== "PASS" ||
+      record.source_backend !== "native" ||
+      record.source_object_id !== value.revision_id
+    )
+      sourceFailure(
+        "INVALID_REQUEST",
+        "Exact native execution dependency provenance required",
+      );
+    return { ...value, execution_dependency: { ...record } };
   });
-  const full=dependencies.filter(value=>value.execution_dependency!==undefined);
-  if(full.length!==0&&full.length!==dependencies.length)sourceFailure("INVALID_REQUEST","Execution and revision-only dependencies cannot be mixed");
-  const identities=dependencies.map(value=>value.execution_dependency?value.execution_dependency.predecessor_run_id+":"+value.execution_dependency.predecessor_task_id:value.revision_id);
-  if(new Set(identities).size!==identities.length)sourceFailure("INVALID_REQUEST","Candidate dependency identities must be distinct");
+  const full = dependencies.filter(
+    (value) => value.execution_dependency !== undefined,
+  );
+  if (full.length !== 0 && full.length !== dependencies.length)
+    sourceFailure(
+      "INVALID_REQUEST",
+      "Execution and revision-only dependencies cannot be mixed",
+    );
+  const identities = dependencies.map((value) =>
+    value.execution_dependency
+      ? value.execution_dependency.predecessor_run_id +
+        ":" +
+        value.execution_dependency.predecessor_task_id
+      : value.revision_id,
+  );
+  if (new Set(identities).size !== identities.length)
+    sourceFailure(
+      "INVALID_REQUEST",
+      "Candidate dependency identities must be distinct",
+    );
   return dependencies;
 }
 export async function recordSourceEvent(
@@ -208,7 +323,6 @@ export async function recordSourceEvent(
     "INSERT INTO hyperfide.source_events(organisation_id,repository_id,security_domain_id,event_id,aggregate_id,aggregate_generation,event_type,payload) VALUES($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT(organisation_id,repository_id,security_domain_id,aggregate_id,aggregate_generation) DO NOTHING RETURNING event_id",
     [...scope, event, aggregate, generation, type, payload],
   );
-
 }
 export async function commitCandidateOperation(
   tx: SourceSQL,
@@ -625,15 +739,59 @@ export class SourceCandidateService {
             context,
             dependency.revision_id,
           );
-          if(dependency.execution_dependency){
-            const expected=dependency.execution_dependency;
-            if(expected.repository_id!==context.scope.repository_id||expected.security_domain_id!==context.scope.security_domain_id)sourceFailure("SCOPE_DENIED","Native execution dependency belongs to another source scope");
-            const {readNativeTaskQualification}=await import("../assurance/fleet_native.js");
-            const current=await readNativeTaskQualification(tx,{organisation_id:context.scope.organisation_id,run_id:expected.predecessor_run_id},expected.predecessor_task_id,expected.repository_id);
-            if(current.revision_id!==expected.source_object_id||current.custody_id!==expected.current_custody_id||current.custody_generation!==expected.custody_generation||current.qualification_id!==expected.qualification_id)sourceFailure("CANDIDATE_DEPENDENCY_STALE","Native dependency custody or qualification differs from the execution packet");
-            const task=(await tx.query('SELECT state FROM hyperfide.tasks WHERE organisation_id=$1 AND run_id=$2 AND id=$3 FOR SHARE',[context.scope.organisation_id,expected.predecessor_run_id,expected.predecessor_task_id])).rows[0];
-            const progress=["QUALIFIED","INTEGRATING","INTEGRATED"];
-            if(!task||progress.indexOf(String(task.state))<progress.indexOf(expected.state)||expected.milestone==="INTEGRATED"&&task.state!=="INTEGRATED")sourceFailure("CANDIDATE_DEPENDENCY_STALE","Native dependency has not reached its declared milestone");
+          if (dependency.execution_dependency) {
+            const expected = dependency.execution_dependency;
+            if (
+              expected.repository_id !== context.scope.repository_id ||
+              expected.security_domain_id !== context.scope.security_domain_id
+            )
+              sourceFailure(
+                "SCOPE_DENIED",
+                "Native execution dependency belongs to another source scope",
+              );
+            const { readNativeTaskQualification } =
+              await import("../assurance/fleet_native.js");
+            const current = await readNativeTaskQualification(
+              tx,
+              {
+                organisation_id: context.scope.organisation_id,
+                run_id: expected.predecessor_run_id,
+              },
+              expected.predecessor_task_id,
+              expected.repository_id,
+            );
+            if (
+              current.revision_id !== expected.source_object_id ||
+              current.custody_id !== expected.current_custody_id ||
+              current.custody_generation !== expected.custody_generation ||
+              current.qualification_id !== expected.qualification_id
+            )
+              sourceFailure(
+                "CANDIDATE_DEPENDENCY_STALE",
+                "Native dependency custody or qualification differs from the execution packet",
+              );
+            const task = (
+              await tx.query(
+                "SELECT state FROM hyperfide.tasks WHERE organisation_id=$1 AND run_id=$2 AND id=$3 FOR SHARE",
+                [
+                  context.scope.organisation_id,
+                  expected.predecessor_run_id,
+                  expected.predecessor_task_id,
+                ],
+              )
+            ).rows[0];
+            const progress = ["QUALIFIED", "INTEGRATING", "INTEGRATED"];
+            if (
+              !task ||
+              progress.indexOf(String(task.state)) <
+                progress.indexOf(expected.state) ||
+              (expected.milestone === "INTEGRATED" &&
+                task.state !== "INTEGRATED")
+            )
+              sourceFailure(
+                "CANDIDATE_DEPENDENCY_STALE",
+                "Native dependency has not reached its declared milestone",
+              );
           }
         }
         if (
@@ -672,12 +830,17 @@ export class SourceCandidateService {
           ...body,
           manifest_digest: sourceDigest(body),
         };
-        await this.metadata.protectRoot(
-          tx,
-          context.scope,
-          revision.root_tree_id,
-          "candidate:" + input.candidate_id,
-        );
+        await SourceRetentionService.acquire(tx, context.scope, {
+          root_id: SourceRetentionService.producerRootId(
+            context.scope,
+            "CANDIDATE",
+            input.candidate_id,
+            revision.root_tree_id,
+          ),
+          owner_kind: "CANDIDATE",
+          owner_id: input.candidate_id,
+          object_id: revision.root_tree_id,
+        });
         await tx.query(
           "INSERT INTO hyperfide.source_native_candidates(organisation_id,repository_id,security_domain_id,candidate_id,domain_id,revision_id,root_tree_id,manifest_digest,manifest) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) ON CONFLICT DO NOTHING",
           [
@@ -711,6 +874,49 @@ export class SourceCandidateService {
         return retained;
       },
     );
+  }
+  async createImported(
+    context: SourceContext,
+    input: ImportedCandidateRequest &
+      CandidateMutation & {
+        candidate_id: string;
+        revision_id: string;
+        change_id: string;
+        custody_id: string;
+      },
+  ): Promise<NativeCandidateRecord> {
+    const revision = await this.metadata.readRevision(
+      context,
+      input.revision_id,
+    );
+    return this.create(context, {
+      operation_id: input.operation_id,
+      idempotency_key: input.idempotency_key,
+      candidate_id: input.candidate_id,
+      domain_id: input.domain_id,
+      expected_generation: input.expected_generation,
+      expected_revision_id: input.expected_revision_id,
+      revision_id: input.revision_id,
+      dependencies: input.dependencies,
+      transformation_version: input.transformation_version,
+      contributors: [
+        {
+          revision_id: input.revision_id,
+          change_id: input.change_id,
+          custody_id: input.custody_id,
+          custody_generation: "1",
+        },
+      ],
+      inputs: {
+        ...input.inputs,
+        source: nativeCandidateSourceDigest(
+          context.scope,
+          revision.revision_id,
+          revision.root_tree_id,
+        ),
+        dependency: nativeCandidateDependencyDigest(input.dependencies),
+      },
+    });
   }
   async read(
     context: SourceContext,

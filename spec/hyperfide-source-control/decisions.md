@@ -4,32 +4,32 @@ Status: product design, not implementation evidence. Requirements and task statu
 
 ## Fixed product constraints
 
-| ID | Constraint | Consequence |
-|---|---|---|
-| D01 | Always-online clients and server-authoritative source | No offline claim/commit authority and no mandatory clone. |
-| D02 | Native subsystem inside Hyperfide | Existing task and qualification authority is reused through explicit contracts. |
-| D03 | Server/client asymmetry | History, ancestry, blame, commit construction, merge and rebase execute server-side. |
-| D04 | Complete programmatic access | Metadata and source operations do not require a working copy. |
-| D05 | One growing monorepo containing multiple very large projects | Horizontal scaling must operate within a repository and project. |
-| D06 | S3-backed immutable source objects | Native storage is content-addressed with no Git pack/repack lifecycle. |
-| D07 | Optional sparse, virtual and materialized source access | No infrastructure requires a full checkout; explicit client full materialization is supported. |
-| D08 | Incremental revision creation without repository-wide locks | Independent revisions do not move a global ref. Shared acceptance has a separately specified ordering point. |
-| D09 | Remote-only Git compatibility | GitHub/GitLab import/export adapters may stream transient Git packs; native clients need no Git installation. |
-| D10 | Exact-source qualification and distinct lifecycle states | Saved, submitted, qualified, accepted and remotely published have different receipts. |
-| D11 | Stable provenance across consolidation | Original repository and Git identities remain mapped and queryable after monorepo ingestion. |
+| ID  | Constraint                                                   | Consequence                                                                                                   |
+| --- | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------- |
+| D01 | Always-online clients and server-authoritative source        | No offline claim/commit authority and no mandatory clone.                                                     |
+| D02 | Native subsystem inside Hyperfide                            | Existing task and qualification authority is reused through explicit contracts.                               |
+| D03 | Server/client asymmetry                                      | History, ancestry, blame, commit construction, merge and rebase execute server-side.                          |
+| D04 | Complete programmatic access                                 | Metadata and source operations do not require a working copy.                                                 |
+| D05 | One growing monorepo containing multiple very large projects | Horizontal scaling must operate within a repository and project.                                              |
+| D06 | S3-backed immutable source objects                           | Native storage is content-addressed with no Git pack/repack lifecycle.                                        |
+| D07 | Optional sparse, virtual and materialized source access      | No infrastructure requires a full checkout; explicit client full materialization is supported.                |
+| D08 | Incremental revision creation without repository-wide locks  | Independent revisions do not move a global ref. Shared acceptance has a separately specified ordering point.  |
+| D09 | Remote-only Git compatibility                                | GitHub/GitLab import/export adapters may stream transient Git packs; native clients need no Git installation. |
+| D10 | Exact-source qualification and distinct lifecycle states     | Saved, submitted, qualified, accepted and remotely published have different receipts.                         |
+| D11 | Stable provenance across consolidation                       | Original repository and Git identities remain mapped and queryable after monorepo ingestion.                  |
 
 ## Proposed implementation choices
 
-| ID | Proposal | Evidence needed before treating it as settled |
-|---|---|---|
-| P01 | TypeScript source service and host integration using existing product seams; C CLI as façade | Profiling of object processing, API throughput, host filesystem behavior and cancellation. A new low-level runtime is not assumed. |
-| P02 | PostgreSQL initial metadata authority with routed partitions | Within-repository partition splits, failure fencing, hot-key limits, and measured single-trunk ordering throughput. |
-| P03 | Versioned SHA-256 type-tagged canonical object IDs and bounded radix trees | Cross-implementation canonical vectors, huge-directory behavior, path compatibility, hash agility and migration. |
-| P04 | Native path names use exact validated UTF-8 bytes | Explicit rejection or reversible conversion for Git histories with non-UTF-8 names; collisions cannot be silently normalized. |
-| P05 | Authorization-domain-scoped deduplication and shared host caches | Cross-domain probing, cache revocation, object-grant expiry, and isolation checks. |
-| P06 | Qualification targets in verification.md | Recorded workload dimensions, real backend runs, cost/latency evidence and live fleet journeys. No provider quota or entitlement is implied. |
-| P07 | Single accepted trunk per repository for initial rollout, optional named channels | Bounded acceptance transaction and contention results; no promise of unlimited throughput through one ordered trunk. |
-| P08 | Per-task Git export grouped by the existing wave publication policy | Exact projection/parent mapping and native/publication separation, including tasks that cross project export boundaries. |
+| ID  | Proposal                                                                                     | Evidence needed before treating it as settled                                                                                                |
+| --- | -------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| P01 | TypeScript source service and host integration using existing product seams; C CLI as façade | Profiling of object processing, API throughput, host filesystem behavior and cancellation. A new low-level runtime is not assumed.           |
+| P02 | PostgreSQL initial metadata authority with routed partitions                                 | Within-repository partition splits, failure fencing, hot-key limits, and measured single-trunk ordering throughput.                          |
+| P03 | Versioned SHA-256 type-tagged canonical object IDs and bounded radix trees                   | Cross-implementation canonical vectors, huge-directory behavior, path compatibility, hash agility and migration.                             |
+| P04 | Native path names use exact validated UTF-8 bytes                                            | Explicit rejection or reversible conversion for Git histories with non-UTF-8 names; collisions cannot be silently normalized.                |
+| P05 | Authorization-domain-scoped deduplication and shared host caches                             | Cross-domain probing, cache revocation, object-grant expiry, and isolation checks.                                                           |
+| P06 | Qualification targets in verification.md                                                     | Recorded workload dimensions, real backend runs, cost/latency evidence and live fleet journeys. No provider quota or entitlement is implied. |
+| P07 | Single accepted trunk per repository for initial rollout, optional named channels            | Bounded acceptance transaction and contention results; no promise of unlimited throughput through one ordered trunk.                         |
+| P08 | Per-task Git export grouped by the existing wave publication policy                          | Exact projection/parent mapping and native/publication separation, including tasks that cross project export boundaries.                     |
 
 ## Decisions required during implementation
 
@@ -41,14 +41,14 @@ The first campaign freezes its workload and service objectives before measuremen
 
 ## Relationship to earlier specifications
 
-| Earlier contract | New contract for migrated native-source repositories |
-|---|---|
-| hyperfide req4: Git owns source objects | Native S3 objects and revision metadata own source; Git becomes a projection. |
-| hyperfide-v21 req6 / D7: Git object model default and offline local snapshot store | Versioned native objects are authoritative online; existing snapshots are imported or remain explicitly legacy. |
-| hyperfide-v22 req6: result Git branches and merge collection | Native revisions, custody and accepted-source receipts drive result collection. |
-| hyperfide-v22 req8: initial slice provider with Git publication | Native workspace adapter consumes server snapshots, retaining remote export through a separate adapter. |
-| workflow hierarchy: full manager worktrees and branch-based roles | Source scopes and integration APIs replace mandatory full manager checkouts after explicit workflow migration. Role authority remains with Hyperfide. |
-| workflow local-first graph/source assumptions | Online source is mandatory in native mode; local non-authoritative caches and legacy modes remain explicitly identified. |
+| Earlier contract                                                                   | New contract for migrated native-source repositories                                                                                                  |
+| ---------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| hyperfide req4: Git owns source objects                                            | Native S3 objects and revision metadata own source; Git becomes a projection.                                                                         |
+| hyperfide-v21 req6 / D7: Git object model default and offline local snapshot store | Versioned native objects are authoritative online; existing snapshots are imported or remain explicitly legacy.                                       |
+| hyperfide-v22 req6: result Git branches and merge collection                       | Native revisions, custody and accepted-source receipts drive result collection.                                                                       |
+| hyperfide-v22 req8: initial slice provider with Git publication                    | Native workspace adapter consumes server snapshots, retaining remote export through a separate adapter.                                               |
+| workflow hierarchy: full manager worktrees and branch-based roles                  | Source scopes and integration APIs replace mandatory full manager checkouts after explicit workflow migration. Role authority remains with Hyperfide. |
+| workflow local-first graph/source assumptions                                      | Online source is mandatory in native mode; local non-authoritative caches and legacy modes remain explicitly identified.                              |
 
 These replacements are scoped to this feature's migration. Historical specifications retain their original contracts and statuses. The owning workflow now selects this feature for layout implementation; that selection does not claim earlier tasks failed their original contracts or release later fleet/native prerequisite gates.
 
@@ -85,6 +85,12 @@ D24: native fleet runs bind an explicit repository/security-domain baseline. Act
 D25: native worker capabilities permit bounded upload, assigned workspace checkpoints and submission receipts, without arbitrary source revision creation or repository reads. Submission retains the exact checkpoint in coordinator custody atomically with compute release. Hyperfide task qualification checks accepted proof obligations and current native evidence independently of source acceptance; dependent tasks revalidate that qualification.
 
 D26: source selection advances through immutable accepted-descendant receipts and a per-run/repository generation check. The initial run binding and existing attempt baselines remain immutable. New task proof policies pin the selected revision before dispatch; existing policies require an explicit specification-generation change to alter their baseline.
+
+D27: `parseSourcePage` accepts only items, next_cursor, coverage, snapshot and optional index_generation/index_complete fields. Items are a dense canonical array bounded by the advertised 256-item limit; callers can supply an item decoder for their result type. The snapshot is a native object ID, index_generation is a canonical unsigned 64-bit decimal string and index_complete is boolean. Coverage is COMPLETE, PARTIAL, REDACTED or INDEX_PENDING. PARTIAL requires a continuation; COMPLETE requires a null continuation. REDACTED and INDEX_PENDING may have no continuation because missing visibility or unfinished indexing cannot promise further authorized results. A non-null cursor is opaque printable ASCII without whitespace, between 1 and 65,536 bytes inclusive, matching the server cursor transport bound. Clients preserve its bytes; signature, query/scope/authority binding, expiry and retained-position validation remain server responsibilities in `SourceCursorCodec`.
+
+D28: replay of the same operation_id or action/idempotency key with a different request_digest must be refused by the server with IDEMPOTENCY_CONFLICT and retry NEVER. `reserveSourceOperation` and `replaySourceOperation` in `core/control-plane/src/source_control/operations.ts` compare the persisted action, idempotency key and request digest within the authenticated principal and source scope. Request digests bind the canonical action/input according to the admitting operation path. The wire codec is stateless: it validates both well-formed envelopes independently and cannot determine an earlier admission or authorize replay. The 0_1 contract case proves distinct payload digests and lossless conflict envelopes and asserts this documented server rule; it does not claim a durable replay execution gate.
+
+D29: contract qualification compares SHA-256 digests of the authoritative SDK and synchronized server source before reporting codec compatibility. Golden vectors freeze safe integer limits, full unsigned 64-bit generation strings, JSON control escapes and non-BMP UTF-8 key ordering without Unicode normalization. The driver resolves HYPERFIDE_NODE when configured, otherwise node on PATH, and names HYPERFIDE_NODE in CAPABILITY_MISSING when resolution fails (gotcha 3308, decision 2707). Its private receipt records the selected executable and resolution source. This contract gate does not close the carried task 0.14 live fleet prerequisite.
 
 ## Required remote destination
 

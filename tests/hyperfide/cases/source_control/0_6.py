@@ -20,8 +20,8 @@ MAPPING = ROOT / 'spec/hyperfide-source-control/repository-layout.json'
 TOOLCHAIN = ROOT / 'tests/hyperfide/support/layout_toolchain.py'
 sys.path.insert(0, str(TOOLCHAIN.parent))
 from layout_toolchain import node_tool, pnpm_tool
-NODE = node_tool((ROOT / '.nvmrc').read_text().strip(), 'HYPERFIDE_LAYOUT_NODE22')
-PNPM = pnpm_tool(ROOT, NODE)
+NODE = None
+PNPM = None
 HELPER = ROOT / 'tests/hyperfide/cases/source_control/fixtures/layout_sdk_consumer.mts'
 TEST = re.compile(r'\.(?:test|spec)\.[cm]?[jt]sx?$')
 GENERATED = ['lib/templates/src/generated/templates.generated.ts', 'lib/templates/src/generated/plugin-starter-files.generated.ts', 'tools/plugin-build/src/generated/plugin-theme.generated.ts', 'tools/plugin-build/src/generated/runtime-export-manifest.generated.ts']
@@ -209,6 +209,9 @@ def cache():
 
 
 def main():
+    global NODE, PNPM
+    NODE = node_tool((ROOT / '.nvmrc').read_text().strip(), 'HYPERFIDE_LAYOUT_NODE22')
+    PNPM = pnpm_tool(ROOT, NODE)
     OUT.mkdir(parents=True, exist_ok=True)
     if '--inventory' in sys.argv:
         return inventory(sys.argv[sys.argv.index('--inventory') + 1])
@@ -259,8 +262,6 @@ def main():
 
 
 if __name__ == '__main__':
-    try:
-        sys.exit(main() or 0)
-    except Exception as error:
-        print(str(error), file=sys.stderr)
-        sys.exit(1)
+    contract = module(Path(__file__).with_name('0_9.py'), 'layout_driver_runner')
+    sys.exit(main() if '--inventory' in sys.argv or '--cache' in sys.argv
+             else contract.run_driver('0.6', main))

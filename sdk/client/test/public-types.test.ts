@@ -367,6 +367,7 @@ type ExpectedProvidersKey = "catalog" | "list" | "models" | "setEnabled";
 type ExpectedStatusKey = "get";
 
 type ExpectedSystemKey =
+  | "installStatus"
   | "acknowledgeAppUpdate"
   | "mobileAppDownloads"
   | "mobileAppReleases"
@@ -500,7 +501,9 @@ describe("SDK public type entrypoints", () => {
   });
 
   it("preserves the complete SDK surface at every entrypoint", () => {
-    expectTypeOf<keyof RootHyperfideSdk>().toEqualTypeOf<ExpectedHyperfideSdkKey>();
+    expectTypeOf<
+      keyof RootHyperfideSdk
+    >().toEqualTypeOf<ExpectedHyperfideSdkKey>();
     expectTypeOf<BrowserHyperfideSdk>().toEqualTypeOf<RootHyperfideSdk>();
     expectTypeOf<CoreHyperfideSdk>().toEqualTypeOf<RootHyperfideSdk>();
     expectTypeOf<NodeHyperfideSdk>().toEqualTypeOf<RootHyperfideSdk>();
@@ -568,13 +571,21 @@ describe("SDK public type entrypoints", () => {
   });
 
   it("snapshots every SDK area and nested method group", () => {
-    expectTypeOf<keyof RootHyperfideRealtime>().toEqualTypeOf<ExpectedRealtimeKey>();
+    expectTypeOf<
+      keyof RootHyperfideRealtime
+    >().toEqualTypeOf<ExpectedRealtimeKey>();
     expectTypeOf<
       keyof RootHyperfideSdk["environments"]
     >().toEqualTypeOf<ExpectedEnvironmentsKey>();
-    expectTypeOf<keyof RootHyperfideSdk["files"]>().toEqualTypeOf<ExpectedFilesKey>();
-    expectTypeOf<keyof RootHyperfideSdk["guide"]>().toEqualTypeOf<ExpectedGuideKey>();
-    expectTypeOf<keyof RootHyperfideSdk["hosts"]>().toEqualTypeOf<ExpectedHostsKey>();
+    expectTypeOf<
+      keyof RootHyperfideSdk["files"]
+    >().toEqualTypeOf<ExpectedFilesKey>();
+    expectTypeOf<
+      keyof RootHyperfideSdk["guide"]
+    >().toEqualTypeOf<ExpectedGuideKey>();
+    expectTypeOf<
+      keyof RootHyperfideSdk["hosts"]
+    >().toEqualTypeOf<ExpectedHostsKey>();
     expectTypeOf<
       keyof RootHyperfideSdk["plugins"]
     >().toEqualTypeOf<ExpectedPluginsKey>();
@@ -614,7 +625,9 @@ describe("SDK public type entrypoints", () => {
     expectTypeOf<
       keyof RootHyperfideSdk["terminals"]
     >().toEqualTypeOf<ExpectedTerminalsKey>();
-    expectTypeOf<keyof RootHyperfideSdk["theme"]>().toEqualTypeOf<ExpectedThemeKey>();
+    expectTypeOf<
+      keyof RootHyperfideSdk["theme"]
+    >().toEqualTypeOf<ExpectedThemeKey>();
     expectTypeOf<
       keyof RootHyperfideSdk["threadSections"]
     >().toEqualTypeOf<ExpectedThreadSectionsKey>();

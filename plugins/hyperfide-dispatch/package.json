@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@hyperfide/plugin-sdk": "workspace:*",
+    "@hyperfide/source-control": "workspace:*",
     "zod": "^4.3.6",
     "@hyperfide/authority": "workspace:*"
   },

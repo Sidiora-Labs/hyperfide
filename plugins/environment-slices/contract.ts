@@ -24,6 +24,47 @@ export const detailSchema = z.object({
   snapshotChain: z.array(z.string()),
   fallbackReason: z.string().nullable(),
 });
+const nativeRevision = z.string().regex(/^sha256:[a-f0-9]{64}$/);
+const nativeGeneration = z.string().regex(/^[1-9][0-9]*$/);
+const nativeScope = z.object({
+  organisation_id: z.string().uuid(),
+  repository_id: z.string().uuid(),
+  security_domain_id: z.string().uuid(),
+});
+export const nativeCheckpointAcknowledgmentSchema = z.object({
+  operationId: z.string().uuid(),
+  workspaceId: z.string().uuid(),
+  workspaceGeneration: nativeGeneration,
+  scopeGeneration: nativeGeneration,
+  overlayGeneration: nativeGeneration,
+  baseRevisionId: nativeRevision,
+  result: z.object({
+    revision_id: nativeRevision,
+    workspace: z
+      .object({
+        workspace_id: z.string().uuid(),
+        workspace_generation: nativeGeneration,
+        scope_generation: nativeGeneration,
+        authority_epoch: nativeGeneration,
+        scope: nativeScope,
+        base_revision_id: nativeRevision,
+        checkpoint_revision_id: nativeRevision,
+      })
+      .passthrough(),
+    receipt: z
+      .object({
+        schema_version: z.literal(1),
+        operation_id: z.string().uuid(),
+        workspace_generation: nativeGeneration,
+        overlay_generation: nativeGeneration,
+        scope: nativeScope,
+      })
+      .passthrough(),
+  }),
+});
+export const nativeCheckpointDetailSchema = detailSchema.extend({
+  checkpoint: nativeCheckpointAcknowledgmentSchema.nullable(),
+});
 export const nativeProviderId = NATIVE_SOURCE_ENVIRONMENT_ID;
 export const nativeSliceInputs = z.object({
   sourceConfigFile: z.string().startsWith("/"),
@@ -72,6 +113,8 @@ export const nativeMetricsSchema = z.object({
       metadataRequests: measurement,
       contentHydrations: measurement,
       hydratedBytes: measurement,
+      rangeReads: measurement,
+      rangeFetchedBytes: measurement,
       requests: measurement,
     })
     .nullable(),
@@ -90,7 +133,7 @@ export const slicesHostContract = defineRpcContract({
     input: nativeSliceInputs.extend({ thread: z.string() }),
     output: z.object({ sliceId: z.string(), path: z.string() }),
   },
-  finishNative: { input: id, output: detailSchema },
+  finishNative: { input: id, output: nativeCheckpointDetailSchema },
   metricsNative: { input: id, output: nativeMetricsSchema },
   detachNative: { input: id, output: detailSchema },
   detailNative: { input: id, output: detailSchema },
@@ -108,7 +151,10 @@ export const slicesRpcContract = defineRpcContract({
     output: z.object({ sliceId: z.string(), path: z.string() }),
   },
   nativeMetrics: { input: nativeReference, output: nativeMetricsSchema },
-  nativeCheckpoint: { input: nativeReference, output: detailSchema },
+  nativeCheckpoint: {
+    input: nativeReference,
+    output: nativeCheckpointDetailSchema,
+  },
   nativeDetach: { input: nativeReference, output: detailSchema },
 
   nativeCapabilities: {

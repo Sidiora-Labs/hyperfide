@@ -7,6 +7,9 @@ import {
   sourceBindingSchema,
   sourceContract,
   sourceHostContract,
+  sourceHostCheckpointMatches,
+  sourceCheckpointReceiptMatches,
+  type SourceCheckpointAcknowledgment,
   type SourceActionInput,
 } from "./contract.js";
 import { executeSourceAction, loadSourceClient } from "./runtime.js";
@@ -95,6 +98,67 @@ export default async function sourcePlugin(api: HyperfidePluginApi) {
   };
   const mountKey = (projectId: string, workspaceId: string) =>
     `source-mount:${projectId}:${workspaceId}`;
+  const checkpointKey = (projectId: string, workspaceId: string) =>
+    `source-checkpoint:${projectId}:${workspaceId}`;
+  type RetainedCheckpoint = {
+    projectId: string;
+    checkpoint: SourceCheckpointAcknowledgment;
+  };
+  const validateCheckpoint = async (
+    connection: Awaited<ReturnType<typeof loadSourceClient>>,
+    workspaceId: string,
+    checkpoint: unknown,
+    workspace?: unknown,
+  ) => {
+    const options = connection.authority
+      ? { authority: connection.authority }
+      : {};
+    const current =
+      workspace ??
+      (
+        await connection.client.call<{ workspace: unknown }>(
+          "source.workspaces.detail",
+          { workspace_id: workspaceId },
+          options,
+        )
+      ).workspace;
+    if (
+      !sourceHostCheckpointMatches(checkpoint, current) ||
+      checkpoint.workspaceId !== workspaceId
+    )
+      throw new Error(
+        "Checkpoint acknowledgment does not match the authoritative workspace",
+      );
+    const original = await connection.client.call<{
+      state: string;
+      result?: unknown;
+    }>(
+      "source.operations.read",
+      { operation_id: checkpoint.operationId },
+      options,
+    );
+    if (
+      !["SUCCEEDED", "COMMITTED"].includes(original.state) ||
+      !sourceHostCheckpointMatches(
+        { ...checkpoint, result: original.result },
+        current,
+      )
+    )
+      throw new Error(
+        "Checkpoint operation has no matching acknowledged result",
+      );
+    const result = original.result as SourceCheckpointAcknowledgment["result"];
+    if (
+      result.revision_id !== checkpoint.result.revision_id ||
+      result.receipt.operation_id !== checkpoint.result.receipt.operation_id ||
+      result.receipt.overlay_generation !==
+        checkpoint.result.receipt.overlay_generation
+    )
+      throw new Error(
+        "Checkpoint operation identity differs from retained evidence",
+      );
+    return checkpoint;
+  };
   const metrics = new SourceMetrics();
   api.rpc.register(sourceContract, {
     hostCapabilities: async ({ projectId }) => {
@@ -191,11 +255,25 @@ export default async function sourcePlugin(api: HyperfidePluginApi) {
         { workspace_id: workspaceId },
         connection.authority ? { authority: connection.authority } : {},
       );
-      return nativeRpc(
+      const result = await nativeRpc(
         "nativeCheckpoint",
         { projectId, workspaceId },
         sourceHostContract.checkpoint.output,
       );
+      if (result.sliceId !== mount.sliceId)
+        throw new Error("Checkpoint belongs to another host attachment");
+      if (result.checkpoint) {
+        const checkpoint = await validateCheckpoint(
+          connection,
+          workspaceId,
+          result.checkpoint,
+        );
+        await api.storage.kv.set(checkpointKey(projectId, workspaceId), {
+          projectId,
+          checkpoint,
+        });
+      }
+      return result;
     },
 
     projects: async () => {
@@ -262,6 +340,57 @@ export default async function sourcePlugin(api: HyperfidePluginApi) {
           request.operationId,
           request.action,
         );
+        if (
+          result.ok &&
+          request.action.kind === "checkpoint" &&
+          sourceCheckpointReceiptMatches(
+            request.operationId,
+            request.action,
+            result.result,
+          )
+        ) {
+          const checkpoint = await validateCheckpoint(
+            connection,
+            request.action.workspaceId,
+            {
+              operationId: request.operationId,
+              workspaceId: request.action.workspaceId,
+              workspaceGeneration: request.action.workspaceGeneration,
+              scopeGeneration: request.action.scopeGeneration,
+              overlayGeneration: request.action.overlayGeneration,
+              baseRevisionId: request.action.baseRevisionId,
+              result: result.result,
+            },
+          );
+          await api.storage.kv.set(
+            checkpointKey(request.projectId, checkpoint.workspaceId),
+            {
+              projectId: request.projectId,
+              checkpoint,
+            },
+          );
+        }
+        if (result.ok && request.action.kind === "workspace") {
+          const retained = await api.storage.kv.get<RetainedCheckpoint>(
+            checkpointKey(request.projectId, request.action.workspaceId),
+          );
+          if (retained) {
+            if (retained.projectId !== request.projectId)
+              throw new Error("Checkpoint belongs to another project");
+            const workspace = (result.result as { workspace: unknown })
+              .workspace;
+            const checkpoint = await validateCheckpoint(
+              connection,
+              request.action.workspaceId,
+              retained.checkpoint,
+              workspace,
+            );
+            result.result = {
+              ...(result.result as object),
+              checkpointEvidence: { projectId: request.projectId, checkpoint },
+            };
+          }
+        }
         metrics.record(
           action,
           result.ok

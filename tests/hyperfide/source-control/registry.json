@@ -36,19 +36,10 @@
         "owned PostgreSQL runtime and isolated SigV4 HTTP fixture; no live-S3 claim"
       ],
       "tier": "component",
-      "tasks": [
-        "0.1",
-        "1.1"
-      ],
-      "reqs": [
-        "2.1",
-        "2.2",
-        "2.3",
-        "2.4",
-        "4.2",
-        "12.1"
-      ],
-      "oracle": "Canonical tree reconstruction and explicit rejection of noncanonical or escaping entries."
+      "tasks": ["0.1", "1.1"],
+      "reqs": ["2.1", "2.2", "2.3", "2.4", "4.2", "12.1"],
+      "oracle": "Canonical tree reconstruction and explicit rejection of noncanonical or escaping entries.",
+      "live_campaign_result_ref": "${HF_OUT_DIR}/source-control/22.37.31/latest.json#registry/cases.SCM-001"
     },
     "SCM-002": {
       "title": "S3 uploads and durable revision boundaries",
@@ -82,17 +73,17 @@
         "actual local Git receive-pack and source authority recovery; no failure-domain-loss claim"
       ],
       "tier": "backend",
-      "tasks": [
-        "1.1",
-        "1.2"
-      ],
-      "reqs": [
-        "3.1",
-        "3.2",
-        "4.5",
-        "12.1"
-      ],
-      "oracle": "Every acknowledged revision reconstructs from verified durable objects after each supported interrupted write."
+      "tasks": ["1.1", "1.2"],
+      "reqs": ["3.1", "3.2", "4.5", "12.1"],
+      "oracle": "Every acknowledged revision reconstructs from verified durable objects after each supported interrupted write.",
+      "live_campaign_result_ref": "${HF_OUT_DIR}/source-control/22.37.31/latest.json#registry/cases.SCM-002",
+      "live_campaign_store_variables": [
+        "S3_ENDPOINT",
+        "S3_ACCESS_KEY_ID",
+        "S3_SECRET_ACCESS_KEY",
+        "S3_REGION",
+        "S3_BUCKET"
+      ]
     },
     "SCM-003": {
       "title": "Idempotent native operations and divergence",
@@ -124,18 +115,10 @@
         "owned PostgreSQL runtime and isolated SigV4 HTTP fixture; no live-S3 claim"
       ],
       "tier": "component",
-      "tasks": [
-        "1.2",
-        "2.1"
-      ],
-      "reqs": [
-        "4.1",
-        "4.4",
-        "4.5",
-        "5.3",
-        "12.1"
-      ],
-      "oracle": "Request ledgers and immutable histories show one result per identical operation and explicit divergent revisions."
+      "tasks": ["1.2", "2.1"],
+      "reqs": ["4.1", "4.4", "4.5", "5.3", "12.1"],
+      "oracle": "Request ledgers and immutable histories show one result per identical operation and explicit divergent revisions.",
+      "live_campaign_result_ref": "${HF_OUT_DIR}/source-control/22.37.31/latest.json#registry/cases.SCM-003"
     },
     "SCM-004": {
       "title": "Attempt fencing and online authority",
@@ -224,19 +207,10 @@
         "explicit scoped capabilities and current source authority; no live-provider claim"
       ],
       "tier": "integration",
-      "tasks": [
-        "1.3",
-        "4.2"
-      ],
-      "reqs": [
-        "1.1",
-        "8.2",
-        "11.1",
-        "11.3",
-        "11.6",
-        "12.1"
-      ],
-      "oracle": "Obsolete/disconnected attempts cannot mutate or accept source under stale authority."
+      "tasks": ["1.3", "4.2"],
+      "reqs": ["1.1", "8.2", "11.1", "11.3", "11.6", "12.1"],
+      "oracle": "Obsolete/disconnected attempts cannot mutate or accept source under stale authority.",
+      "live_campaign_result_ref": "${HF_OUT_DIR}/source-control/22.37.31/latest.json#registry/cases.SCM-004"
     },
     "SCM-005": {
       "title": "Retention and garbage-collection races",
@@ -266,17 +240,17 @@
         "actual local Git receive-pack and source authority recovery; no failure-domain-loss claim"
       ],
       "tier": "backend",
-      "tasks": [
-        "2.3"
-      ],
-      "reqs": [
-        "3.4",
-        "3.5",
-        "11.6",
-        "12.1",
-        "12.7"
-      ],
-      "oracle": "Independent reachability and object retrieval prove no rooted content is swept during concurrent writes or pinning."
+      "tasks": ["2.3"],
+      "reqs": ["3.4", "3.5", "11.6", "12.1", "12.7"],
+      "oracle": "Independent reachability and object retrieval prove no rooted content is swept during concurrent writes or pinning.",
+      "live_campaign_result_ref": "${HF_OUT_DIR}/source-control/22.37.31/latest.json#registry/cases.SCM-005",
+      "live_campaign_store_variables": [
+        "S3_ENDPOINT",
+        "S3_ACCESS_KEY_ID",
+        "S3_SECRET_ACCESS_KEY",
+        "S3_REGION",
+        "S3_BUCKET"
+      ]
     },
     "SCM-006": {
       "title": "API-only history queries and pinned pagination",
@@ -307,19 +281,10 @@
         "owned PostgreSQL runtime and isolated SigV4 HTTP fixture; no live-S3 claim"
       ],
       "tier": "component",
-      "tasks": [
-        "2.1"
-      ],
-      "reqs": [
-        "1.2",
-        "5.1",
-        "5.2",
-        "5.5",
-        "5.6",
-        "12.1",
-        "13.1"
-      ],
-      "oracle": "Results match immutable reference trees/history without client checkout or substituted index coverage."
+      "tasks": ["2.1"],
+      "reqs": ["1.2", "5.1", "5.2", "5.5", "5.6", "12.1", "13.1"],
+      "oracle": "Results match immutable reference trees/history without client checkout or substituted index coverage.",
+      "live_campaign_result_ref": "${HF_OUT_DIR}/source-control/22.37.31/latest.json#registry/cases.SCM-006"
     },
     "SCM-007": {
       "title": "Committed event replay and resynchronization",
@@ -352,17 +317,10 @@
         "owned PostgreSQL runtime and isolated SigV4 HTTP fixture; no live-S3 claim"
       ],
       "tier": "component",
-      "tasks": [
-        "1.2",
-        "2.1"
-      ],
-      "reqs": [
-        "5.4",
-        "5.5",
-        "5.6",
-        "12.1"
-      ],
-      "oracle": "Client state converges to every committed effect despite delayed commits and cursor retention gaps."
+      "tasks": ["1.2", "2.1"],
+      "reqs": ["5.4", "5.5", "5.6", "12.1"],
+      "oracle": "Client state converges to every committed effect despite delayed commits and cursor retention gaps.",
+      "live_campaign_result_ref": "${HF_OUT_DIR}/source-control/22.37.31/latest.json#registry/cases.SCM-007"
     },
     "SCM-008": {
       "title": "Server merge rebase and revert",
@@ -388,17 +346,10 @@
         "owned PostgreSQL runtime and isolated SigV4 HTTP fixture; no live-S3 claim"
       ],
       "tier": "component",
-      "tasks": [
-        "3.1"
-      ],
-      "reqs": [
-        "4.3",
-        "4.4",
-        "4.6",
-        "7.4",
-        "12.1"
-      ],
-      "oracle": "Result trees match independent three-way vectors or expose structured conflicts while inputs stay immutable."
+      "tasks": ["3.1"],
+      "reqs": ["4.3", "4.4", "4.6", "7.4", "12.1"],
+      "oracle": "Result trees match independent three-way vectors or expose structured conflicts while inputs stay immutable.",
+      "live_campaign_result_ref": "${HF_OUT_DIR}/source-control/22.37.31/latest.json#registry/cases.SCM-008"
     },
     "SCM-009": {
       "title": "Atomic acceptance of exactly qualified candidates",
@@ -437,20 +388,10 @@
         "owned PostgreSQL runtime and isolated SigV4 HTTP fixture; no live-S3 claim"
       ],
       "tier": "integration",
-      "tasks": [
-        "4.1"
-      ],
-      "reqs": [
-        "7.1",
-        "7.2",
-        "7.3",
-        "7.4",
-        "7.5",
-        "7.6",
-        "8.5",
-        "12.1"
-      ],
-      "oracle": "Acceptance history contains only current authorized candidates and exact matching evidence."
+      "tasks": ["4.1"],
+      "reqs": ["7.1", "7.2", "7.3", "7.4", "7.5", "7.6", "8.5", "12.1"],
+      "oracle": "Acceptance history contains only current authorized candidates and exact matching evidence.",
+      "live_campaign_result_ref": "${HF_OUT_DIR}/source-control/22.37.31/latest.json#registry/cases.SCM-009"
     },
     "SCM-010": {
       "title": "Sparse materialization and writable-cache isolation",
@@ -474,20 +415,17 @@
         "owned PostgreSQL runtime, configured real S3 object backend and actual native host filesystem"
       ],
       "tier": "integration",
-      "tasks": [
-        "2.2"
-      ],
-      "reqs": [
-        "1.5",
-        "3.3",
-        "6.1",
-        "6.2",
-        "6.3",
-        "6.4",
-        "6.5",
-        "12.1"
-      ],
-      "oracle": "Manifest-selected files match pinned bytes/types and absent paths do not become deletions."
+      "tasks": ["2.2"],
+      "reqs": ["1.5", "3.3", "6.1", "6.2", "6.3", "6.4", "6.5", "12.1"],
+      "oracle": "Manifest-selected files match pinned bytes/types and absent paths do not become deletions.",
+      "live_campaign_result_ref": "${HF_OUT_DIR}/source-control/22.37.31/latest.json#registry/cases.SCM-010",
+      "live_campaign_store_variables": [
+        "S3_ENDPOINT",
+        "S3_ACCESS_KEY_ID",
+        "S3_SECRET_ACCESS_KEY",
+        "S3_REGION",
+        "S3_BUCKET"
+      ]
     },
     "SCM-011": {
       "title": "Virtual workspace coherence and bounded cache",
@@ -524,20 +462,17 @@
         "Linux FUSE character device and admitted mount capability for linux-fuse7-source-v1"
       ],
       "tier": "integration",
-      "tasks": [
-        "3.2"
-      ],
-      "reqs": [
-        "1.5",
-        "6.1",
-        "6.3",
-        "6.4",
-        "6.5",
-        "6.6",
-        "12.1",
-        "13.4"
-      ],
-      "oracle": "Snapshot-consistent filesystem behavior and change reconciliation preserve dirty data across eviction and outages."
+      "tasks": ["3.2"],
+      "reqs": ["1.5", "6.1", "6.3", "6.4", "6.5", "6.6", "12.1", "13.4"],
+      "oracle": "Snapshot-consistent filesystem behavior and change reconciliation preserve dirty data across eviction and outages.",
+      "live_campaign_result_ref": "${HF_OUT_DIR}/source-control/22.37.31/latest.json#registry/cases.SCM-011",
+      "live_campaign_store_variables": [
+        "S3_ENDPOINT",
+        "S3_ACCESS_KEY_ID",
+        "S3_SECRET_ACCESS_KEY",
+        "S3_REGION",
+        "S3_BUCKET"
+      ]
     },
     "SCM-012": {
       "title": "Incremental source-pinned graph coverage",
@@ -565,16 +500,10 @@
         "actual pinned native scanner, owned PostgreSQL and isolated SigV4 object fixture; no live-S3 claim"
       ],
       "tier": "integration",
-      "tasks": [
-        "3.3"
-      ],
-      "reqs": [
-        "5.2",
-        "7.4",
-        "8.4",
-        "12.1"
-      ],
-      "oracle": "Graph observations identify exact source/extractor/coverage and detect affected consumers and incomplete generations."
+      "tasks": ["3.3"],
+      "reqs": ["5.2", "7.4", "8.4", "12.1"],
+      "oracle": "Graph observations identify exact source/extractor/coverage and detect affected consumers and incomplete generations.",
+      "live_campaign_result_ref": "${HF_OUT_DIR}/source-control/22.37.31/latest.json#registry/cases.SCM-012"
     },
     "SCM-013": {
       "title": "Scoped source authorization and export privacy",
@@ -671,19 +600,10 @@
         "explicit scoped capabilities and current source authority; no live-provider claim"
       ],
       "tier": "integration",
-      "tasks": [
-        "1.3"
-      ],
-      "reqs": [
-        "9.7",
-        "11.1",
-        "11.2",
-        "11.3",
-        "11.4",
-        "11.5",
-        "12.1"
-      ],
-      "oracle": "All source/query/cache paths reject unauthorized scope and public projection contains only allowed data."
+      "tasks": ["1.3"],
+      "reqs": ["9.7", "11.1", "11.2", "11.3", "11.4", "11.5", "12.1"],
+      "oracle": "All source/query/cache paths reject unauthorized scope and public projection contains only allowed data.",
+      "live_campaign_result_ref": "${HF_OUT_DIR}/source-control/22.37.31/latest.json#registry/cases.SCM-013"
     },
     "SCM-014": {
       "title": "Hyperfide task source custody and taskless clients",
@@ -707,10 +627,7 @@
         "protected independent native source and taskless client configuration"
       ],
       "tier": "live-fleet",
-      "tasks": [
-        "4.2",
-        "4.3"
-      ],
+      "tasks": ["4.2", "4.3"],
       "reqs": [
         "1.7",
         "1.8",
@@ -726,7 +643,8 @@
         "13.2",
         "17.9"
       ],
-      "oracle": "Actual assignments preserve attempt/source lineage and submitted custody while taskless callers use independent authorization."
+      "oracle": "Actual assignments preserve attempt/source lineage and submitted custody while taskless callers use independent authorization.",
+      "live_campaign_result_ref": "${HF_OUT_DIR}/source-control/22.37.31/latest.json#registry/cases.SCM-014"
     },
     "SCM-015": {
       "title": "GitHub and GitLab remote export reconciliation",
@@ -759,9 +677,7 @@
         "explicit untouched private GitHub canary repository and approved retained resource expiry"
       ],
       "tier": "live-remote",
-      "tasks": [
-        "5.1"
-      ],
+      "tasks": ["5.1"],
       "reqs": [
         "1.6",
         "7.6",
@@ -775,7 +691,8 @@
         "12.1",
         "12.6"
       ],
-      "oracle": "Independently retrieved remote Git trees/parents match selected native source and ambiguous pushes reconcile."
+      "oracle": "Independently retrieved remote Git trees/parents match selected native source and ambiguous pushes reconcile.",
+      "live_campaign_result_ref": "${HF_OUT_DIR}/source-control/22.37.31/latest.json#registry/cases.SCM-015"
     },
     "SCM-016": {
       "title": "Contribution and history import provenance",
@@ -799,18 +716,10 @@
         "immutable campaign manifest with pinned source and environment"
       ],
       "tier": "integration",
-      "tasks": [
-        "5.2"
-      ],
-      "reqs": [
-        "9.8",
-        "10.1",
-        "10.2",
-        "10.3",
-        "10.4",
-        "12.1"
-      ],
-      "oracle": "Imported proposals preserve tree and ancestry provenance with idempotent replay and separate import counters."
+      "tasks": ["5.2"],
+      "reqs": ["9.8", "10.1", "10.2", "10.3", "10.4", "12.1"],
+      "oracle": "Imported proposals preserve tree and ancestry provenance with idempotent replay and separate import counters.",
+      "live_campaign_result_ref": "${HF_OUT_DIR}/source-control/22.37.31/latest.json#registry/cases.SCM-016"
     },
     "SCM-017": {
       "title": "Monorepo migration cutover and writable rollback",
@@ -832,9 +741,7 @@
         "immutable campaign manifest with pinned source and environment"
       ],
       "tier": "integration",
-      "tasks": [
-        "5.3"
-      ],
+      "tasks": ["5.3"],
       "reqs": [
         "10.1",
         "10.2",
@@ -847,7 +754,8 @@
         "12.1",
         "14.4"
       ],
-      "oracle": "One writer authority survives cutover and rollback reconciles every acknowledged post-cutover revision."
+      "oracle": "One writer authority survives cutover and rollback reconciles every acknowledged post-cutover revision.",
+      "live_campaign_result_ref": "${HF_OUT_DIR}/source-control/22.37.31/latest.json#registry/cases.SCM-017"
     },
     "SCM-018": {
       "title": "Supported service and metadata failure recovery",
@@ -885,18 +793,17 @@
         "actual local Git receive-pack and source authority recovery; no failure-domain-loss claim"
       ],
       "tier": "backend",
-      "tasks": [
-        "6.1"
-      ],
-      "reqs": [
-        "3.2",
-        "3.6",
-        "5.5",
-        "11.6",
-        "12.1",
-        "12.7"
-      ],
-      "oracle": "Independent acknowledgment/acceptance histories survive the declared faults and stale epochs remain fenced."
+      "tasks": ["6.1"],
+      "reqs": ["3.2", "3.6", "5.5", "11.6", "12.1", "12.7"],
+      "oracle": "Independent acknowledgment/acceptance histories survive the declared faults and stale epochs remain fenced.",
+      "live_campaign_result_ref": "${HF_OUT_DIR}/source-control/22.37.31/latest.json#registry/cases.SCM-018",
+      "live_campaign_store_variables": [
+        "S3_ENDPOINT",
+        "S3_ACCESS_KEY_ID",
+        "S3_SECRET_ACCESS_KEY",
+        "S3_REGION",
+        "S3_BUCKET"
+      ]
     },
     "SCM-019": {
       "title": "Backup restore and external-effect reconciliation",
@@ -949,19 +856,17 @@
         "actual local Git receive-pack and source authority recovery; no failure-domain-loss claim"
       ],
       "tier": "backend",
-      "tasks": [
-        "6.1"
-      ],
-      "reqs": [
-        "3.4",
-        "3.5",
-        "3.6",
-        "10.7",
-        "11.6",
-        "12.1",
-        "12.7"
-      ],
-      "oracle": "All required reachable objects and configured recovery points reconcile before fresh authority reopens writes."
+      "tasks": ["6.1"],
+      "reqs": ["3.4", "3.5", "3.6", "10.7", "11.6", "12.1", "12.7"],
+      "oracle": "All required reachable objects and configured recovery points reconcile before fresh authority reopens writes.",
+      "live_campaign_result_ref": "${HF_OUT_DIR}/source-control/22.37.31/latest.json#registry/cases.SCM-019",
+      "live_campaign_store_variables": [
+        "S3_ENDPOINT",
+        "S3_ACCESS_KEY_ID",
+        "S3_SECRET_ACCESS_KEY",
+        "S3_REGION",
+        "S3_BUCKET"
+      ]
     },
     "SCM-020": {
       "title": "Growth invariance and within-repository sharding",
@@ -983,9 +888,7 @@
         "actual configured backend or fleet required by the case; missing capability blocks execution"
       ],
       "tier": "scale",
-      "tasks": [
-        "6.2"
-      ],
+      "tasks": ["6.2"],
       "reqs": [
         "1.3",
         "1.4",
@@ -1000,7 +903,8 @@
         "12.4",
         "12.5"
       ],
-      "oracle": "Fixed-change latency/work measurements meet declared growth budgets without unrelated full-tree enumeration."
+      "oracle": "Fixed-change latency/work measurements meet declared growth budgets without unrelated full-tree enumeration.",
+      "live_campaign_result_ref": "${HF_OUT_DIR}/source-control/22.37.31/latest.json#registry/cases.SCM-020"
     },
     "SCM-021": {
       "title": "Concurrent mixed-load and admission profiles",
@@ -1022,20 +926,10 @@
         "actual configured backend or fleet required by the case; missing capability blocks execution"
       ],
       "tier": "scale",
-      "tasks": [
-        "6.2"
-      ],
-      "reqs": [
-        "4.6",
-        "7.5",
-        "12.1",
-        "12.2",
-        "12.3",
-        "12.5",
-        "13.3",
-        "13.4"
-      ],
-      "oracle": "Actual offered/completed workload, bounded resources and correctness satisfy separate active/burst/open profiles."
+      "tasks": ["6.2"],
+      "reqs": ["4.6", "7.5", "12.1", "12.2", "12.3", "12.5", "13.3", "13.4"],
+      "oracle": "Actual offered/completed workload, bounded resources and correctness satisfy separate active/burst/open profiles.",
+      "live_campaign_result_ref": "${HF_OUT_DIR}/source-control/22.37.31/latest.json#registry/cases.SCM-021"
     },
     "SCM-022": {
       "title": "Real S3 and elapsed-time endurance",
@@ -1057,20 +951,10 @@
         "immutable campaign manifest with pinned source and environment"
       ],
       "tier": "live-storage",
-      "tasks": [
-        "6.2"
-      ],
-      "reqs": [
-        "3.1",
-        "3.2",
-        "3.3",
-        "12.1",
-        "12.2",
-        "12.5",
-        "12.6",
-        "12.7"
-      ],
-      "oracle": "Actual S3 traffic and 72 elapsed hours establish sustained new revisions while client and real-worker counts stay separate."
+      "tasks": ["6.2"],
+      "reqs": ["3.1", "3.2", "3.3", "12.1", "12.2", "12.5", "12.6", "12.7"],
+      "oracle": "Actual S3 traffic and 72 elapsed hours establish sustained new revisions while client and real-worker counts stay separate.",
+      "live_campaign_result_ref": "${HF_OUT_DIR}/source-control/22.37.31/latest.json#registry/cases.SCM-022"
     },
     "SCM-023": {
       "title": "End-to-end native Hyperfide source-control journey",
@@ -1087,6 +971,8 @@
         "SCM-023.plain-sql-qualification-snapshot",
         "SCM-023.queue-preserves-qualified-dependencies",
         "SCM-023.replacement-reaches-qualified-acceptance",
+        "SCM-023.sparse-edit-materializes-only-scope",
+        "SCM-023.source-diff-matches-checkpoint",
         "SCM-023.signed-cli-revision-read",
         "SCM-023.signed-cli-history-without-checkout",
         "SCM-023.ui-shows-exact-fleet-accepted-source",
@@ -1101,11 +987,7 @@
         "immutable campaign manifest with pinned source and environment"
       ],
       "tier": "live-fleet",
-      "tasks": [
-        "6.3",
-        "7.1",
-        "7.2"
-      ],
+      "tasks": ["6.3", "7.1", "7.2"],
       "reqs": [
         "1.1",
         "1.2",
@@ -1132,7 +1014,8 @@
         "14.3",
         "14.5"
       ],
-      "oracle": "A second client and durable records confirm the actual user journey including conflict, recovery, acceptance and remote status."
+      "oracle": "A second client and durable records confirm the actual user journey including conflict, recovery, acceptance and remote status.",
+      "live_campaign_result_ref": "${HF_OUT_DIR}/source-control/22.37.31/latest.json#registry/cases.SCM-023"
     },
     "SCM-024": {
       "title": "Strict harness and independent evidence closure",
@@ -1204,20 +1087,10 @@
         "immutable campaign manifest with pinned source and environment"
       ],
       "tier": "closure",
-      "tasks": [
-        "0.2",
-        "6.3",
-        "7.2"
-      ],
-      "reqs": [
-        "12.1",
-        "12.6",
-        "12.7",
-        "14.1",
-        "14.4",
-        "14.5"
-      ],
-      "oracle": "False-success and tampering probes fail and a full current assertion/variant inventory is required for closure."
+      "tasks": ["0.2", "6.3", "7.2"],
+      "reqs": ["12.1", "12.6", "12.7", "14.1", "14.4", "14.5"],
+      "oracle": "False-success and tampering probes fail and a full current assertion/variant inventory is required for closure.",
+      "live_campaign_result_ref": "${HF_OUT_DIR}/source-control/22.37.31/latest.json#registry/cases.SCM-024"
     },
     "SCM-025": {
       "title": "Category layout and existing-system behavior preservation",
@@ -1238,15 +1111,7 @@
         "immutable campaign manifest with pinned source and environment"
       ],
       "tier": "prerequisite",
-      "tasks": [
-        "0.3",
-        "0.4",
-        "0.5",
-        "0.6",
-        "0.7",
-        "0.8",
-        "0.9"
-      ],
+      "tasks": ["0.3", "0.4", "0.5", "0.6", "0.7", "0.8", "0.9"],
       "reqs": [
         "15.1",
         "15.2",
@@ -1258,7 +1123,8 @@
         "15.8",
         "14.4"
       ],
-      "oracle": "Complete path/content/mode and identity accounting plus actual existing-system build/runtime/package/cache/CI/preparation checks prove the new category layout; no native SCM dependency or old source facade is required."
+      "oracle": "Complete path/content/mode and identity accounting plus actual existing-system build/runtime/package/cache/CI/preparation checks prove the new category layout; no native SCM dependency or old source facade is required.",
+      "live_campaign_result_ref": "${HF_OUT_DIR}/source-control/22.37.31/latest.json#registry/cases.SCM-025"
     },
     "SCM-026": {
       "title": "Manifest and interface schema with source-bound subset resolution",
@@ -1305,11 +1171,7 @@
         "immutable campaign manifest with pinned source and environment"
       ],
       "tier": "prerequisite",
-      "tasks": [
-        "0.10",
-        "0.11",
-        "0.14"
-      ],
+      "tasks": ["0.10", "0.11", "0.14"],
       "reqs": [
         "17.1",
         "17.2",
@@ -1326,7 +1188,8 @@
         "16.3",
         "16.7"
       ],
-      "oracle": "Real parser/resolver rejects malformed or stale contracts; independent inventory proves selected interface scope and source pins without assuming callers are exhaustive."
+      "oracle": "Real parser/resolver rejects malformed or stale contracts; independent inventory proves selected interface scope and source pins without assuming callers are exhaustive.",
+      "live_campaign_result_ref": "${HF_OUT_DIR}/source-control/22.37.31/latest.json#registry/cases.SCM-026"
     },
     "SCM-027": {
       "title": "Provider sandbox install and worker isolation",
@@ -1357,11 +1220,7 @@
         "immutable campaign manifest with pinned source and environment"
       ],
       "tier": "prerequisite",
-      "tasks": [
-        "0.11",
-        "0.13",
-        "0.14"
-      ],
+      "tasks": ["0.11", "0.13", "0.14"],
       "reqs": [
         "17.1",
         "17.2",
@@ -1376,7 +1235,8 @@
         "16.6",
         "16.8"
       ],
-      "oracle": "Fresh sandbox runs installer and real consumers with exact source/dependency/config identity; crash/retry and concurrent workers preserve isolated dirty data and truthful ready receipts."
+      "oracle": "Fresh sandbox runs installer and real consumers with exact source/dependency/config identity; crash/retry and concurrent workers preserve isolated dirty data and truthful ready receipts.",
+      "live_campaign_result_ref": "${HF_OUT_DIR}/source-control/22.37.31/latest.json#registry/cases.SCM-027"
     },
     "SCM-028": {
       "title": "Primary and Wave Manager adaptive orchestration",
@@ -1399,22 +1259,10 @@
         "immutable campaign manifest with pinned source and environment"
       ],
       "tier": "prerequisite",
-      "tasks": [
-        "0.12",
-        "0.13",
-        "0.14"
-      ],
-      "reqs": [
-        "16.1",
-        "16.2",
-        "16.3",
-        "16.4",
-        "16.5",
-        "16.6",
-        "16.7",
-        "16.8"
-      ],
-      "oracle": "Actual co-located model sessions choose and revise admitted actions; provider/worker effects match persisted decisions and out-of-scope actions fail without a hidden deterministic planner."
+      "tasks": ["0.12", "0.13", "0.14"],
+      "reqs": ["16.1", "16.2", "16.3", "16.4", "16.5", "16.6", "16.7", "16.8"],
+      "oracle": "Actual co-located model sessions choose and revise admitted actions; provider/worker effects match persisted decisions and out-of-scope actions fail without a hidden deterministic planner.",
+      "live_campaign_result_ref": "${HF_OUT_DIR}/source-control/22.37.31/latest.json#registry/cases.SCM-028"
     },
     "SCM-029": {
       "title": "Supervisor loss and final prerequisite evidence closure",
@@ -1441,11 +1289,7 @@
         "immutable campaign manifest with pinned source and environment"
       ],
       "tier": "prerequisite",
-      "tasks": [
-        "0.12",
-        "0.13",
-        "0.14"
-      ],
+      "tasks": ["0.12", "0.13", "0.14"],
       "reqs": [
         "16.1",
         "16.2",
@@ -1460,7 +1304,8 @@
         "17.10",
         "14.4"
       ],
-      "oracle": "Independent receipts reconcile supervisor-box loss, stale owners and uncertain external effects; complete existing-source evidence gates native entry without native-harness dependencies."
+      "oracle": "Independent receipts reconcile supervisor-box loss, stale owners and uncertain external effects; complete existing-source evidence gates native entry without native-harness dependencies.",
+      "live_campaign_result_ref": "${HF_OUT_DIR}/source-control/22.37.31/latest.json#registry/cases.SCM-029"
     }
   },
   "suites": {
@@ -1499,11 +1344,7 @@
   "registration_glob": "registrations/*.json",
   "workload_profiles": {
     "growth": {
-      "file_counts": [
-        10000,
-        100000,
-        1000000
-      ],
+      "file_counts": [10000, 100000, 1000000],
       "fixed_modified_files": 10,
       "fixed_modified_bytes": 1048576,
       "status": "UNRUN",
@@ -1542,5 +1383,11 @@
         "measured hardware and configuration"
       ]
     }
+  },
+  "live_campaign": {
+    "task": "22.37.31",
+    "inventory": "spec/layerx-merge/source-control/live-campaign.kvx",
+    "result_registry_ref": "${HF_OUT_DIR}/source-control/22.37.31/latest.json#registry",
+    "policy": "The private result registry updates every executed case from observed receipts. UNRUN is retained for absent inputs; no access values are recorded. The tracked registry is an immutable campaign input."
   }
 }

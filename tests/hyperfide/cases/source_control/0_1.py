@@ -3,6 +3,7 @@ from pathlib import Path
 import hashlib
 import json
 import os
+import shutil
 import subprocess
 import sys
 
@@ -10,25 +11,48 @@ ROOT = Path(__file__).resolve().parents[4]
 PROGRAM = r'''
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
-import {createHash} from 'node:crypto';
+import {createHash,randomBytes} from 'node:crypto';
 import {pathToFileURL} from 'node:url';
 import * as sdk from '@hyperfide/source-control';
 const root=process.argv[1];
 const server=await import(pathToFileURL(root+'/core/control-plane/src/source_control/contracts.ts'));
+const {SourceCursorCodec}=await import(pathToFileURL(root+'/core/control-plane/dist/source_control/cursors.js'));
 const vectors=JSON.parse(await readFile(root+'/tests/hyperfide/cases/source_control/fixtures/contracts-v1.json','utf8'));
+const contractPaths=['sdk/source-control/src/contracts.ts','core/control-plane/src/source_control/contracts.ts'];
+const contractDigests=await Promise.all(contractPaths.map(async path=>createHash('sha256').update(await readFile(root+'/'+path)).digest('hex')));
+const decisions=await readFile(root+'/spec/hyperfide-source-control/decisions.md','utf8');
 const outcomes=[];
 function check(id,fn){try{fn();outcomes.push({id,outcome:'PASS'});}catch(e){outcomes.push({id,outcome:'FAIL',message:e.message,code:e.code??e.name});}}
 function refused(code,fn){assert.throws(fn,e=>e.code===code);}
 const uuid='9466c1d1-8a2a-462d-a861-f35e8a1de11b';
 const scope={organisation_id:uuid,repository_id:'84039ca3-26fc-4a01-96d1-393fb2ea20e4',security_domain_id:'3ab840da-ca61-4554-b551-1b417f473cb7'};
+check('sdk-server-contract-digests-identical',()=>{
+ assert.equal(contractDigests[0],contractDigests[1],'SDK/server contract divergence: regenerate with sync-fleet-contracts.mjs source');
+});
 check('golden-cross-language-object-envelopes',()=>{
  for(const vector of vectors.vectors){for(const codec of [server,sdk]){
   const encoded=codec.canonicalEnvelope(vector.kind,Buffer.from(vector.payload_hex,'hex'));
   assert.equal(Buffer.from(encoded).toString('hex'),vector.envelope_hex);
   assert.equal('sha256:'+createHash('sha256').update(encoded).digest('hex'),vector.object_id);
   const decoded=codec.decodeCanonicalEnvelope(encoded,vector.kind);assert.equal(Buffer.from(decoded.payload).toString('hex'),vector.payload_hex);
+  if(Object.hasOwn(vector,'canonical_value')){
+   assert.equal(Buffer.from(codec.canonicalBytes(vector.canonical_value)).toString('hex'),vector.payload_hex);
+   const parsed=codec.parseStrictJSON(Buffer.from(vector.payload_hex,'hex'));
+   assert.equal(codec.canonicalJSON(parsed),Buffer.from(vector.payload_hex,'hex').toString('utf8'));
+   assert.deepEqual(JSON.parse(codec.canonicalJSON(parsed)),vector.canonical_value);
+  }
  }}
  assert.notEqual(vectors.vectors.find(v=>v.name==='binary-blob').object_id,vectors.vectors.find(v=>v.name==='type-separated-chunk').object_id);
+});
+check('integer-and-generation-bound-vectors',()=>{
+ for(const codec of [server,sdk]){
+  for(const vector of vectors.generation_vectors){
+   if(vector.error)refused(vector.error,()=>codec.parseGeneration(vector.value));
+   else assert.equal(codec.parseGeneration(vector.value),vector.value);
+  }
+  for(const value of [-9007199254740991,9007199254740991])assert.equal(codec.parseStrictJSON(codec.canonicalJSON(value)),value);
+  for(const value of [-9007199254740992,9007199254740992])refused('INVALID_INTEGER',()=>codec.canonicalJSON(value));
+ }
 });
 const request={protocol_version:1,scope,operation_id:uuid,action:'source.revisions.create',idempotency_key:uuid,input:{tree_id:vectors.vectors.find(v=>v.name==='empty-tree').object_id,parents:[]},authority:{authority_epoch:'1',generation:'18446744073709551615',policy_version:'source-v1'}};
 check('real-sdk-server-request-and-response-interoperability',()=>{
@@ -110,13 +134,80 @@ check('lifecycle-replay-and-public-provenance-boundaries',()=>{
   refused('INVALID_REQUEST',()=>codec.parsePublicProvenance({...provenance,timestamp:'2026-11-02T00:00:00Z'}));
  }
 });
+check('page-parsing-and-sdk-server-round-trips',()=>{
+ const snapshot=request.input.tree_id;
+ const cursorCodec=new SourceCursorCodec(randomBytes(32));
+ const binding={scope,principal_id:uuid,authority_epoch:'1',query:{action:'source.trees.entries'},snapshot};
+ const position={after:'page-😀'};
+ const cursor=cursorCodec.encode(binding,position);
+ const entry={name:'page-😀',kind:'file',mode:'100644',object_id:snapshot};
+ for(const [producer,consumer]of [[server,sdk],[sdk,server]]){
+  for(const coverage of ['COMPLETE','PARTIAL','REDACTED','INDEX_PENDING']){
+   const page={items:[entry],next_cursor:coverage==='PARTIAL'?cursor:null,coverage,snapshot,index_generation:'18446744073709551615',index_complete:coverage!=='INDEX_PENDING'};
+   const response=consumer.decodeSourceResponse(producer.encodeSourceResponse({protocol_version:1,operation_id:uuid,result:page}));
+   assert.deepEqual(consumer.parseSourcePage(response.result,consumer.parseTreeEntry),page);
+   assert.deepEqual(JSON.parse(consumer.canonicalJSON(consumer.parseSourcePage(response.result))),page);
+   if(coverage==='PARTIAL')assert.deepEqual(cursorCodec.decode(binding,consumer.parseSourcePage(response.result).next_cursor),position);
+  }
+  const empty={items:[],next_cursor:null,coverage:'COMPLETE',snapshot};
+  assert.deepEqual(consumer.parseSourcePage(empty),empty);
+  const full={...empty,items:Array.from({length:256},()=>entry)};
+  assert.equal(consumer.parseSourcePage(full,consumer.parseTreeEntry).items.length,256);
+  refused('LIMIT_EXCEEDED',()=>consumer.parseSourcePage({...full,items:[...full.items,entry]}));
+  refused('INVALID_TREE_ENTRY',()=>consumer.parseSourcePage({...empty,items:[{...entry,mode:'040000'}]},consumer.parseTreeEntry));
+ }
+});
+check('malformed-page-and-cursor-refusals',()=>{
+ const page={items:[],next_cursor:null,coverage:'COMPLETE',snapshot:request.input.tree_id};
+ for(const codec of [server,sdk]){
+  assert.equal(codec.parseSourceCursor('opaque_token.signature'),'opaque_token.signature');
+  assert.equal(codec.parseSourceCursor('x'.repeat(65536)).length,65536);
+  for(const cursor of ['',null,undefined,0,{},[],true,'x'.repeat(65537),'a b','a\tb','a\nb','a\rb','a\0b','a\x1fb','a\x7fb','雪','😀','\ud800']){
+   refused('INVALID_CURSOR',()=>codec.parseSourceCursor(cursor));
+   if(cursor!==null)refused('INVALID_CURSOR',()=>codec.parseSourcePage({...page,coverage:'PARTIAL',next_cursor:cursor}));
+  }
+  refused('INVALID_CURSOR',()=>codec.parseSourcePage({...page,coverage:'PARTIAL'}));
+  refused('INVALID_CURSOR',()=>codec.parseSourcePage({...page,next_cursor:'opaque'}));
+  for(const value of [null,[],false])refused('INVALID_REQUEST',()=>codec.parseSourcePage(value));
+  for(const value of [null,{},'items',1])refused('INVALID_REQUEST',()=>codec.parseSourcePage({...page,items:value}));
+  refused('INVALID_REQUEST',()=>codec.parseSourcePage({...page,items:Array(1)}));
+  for(const coverage of ['UNKNOWN','complete',null,{},1])refused('INVALID_REQUEST',()=>codec.parseSourcePage({...page,coverage}));
+  refused('INVALID_REQUEST',()=>codec.parseSourcePage({...page,unexpected:true}));
+  for(const field of ['items','next_cursor','coverage','snapshot']){
+   const missing={...page};delete missing[field];assert.throws(()=>codec.parseSourcePage(missing));
+  }
+  refused('INVALID_IDENTITY',()=>codec.parseSourcePage({...page,snapshot:'a'.repeat(64)}));
+  for(const vector of vectors.generation_vectors){
+   if(vector.error)refused(vector.error,()=>codec.parseSourcePage({...page,index_generation:vector.value}));
+   else assert.equal(codec.parseSourcePage({...page,index_generation:vector.value}).index_generation,vector.value);
+  }
+  for(const index_complete of ['true',1,null,undefined])refused('INVALID_REQUEST',()=>codec.parseSourcePage({...page,index_complete}));
+ }
+});
+check('operation-replay-digest-conflict-is-a-server-rule',()=>{
+ const replay={...request,input:{...request.input,parents:[request.input.tree_id]}};
+ for(const [producer,consumer]of [[sdk,server],[server,sdk]]){
+  const original=consumer.decodeSourceRequest(producer.encodeSourceRequest(request));
+  const changed=consumer.decodeSourceRequest(producer.encodeSourceRequest(replay));
+  assert.equal(original.operation_id,changed.operation_id);
+  assert.equal(original.idempotency_key,changed.idempotency_key);
+  const digest=value=>createHash('sha256').update(consumer.canonicalBytes(value)).digest('hex');
+  assert.notEqual(digest(original.input),digest(changed.input));
+  const conflict={protocol_version:1,operation_id:uuid,error:{code:'IDEMPOTENCY_CONFLICT',message:'Operation identity is already bound to another request',retry:'NEVER',outcome:'KNOWN'}};
+  assert.deepEqual(consumer.decodeSourceResponse(producer.encodeSourceResponse(conflict)),conflict);
+ }
+ assert.match(decisions,/D28:[\s\S]*same operation_id[\s\S]*different request_digest[\s\S]*IDEMPOTENCY_CONFLICT/);
+});
 console.log(JSON.stringify({status:outcomes.every(x=>x.outcome==='PASS')?'PASS':'FAIL',task:'0.1',assertions:outcomes,scope:'Native protocol and real SDK/server codec interoperability'}));
 if(outcomes.some(x=>x.outcome!=='PASS'))process.exitCode=1;
 '''
 
 
 def main():
-    node = os.environ.get('HYPERFIDE_NODE', '/root/.nvm/versions/node/v24.22.0/bin/node')
+    override = os.environ.get('HYPERFIDE_NODE')
+    node = shutil.which(override or 'node')
+    if not node:
+        raise RuntimeError('CAPABILITY_MISSING: set HYPERFIDE_NODE or provide node on PATH')
     sdk = ROOT / 'sdk/source-control'
     build = subprocess.run([node, str(ROOT / 'tools/workspace/build-package.mjs')], cwd=sdk, text=True, capture_output=True)
     if build.returncode:
@@ -128,7 +219,8 @@ def main():
     if result.returncode:
         return result.returncode
     receipt = json.loads(result.stdout.strip())
-    paths = ['sdk/source-control/package.json', 'sdk/source-control/src/contracts.ts', 'sdk/source-control/src/index.ts', 'core/control-plane/src/source_control/contracts.ts', 'core/control-plane/scripts/sync-fleet-contracts.mjs', 'tests/hyperfide/cases/source_control/fixtures/contracts-v1.json']
+    receipt['node_resolution'] = {'source': 'HYPERFIDE_NODE' if override else 'PATH', 'executable': node}
+    paths = ['sdk/source-control/package.json', 'sdk/source-control/src/contracts.ts', 'sdk/source-control/src/index.ts', 'core/control-plane/src/source_control/contracts.ts', 'core/control-plane/scripts/sync-fleet-contracts.mjs', 'tests/hyperfide/cases/source_control/fixtures/contracts-v1.json', 'spec/hyperfide-source-control/decisions.md']
     receipt['inputs'] = {p: hashlib.sha256((ROOT / p).read_bytes()).hexdigest() for p in paths}
     out = ROOT / 'build/source-control/0.1'
     out.mkdir(parents=True, exist_ok=True)

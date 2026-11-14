@@ -2,6 +2,14 @@ import { randomUUID } from "node:crypto";
 import { parseObjectId, parseUUID, SourceControlError } from "./contracts.js";
 import type { SourceContext, SourceMetadata, SourceSQL } from "./metadata.js";
 import { sourceFailure, sourceScopeValues } from "./metadata.js";
+import type { SourceAction } from "./contracts.js";
+
+export const SOURCE_EVENT_ACTIONS = {
+  create: "source.subscriptions.create",
+  poll: "source.subscriptions.poll",
+  acknowledge: "source.subscriptions.ack",
+  lifecycle: "source.lifecycle.read",
+} as const satisfies Record<string, SourceAction>;
 
 export interface SourceSubscriptionInput {
   consumer_id: string;
@@ -83,7 +91,7 @@ export async function createSourceSubscription(
       "Subscription retention deadline must be canonical UTC",
     );
   const outcome = await store.transaction(async (tx) => {
-    await store.guard(tx, context, "source.subscriptions.create", true);
+    await store.guard(tx, context, SOURCE_EVENT_ACTIONS.create, true);
     const values = [...sourceScopeValues(context.scope), input.consumer_id];
     const old = (
       await tx.query(
@@ -164,7 +172,10 @@ export async function createSourceSubscription(
         "Subscription requires a retained immutable bootstrap revision",
       );
     if (old) {
-      await tx.query("UPDATE hyperfide.source_event_consumers SET state='RESNAPSHOT_REQUIRED',resnapshot_reason=COALESCE(resnapshot_reason,'EVENT_BUDGET') WHERE organisation_id=$1 AND repository_id=$2 AND security_domain_id=$3 AND consumer_id=$4",values);
+      await tx.query(
+        "UPDATE hyperfide.source_event_consumers SET state='RESNAPSHOT_REQUIRED',resnapshot_reason=COALESCE(resnapshot_reason,'EVENT_BUDGET') WHERE organisation_id=$1 AND repository_id=$2 AND security_domain_id=$3 AND consumer_id=$4",
+        values,
+      );
       const pending = (
         await tx.query(
           "SELECT event_id FROM hyperfide.source_event_deliveries WHERE organisation_id=$1 AND repository_id=$2 AND security_domain_id=$3 AND consumer_id=$4 ORDER BY event_id LIMIT 4096",
@@ -305,7 +316,7 @@ export async function pollSourceEvents(
       "Bounded event page and delivery lease required",
     );
   const outcome = await store.transaction(async (tx) => {
-    await store.guard(tx, context, "source.subscriptions.poll");
+    await store.guard(tx, context, SOURCE_EVENT_ACTIONS.poll);
     const row = await consumer(
         tx,
         context,
@@ -398,7 +409,7 @@ export async function applySourceEvent<T>(
   parseUUID(input.event_id, "event_id");
   parseUUID(input.lease_id, "lease_id");
   return store.transaction(async (tx) => {
-    await store.guard(tx, context, "source.subscriptions.ack");
+    await store.guard(tx, context, SOURCE_EVENT_ACTIONS.acknowledge);
     const current = await consumer(
       tx,
       context,

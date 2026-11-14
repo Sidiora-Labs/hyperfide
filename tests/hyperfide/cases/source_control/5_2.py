@@ -13,4 +13,5 @@ if __name__ == '__main__':
         '0736-source-control-storage.sql', '0737-source-control-metadata.sql', '0738-source-control-capabilities.sql',
         '0739-source-control-workspaces.sql', '0740-source-control-transformations.sql', '0741-source-control-acceptance.sql',
         '0742-source-control-publication.sql', '0743-source-control-assurance.sql', '0746-source-control-retention.sql', '0750-source-control-import.sql',
+        '0765-source-control-import-legacy-maps.sql',
     ], timeout=300))

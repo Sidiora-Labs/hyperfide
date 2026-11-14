@@ -4,16 +4,46 @@
   "variant": "task:hyperfide-source-control/7.2",
   "task": "7.2",
   "scope": "task-component",
-  "cases": [
-    "SCM-023",
-    "SCM-024"
-  ],
+  "cases": ["SCM-023", "SCM-024"],
   "assertion_ids": [
     "source-release.artifact-pins-and-acceptance-binding",
+    "source-release.release-journey-module-loads",
+    "source-release.release-manifest-template",
     "source-release.artifact-tamper",
     "source-release.missing-runtime-roles",
     "source-release.unsupported-source-format",
     "source-release.acceptance-other-source",
+    "source-release.missing-evidence-class-component",
+    "source-release.empty-evidence-class-component",
+    "source-release.missing-evidence-class-live_backend",
+    "source-release.empty-evidence-class-live_backend",
+    "source-release.missing-evidence-class-live_fleet",
+    "source-release.empty-evidence-class-live_fleet",
+    "source-release.missing-evidence-class-github",
+    "source-release.empty-evidence-class-github",
+    "source-release.missing-evidence-class-consolidation",
+    "source-release.empty-evidence-class-consolidation",
+    "source-release.missing-evidence-class-growth",
+    "source-release.empty-evidence-class-growth",
+    "source-release.missing-evidence-class-recovery",
+    "source-release.empty-evidence-class-recovery",
+    "source-release.current-custody-binding",
+    "source-release.stale-custody-scope",
+    "source-release.stale-custody-current_custody_id",
+    "source-release.stale-custody-qualified_custody_generation",
+    "source-release.stale-custody-authority",
+    "source-release.stale-custody-revoked_at",
+    "source-release.stale-custody-qualification_outcome",
+    "source-release.stale-custody-current_qualification_id",
+    "source-release.stale-custody-authority_epoch",
+    "source-release.stale-custody-revision_id",
+    "source-release.stale-custody-root_tree_id",
+    "source-release.stale-custody-policy_version",
+    "source-release.missing-custody-custody_id",
+    "source-release.missing-custody-revoked_at",
+    "source-release.missing-custody-current_qualification_id",
+    "source-release.wrong-evidence-class-variant",
+    "source-release.acceptance-other-running-system",
     "source-release.operator-refusal"
   ],
   "argv": [
@@ -23,11 +53,12 @@
   ],
   "source_files": [
     "tests/hyperfide/source-control/closure.py",
-    "tests/hyperfide/cases/source_control/7_2.py"
+    "tests/hyperfide/cases/source_control/7_2.py",
+    "tests/hyperfide/support/native_source_full_journey.mjs",
+    "tests/hyperfide/source-control/manifests/release.json",
+    "tests/hyperfide/cases/source_control/7_1.py"
   ],
-  "source_roots": [
-    "tests/hyperfide/source-control"
-  ],
+  "source_roots": ["tests/hyperfide/source-control"],
   "actions": [],
   "resources": [],
   "required_env": []

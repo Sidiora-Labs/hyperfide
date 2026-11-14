@@ -27,17 +27,10 @@
       "const": "SCM-025"
     },
     "status": {
-      "enum": [
-        "PASS",
-        "BLOCKED",
-        "FAIL"
-      ]
+      "enum": ["PASS", "BLOCKED", "FAIL"]
     },
     "case_qualification": {
-      "enum": [
-        "PASS",
-        "UNRUN"
-      ]
+      "enum": ["PASS", "UNRUN"]
     },
     "checked_at": {
       "type": "string",
@@ -73,6 +66,26 @@
         "worktree_status_sha256": {
           "$ref": "#/$defs/sha256"
         },
+        "untracked_paths": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "untracked_paths_count": {
+          "type": "integer"
+        },
+        "outside_root_paths": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "outside_root_paths_count": {
+          "type": "integer"
+        },
         "source_inventory_sha256": {
           "$ref": "#/$defs/sha256"
         },
@@ -89,23 +102,25 @@
           "type": "object",
           "additionalProperties": {
             "type": "object",
-            "required": [
-              "mode",
-              "sha256"
-            ],
+            "required": ["mode", "sha256"],
             "properties": {
               "mode": {
-                "enum": [
-                  "100644",
-                  "100755",
-                  "120000"
-                ]
+                "enum": ["100644", "100755", "120000"]
               },
               "sha256": {
                 "$ref": "#/$defs/sha256"
               }
             }
           }
+        },
+        "host_commit": {
+          "$ref": "#/$defs/git"
+        },
+        "source_prefix": {
+          "type": "string"
+        },
+        "history": {
+          "$ref": "#/$defs/history"
         }
       }
     },
@@ -113,21 +128,14 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": [
-          "id",
-          "status",
-          "evidence"
-        ],
+        "required": ["id", "status", "evidence"],
         "properties": {
           "id": {
             "type": "string",
             "minLength": 1
           },
           "status": {
-            "enum": [
-              "PASS",
-              "FAIL"
-            ]
+            "enum": ["PASS", "FAIL"]
           }
         }
       }
@@ -136,9 +144,7 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": [
-          "kind"
-        ],
+        "required": ["kind"],
         "properties": {
           "kind": {
             "type": "string",
@@ -178,6 +184,12 @@
     "follow_on_inventory": {
       "$ref": "#/$defs/reference"
     },
+    "self_authorized_revision": {
+      "$ref": "#/$defs/git"
+    },
+    "aggregation_input": {
+      "$ref": "#/$defs/reference"
+    },
     "forward_repairs": {
       "type": "array",
       "items": {
@@ -198,10 +210,7 @@
         ],
         "properties": {
           "status": {
-            "enum": [
-              "UNRESOLVED",
-              "FORWARD_REPAIRED"
-            ]
+            "enum": ["UNRESOLVED", "FORWARD_REPAIRED"]
           },
           "before_blob": {
             "$ref": "#/$defs/git"
@@ -223,12 +232,7 @@
         }
       },
       "then": {
-        "required": [
-          "bindings",
-          "summary",
-          "rollback",
-          "semantic_flags"
-        ],
+        "required": ["bindings", "summary", "rollback", "semantic_flags"],
         "properties": {
           "case_qualification": {
             "const": "PASS"
@@ -240,13 +244,7 @@
             "maxItems": 0
           },
           "task_receipts": {
-            "required": [
-              "0.4",
-              "0.5",
-              "0.6",
-              "0.7",
-              "0.8"
-            ]
+            "required": ["0.4", "0.5", "0.6", "0.7", "0.8"]
           },
           "checks": {
             "items": {
@@ -255,7 +253,8 @@
                   "const": "PASS"
                 }
               }
-            }
+            },
+            "minItems": 1
           },
           "bindings": {
             "required": [
@@ -276,6 +275,13 @@
             }
           }
         }
+      },
+      "else": {
+        "properties": {
+          "case_qualification": {
+            "const": "UNRUN"
+          }
+        }
       }
     }
   ],
@@ -290,10 +296,7 @@
     },
     "reference": {
       "type": "object",
-      "required": [
-        "path",
-        "sha256"
-      ],
+      "required": ["path", "sha256"],
       "properties": {
         "path": {
           "type": "string",
@@ -303,6 +306,49 @@
           "$ref": "#/$defs/sha256"
         }
       }
+    },
+    "history": {
+      "type": "object",
+      "required": ["baseline_revision", "layout_revision", "vendored"],
+      "properties": {
+        "baseline_revision": {
+          "$ref": "#/$defs/git"
+        },
+        "layout_revision": {
+          "$ref": "#/$defs/git"
+        },
+        "vendored": {
+          "type": "boolean"
+        },
+        "subtree_prefix": {
+          "type": "string",
+          "minLength": 1
+        },
+        "subtree_tree_id": {
+          "$ref": "#/$defs/git"
+        },
+        "baseline_manifest": {
+          "$ref": "#/$defs/reference"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "vendored": {
+                "const": true
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "subtree_prefix",
+              "subtree_tree_id",
+              "baseline_manifest"
+            ]
+          }
+        }
+      ]
     }
   }
 }

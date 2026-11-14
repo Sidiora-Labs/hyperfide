@@ -1,0 +1,8 @@
+{
+  "schema_version": 1,
+  "upstream_implementation_baseline": "5958bcb02cef0e5fa75d7b0239a6cd2191278bd1",
+  "upstream_layout_revision": "fc5ea53bb00d659196c9fceee62fae75720fa22c",
+  "import_commit": "ebcb1902878aecc2e853b28466a3a2c61aa5a5e7",
+  "subtree_prefix": "addiqate/hyperfide",
+  "subtree_tree_id": "c74084de347ee7f3706c71e24dc595bc0655856a"
+}

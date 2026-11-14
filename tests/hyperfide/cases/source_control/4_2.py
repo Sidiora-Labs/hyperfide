@@ -87,8 +87,8 @@ def _run():
                                      'definition': fleet.definitions['a'], 'capacity': fleet.capacity(),
                                      'actions': fleet.actions, 'source_backend_endpoint': source_env.get('HF_SOURCE_S3_ENDPOINT')}))
         inputs.chmod(0o600)
-        return fixture.run_source_actor(ROOT / 'tests/hyperfide/support/native_source_fleet_actor.mjs', timeout=600 if os.environ.get('HF_SOURCE_FULL_CASE') == 'SCM-023' else 360,
-                                        actor_env={**fleet.env, 'NATIVE_SOURCE_FLEET_INPUT': str(inputs), **({'NODE_OPTIONS':'--import='+str(ROOT/'node_modules/tsx/dist/loader.mjs')+' --conditions=source'} if os.environ.get('HF_SOURCE_FULL_CASE') == 'SCM-023' else {})}, extra_files=[
+        result = fixture.run_source_actor(ROOT / 'tests/hyperfide/support/native_source_fleet_actor.mjs', timeout=600 if os.environ.get('HF_SOURCE_FULL_CASE') == 'SCM-023' else 360,
+                                        actor_env={**fleet.env, 'NATIVE_SOURCE_FLEET_INPUT': str(inputs), 'NODE_OPTIONS':'--import='+str(ROOT/'node_modules/tsx/dist/loader.mjs')+' --conditions=source'}, extra_files=[
             'core/control-plane/src/agents/fleet_orchestration.ts',
             'core/control-plane/src/agents/fleet_source_actions.ts',
             'core/control-plane/src/agents/fleet_source_registration.ts',
@@ -101,6 +101,20 @@ def _run():
             'core/control-plane/src/identity/enrollment.ts',
             'core/control-plane/src/identity/authorization.ts',
         ])
+        if result:
+            return result
+        receipt = json.loads((ROOT / 'build/source-control/4.2/receipt.json').read_text())
+        assert receipt['status'] == 'PASS'
+        assert receipt['git_invocations'] == 0
+        publication = receipt['publication_evidence']
+        assert publication['publication']['status'] == 'PUBLISHED'
+        assert publication['publication']['acceptance_id'] == receipt['acceptance_id']
+        assert publication['publication']['destination_id'] == 'native-default'
+        assert [stage['kind'] for stage in publication['lifecycle']] == ['PROCESS_EXIT', 'OBJECT_UPLOAD', 'CHECKPOINT'] * 2
+        assert all(stage['acceptances'] == 0 and stage['publications'] == 0 for stage in publication['lifecycle'])
+        assert publication['process']['exit_code'] == 0
+        assert publication['manager_api_only_workspace_id']
+        return 0
     finally:
         fleet.close()
 

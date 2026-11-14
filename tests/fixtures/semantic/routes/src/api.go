@@ -1,12 +1,14 @@
 package main
-func list(c *Context) { }
+
+func list(c *Context)    {}
 func register(r *Engine) { r.GET("/gin/list", list) }
 func registerMore(r *Engine) {
-  r.POST(
-    "/gin/multiline",
-    list,
-  )
+	r.POST(
+		"/gin/multiline",
+		list,
+	)
 }
+
 /*
 r.GET("/gin-block-ghost", list)
 */

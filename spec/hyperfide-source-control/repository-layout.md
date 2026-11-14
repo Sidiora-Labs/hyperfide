@@ -43,25 +43,25 @@ licenses/              Attribution
 
 Root workspace/configuration files remain at the root. Tool-discovery conventions such as `.github/`, `.agents/`, and the environment setup hook are explicit exceptions, not additional source containers. Package-local tests, migrations, assets and schemas may stay with their owning package where runtime loading or publication relies on that package boundary. Category organization does not mean scattering every individual file by extension.
 
-| Current unit | Destination | Preserved identity or boundary |
-|---|---|---|
-| `services/hyperfide/` | `core/control-plane/` | `@hyperfide/control-services`, its npm lockfile, migrations and component loader |
-| `platform/apps/server/` | `core/server/` | `@hyperfide/server` |
-| `platform/apps/host-daemon/` | `core/host-daemon/` | `@hyperfide/host-daemon` |
-| `platform/apps/app/` | `apps/web/` | `@hyperfide/app` |
-| `platform/apps/desktop/`, `platform/apps/mobile/` | `apps/desktop/`, `apps/mobile/` | Existing desktop/mobile packages and installed identities |
-| `platform/apps/cli/` | `apps/cli/` | `@hyperfide/cli`, including the `hyperfide platform` public front door |
-| `platform/packages/hyperfide-app/` | `apps/launcher/` | Existing executable distribution and bin names |
-| `platform/packages/sdk/` | `sdk/client/` | `@hyperfide/sdk` |
-| `platform/packages/plugin-sdk/` | `sdk/plugins/` | `@hyperfide/plugin-sdk` |
-| `platform/packages/*-contract/` | Explicit entries under `contracts/` | Existing wire schemas and package identities; not a blind filename rule |
-| `platform/packages/db/` | `core/runtime-db/` | Runtime database; it is not merged with control-plane storage |
-| `platform/packages/bundled-plugins/` | `tools/bundled-plugins/` | Existing bundling package |
-| `platform/packages/scripts/` | `tools/scripts/` | Packaged command/helper unit |
-| `platform/scripts/`, `scripts/` | `tools/workspace/`, `tools/repository/` | Distinct un-packaged tooling groups |
-| `platform/plugins/` | `plugins/` | Runtime plugin registry and plugin IDs |
-| `editors/vscode/`, `kvx/editors/vscode/` | `extensions/vscode/`, `extensions/kvx-vscode/` | Distinct extension IDs, versions and VSIX contents |
-| `platform/docs/` | `docs/runtime/` | Current runtime documentation |
+| Current unit                                      | Destination                                    | Preserved identity or boundary                                                   |
+| ------------------------------------------------- | ---------------------------------------------- | -------------------------------------------------------------------------------- |
+| `services/hyperfide/`                             | `core/control-plane/`                          | `@hyperfide/control-services`, its npm lockfile, migrations and component loader |
+| `platform/apps/server/`                           | `core/server/`                                 | `@hyperfide/server`                                                              |
+| `platform/apps/host-daemon/`                      | `core/host-daemon/`                            | `@hyperfide/host-daemon`                                                         |
+| `platform/apps/app/`                              | `apps/web/`                                    | `@hyperfide/app`                                                                 |
+| `platform/apps/desktop/`, `platform/apps/mobile/` | `apps/desktop/`, `apps/mobile/`                | Existing desktop/mobile packages and installed identities                        |
+| `platform/apps/cli/`                              | `apps/cli/`                                    | `@hyperfide/cli`, including the `hyperfide platform` public front door           |
+| `platform/packages/hyperfide-app/`                | `apps/launcher/`                               | Existing executable distribution and bin names                                   |
+| `platform/packages/sdk/`                          | `sdk/client/`                                  | `@hyperfide/sdk`                                                                 |
+| `platform/packages/plugin-sdk/`                   | `sdk/plugins/`                                 | `@hyperfide/plugin-sdk`                                                          |
+| `platform/packages/*-contract/`                   | Explicit entries under `contracts/`            | Existing wire schemas and package identities; not a blind filename rule          |
+| `platform/packages/db/`                           | `core/runtime-db/`                             | Runtime database; it is not merged with control-plane storage                    |
+| `platform/packages/bundled-plugins/`              | `tools/bundled-plugins/`                       | Existing bundling package                                                        |
+| `platform/packages/scripts/`                      | `tools/scripts/`                               | Packaged command/helper unit                                                     |
+| `platform/scripts/`, `scripts/`                   | `tools/workspace/`, `tools/repository/`        | Distinct un-packaged tooling groups                                              |
+| `platform/plugins/`                               | `plugins/`                                     | Runtime plugin registry and plugin IDs                                           |
+| `editors/vscode/`, `kvx/editors/vscode/`          | `extensions/vscode/`, `extensions/kvx-vscode/` | Distinct extension IDs, versions and VSIX contents                               |
+| `platform/docs/`                                  | `docs/runtime/`                                | Current runtime documentation                                                    |
 
 Not every package with exports is an SDK. The authority client includes storage/migration responsibilities and remains `core/authority-client/`; the provider bridge protocol package includes runtime machinery and remains a core package. Shared formatting and UI helpers belong in `lib/`. The inactive gateway remains inactive after its move; a layout change must not activate or remove a product capability.
 
@@ -77,36 +77,36 @@ Temporary migration launchers may route an old development command to the new ro
 
 ## 4. Path-dependent behavior that must move with its producer
 
-| Contract | Required relocation work and verification |
-|---|---|
-| Native compilation | Root Makefile discovery, include paths, source/object rules, unit tests and native component KVX source/header/support paths must resolve `core/native/src/`. Keep pinned native third-party sources under `vendor/`. |
-| CLI discovery | Update the C `platform_cmd`/help resolver and installed/nested-cwd probes to find `apps/cli/bin/hyperfide-platform`. Preserve existing overrides, command spelling, streams and exit status. |
-| Package loaders | Preserve package-relative service `src/dist`, migrations and components. Relative module URL loading must work from the relocated and packaged forms. |
-| Root calculation | Scripts moved into `tools/` cannot keep an assumed one-level `dirname` root. Use a qualified root resolver with nested-cwd and installed-artifact cases. |
-| Workspace membership | Compare discovered package identities before/after; retain intended tests and example plugins without accidentally installing test fixtures as production packages. |
-| Generated outputs and Turbo | Remap input globs, output paths, directory filters, registry/template generation and shared changelog inputs. Prove a changed moved file invalidates a warm cache. |
-| Environment setup | Move the implementation to `tools/workspace/env-setup.sh` and retain the conventional root `.hyperfide-env-setup.sh` delegator, or explicitly qualify a discovery protocol migration. Preserve install-input hashes against root lock/workspace/package files. |
-| Plugins and SDKs | Update scaffold templates, SDK-relative references, bundled-plugin builds, registry sources, example consumers and generated documentation. Preserve runtime plugin IDs and export subpaths. |
-| CI | Update path triggers, working directories, cache keys, build commands and tests that assert those interfaces. Edits in every moved category must trigger the appropriate existing checks. |
-| Sandbox preparation | Update build/probe/prepare commands and changed-path detection. Prepared images identify the layout generation; old images cannot be presented as ready for the new layout. |
-| Release and deployment | Adapt source inputs and checkout fallback paths. Preserve existing installed artifact paths, including packaged `services/dist`, unless a separate versioned artifact-format migration is qualified. |
-| Extensions and KVX | Keep extension IDs/archive members and the published Go module path. Source relocation alone does not rename either public interface. |
-| Ignore and attributes | Re-anchor nested rules, preserve tracked desktop assets and authored patches, and preserve exclusions for generated/private files. Detect newly exposed files before staging. |
-| Documentation and history | Update current executable examples and links. Preserve historical source paths, fixture transcripts, signed receipts and old specs at their original revision. Maintain an explicit exception catalogue. |
+| Contract                    | Required relocation work and verification                                                                                                                                                                                                                      |
+| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Native compilation          | Root Makefile discovery, include paths, source/object rules, unit tests and native component KVX source/header/support paths must resolve `core/native/src/`. Keep pinned native third-party sources under `vendor/`.                                          |
+| CLI discovery               | Update the C `platform_cmd`/help resolver and installed/nested-cwd probes to find `apps/cli/bin/hyperfide-platform`. Preserve existing overrides, command spelling, streams and exit status.                                                                   |
+| Package loaders             | Preserve package-relative service `src/dist`, migrations and components. Relative module URL loading must work from the relocated and packaged forms.                                                                                                          |
+| Root calculation            | Scripts moved into `tools/` cannot keep an assumed one-level `dirname` root. Use a qualified root resolver with nested-cwd and installed-artifact cases.                                                                                                       |
+| Workspace membership        | Compare discovered package identities before/after; retain intended tests and example plugins without accidentally installing test fixtures as production packages.                                                                                            |
+| Generated outputs and Turbo | Remap input globs, output paths, directory filters, registry/template generation and shared changelog inputs. Prove a changed moved file invalidates a warm cache.                                                                                             |
+| Environment setup           | Move the implementation to `tools/workspace/env-setup.sh` and retain the conventional root `.hyperfide-env-setup.sh` delegator, or explicitly qualify a discovery protocol migration. Preserve install-input hashes against root lock/workspace/package files. |
+| Plugins and SDKs            | Update scaffold templates, SDK-relative references, bundled-plugin builds, registry sources, example consumers and generated documentation. Preserve runtime plugin IDs and export subpaths.                                                                   |
+| CI                          | Update path triggers, working directories, cache keys, build commands and tests that assert those interfaces. Edits in every moved category must trigger the appropriate existing checks.                                                                      |
+| Sandbox preparation         | Update build/probe/prepare commands and changed-path detection. Prepared images identify the layout generation; old images cannot be presented as ready for the new layout.                                                                                    |
+| Release and deployment      | Adapt source inputs and checkout fallback paths. Preserve existing installed artifact paths, including packaged `services/dist`, unless a separate versioned artifact-format migration is qualified.                                                           |
+| Extensions and KVX          | Keep extension IDs/archive members and the published Go module path. Source relocation alone does not rename either public interface.                                                                                                                          |
+| Ignore and attributes       | Re-anchor nested rules, preserve tracked desktop assets and authored patches, and preserve exclusions for generated/private files. Detect newly exposed files before staging.                                                                                  |
+| Documentation and history   | Update current executable examples and links. Preserve historical source paths, fixture transcripts, signed receipts and old specs at their original revision. Maintain an explicit exception catalogue.                                                       |
 
 These are source-grounded obligations. The referenced baseline files remain readable through [repository-baseline.md](repository-baseline.md) and the mapping; specification authoring itself establishes none of these runtime checks. Current implementation evidence is scoped in section 8.
 
 ## 5. Prerequisite sequence
 
-| Task | Deliverable | Gate before continuing |
-|---|---|---|
-| 0.3 | Refresh complete move/merge/keep manifest, file/mode inventory and runtime baseline | No uncovered inputs or unexplained collisions; baseline check outcomes recorded |
-| 0.4 | Establish root workspace front door and relocation tooling | Correct package discovery, pinned installs, path/root discovery and transitional commands |
-| 0.5 | Move native/core/control components with their callers | Native build/discovery, control schema/components and core runtime checks |
-| 0.6 | Move SDKs, contracts, libraries and packaged tooling | Consumer imports, exports, generation, package tests and cache invalidation |
-| 0.7 | Move apps, plugins, extensions, examples and assets | Product launches, plugin discovery, scaffold consumers, extension/package contents |
-| 0.8 | Complete CI, preparation, release, docs and configuration migration | No live old-root dependence; packaged/deployment contracts and ignore boundaries preserved |
-| 0.9 | Qualify the relocated repository and record the handoff | Current complete layout receipt; then fleet prerequisite task 0.10 becomes eligible |
+| Task | Deliverable                                                                         | Gate before continuing                                                                     |
+| ---- | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| 0.3  | Refresh complete move/merge/keep manifest, file/mode inventory and runtime baseline | No uncovered inputs or unexplained collisions; baseline check outcomes recorded            |
+| 0.4  | Establish root workspace front door and relocation tooling                          | Correct package discovery, pinned installs, path/root discovery and transitional commands  |
+| 0.5  | Move native/core/control components with their callers                              | Native build/discovery, control schema/components and core runtime checks                  |
+| 0.6  | Move SDKs, contracts, libraries and packaged tooling                                | Consumer imports, exports, generation, package tests and cache invalidation                |
+| 0.7  | Move apps, plugins, extensions, examples and assets                                 | Product launches, plugin discovery, scaffold consumers, extension/package contents         |
+| 0.8  | Complete CI, preparation, release, docs and configuration migration                 | No live old-root dependence; packaged/deployment contracts and ignore boundaries preserved |
+| 0.9  | Qualify the relocated repository and record the handoff                             | Current complete layout receipt; then fleet prerequisite task 0.10 becomes eligible        |
 
 Each move includes the producer's direct callers and relevant configuration so the task's resulting candidate is runnable. Final cleanup is not permission to leave prior tasks falsely green with broken imports or discovery. The integration branch changes to the new layout only with the qualified revision and compatible prepared-image/build manifests; partial moves stay in isolated candidates.
 
@@ -147,6 +147,51 @@ A full initial Hyperfide graph scan was interrupted; complete graph indexing is 
 
 The full `hyperfide spec done 0.3 -f hyperfide-source-control --no-sync` command was terminated with exit 143 after the focused gate passed: its graph refresh remained unfinished. [qualification.kvx](qualification.kvx) records the distinction. Task 0.3 remains **implemented**, not **done**. Later relocation tasks now record in-progress work ahead of their open dependencies; this does not release the missing graph/evidence gate. The passing inventory gate has not been rerun.
 
+## Regenerating the driver receipts
+
+Run these commands from the vendored project root (`tools/hyperfide` in the host
+repository), with the qualification environment's dependencies and built artifacts
+available. `HYPERFIDE_LAYOUT_NODE22` selects the development Node 22.19.0 binary;
+`HYPERFIDE_LAYOUT_NODE24` selects the control Node 24.22.0 binary. Their default
+locations are under `$HOME/.nvm/versions/node/v<version>/bin/node`. Export both
+variables when the binaries are installed elsewhere and put the Node 22 binary's
+directory on `PATH` for the workspace commands.
+
+```sh
+python3 tests/hyperfide/cases/source_control/0_4.py
+python3 tests/hyperfide/cases/source_control/0_5.py
+python3 tests/hyperfide/cases/source_control/0_6.py
+python3 tests/hyperfide/cases/source_control/0_7.py
+python3 tests/hyperfide/cases/source_control/0_8.py
+```
+
+Read each driver's `build/layout/<task>/receipt.json`, including missing evidence,
+regressions and executor gaps. Copy only receipts with status `PASS`, unchanged,
+to `spec/hyperfide-source-control/receipts/<task>.json` for tasks 0.4 through 0.8
+(`cp build/layout/0.4/receipt.json spec/hyperfide-source-control/receipts/0.4.json`,
+and likewise for the other four). Retain the command logs and artifacts referenced
+by the receipts. Unavailable desktop or Android executors remain unqualified;
+their receipts cannot be promoted to passing evidence.
+
+The tracked `layout-aggregation-input.json` names all five receipt paths relative
+to this project root. Retain its layout revision and existing follow-on
+authorizations; add exact task commit IDs only when the aggregator identifies them
+as unauthorized follow-on revisions. Track the passing receipts, then run:
+
+```sh
+python3 tests/hyperfide/cases/source_control/layout_driver_receipts_test.py
+```
+
+A change to `repository-layout.json` makes the driver receipts stale. In accordance
+with decision 2779, the binding test fails naming the stale receipt and the mapping
+digest it carries until the drivers regenerate the evidence against the current
+mapping and source snapshot.
+
+When a tracked receipt is absent, the test reports its driver command and missing
+inputs as `UNRUN`, validates the aggregation input, driver modules and these
+instructions, and validates every receipt that exists. The live aggregation is
+also reported `UNRUN` until all five tracked receipts exist; component validation
+does not qualify any missing driver or the live layout aggregation (decision 2797).
 
 ## 8. Current relocation progress
 
@@ -154,13 +199,13 @@ The working tree now contains 8,339 mapped file relocations into `core/`, `sdk/`
 
 Tasks 0.4–0.8 are **in progress**. Their `execution_mode = "ahead"` annotations record that relocation work has occurred while direct prerequisites remain open. They are progress annotations, not qualification receipts or substitutes for the engine's ownership/lease records. Task 0.3's graph gate remains outstanding. Task 0.9 and full layout case SCM-025 remain pending/UNRUN; fleet and native source-control implementation remain pending.
 
-| Observed check | Result and evidence scope | Recorded log or receipt |
-|---|---|---|
-| Current file/mode structure | PASS for 9,786 inventoried files, 8,811 unchanged contents, with no missing mapped files or mode errors at that check. This checks paths/modes, not executable behavior. | `build/layout/workspace/structure-receipt.json` |
-| Native/core relocation | Native compilation passed; the focused gate reports 1,325 checks covering native/component and control-source closure, module URLs, retained migration bytes and source/installed path distinctions. PostgreSQL bootstrap, platform CLI execution, packaged supervisor and KVX runtime tests are outside that result. | `/tmp/neron-native-relocation-build.log`, `/tmp/neron-native-relocation-gate.log` |
-| SDK/registry/extension paths | PASS: registry generation matches 106 items, 22 real SDK runtime source/copy entries resolve, eight changed JavaScript modules parse and two extension manifests validate. No full app/SDK typecheck or packaging campaign is implied. | `/tmp/neron-layout-owned-gate.log` |
-| Tools/deployment/CI paths | PASS: syntax of 8 Python, 14 shell, 36 MJS and 17 JSON files; 18 native source/support paths discovered; source-stamp checks over 165 control inputs and temporary fresh/stale states; root-based workspace tooling imports. No release construction, provider operation or service startup was run by this gate. | `/tmp/neron-layout-tools-gate.log` |
-| Root workspace dependencies | Frozen install passed using Node 22.19.0 and pnpm 9.15.0, including preparation after the relocated generator fallback was repaired. Dependency setup is not workspace build/test qualification. | `build/layout/workspace/dependencies/workspace-install.log` |
-| Independent control-plane dependencies/build | `npm ci --ignore-scripts` and `npm run build` passed using Node 24.22.0/npm 11.19.1. Runtime startup, PostgreSQL integration and source-control qualification are outside this result. | `build/layout/workspace/dependencies/control-install.log`, `build/layout/workspace/dependencies/control-build.log` |
+| Observed check                               | Result and evidence scope                                                                                                                                                                                                                                                                                             | Recorded log or receipt                                                                                            |
+| -------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| Current file/mode structure                  | PASS for 9,786 inventoried files, 8,811 unchanged contents, with no missing mapped files or mode errors at that check. This checks paths/modes, not executable behavior.                                                                                                                                              | `build/layout/workspace/structure-receipt.json`                                                                    |
+| Native/core relocation                       | Native compilation passed; the focused gate reports 1,325 checks covering native/component and control-source closure, module URLs, retained migration bytes and source/installed path distinctions. PostgreSQL bootstrap, platform CLI execution, packaged supervisor and KVX runtime tests are outside that result. | `/tmp/neron-native-relocation-build.log`, `/tmp/neron-native-relocation-gate.log`                                  |
+| SDK/registry/extension paths                 | PASS: registry generation matches 106 items, 22 real SDK runtime source/copy entries resolve, eight changed JavaScript modules parse and two extension manifests validate. No full app/SDK typecheck or packaging campaign is implied.                                                                                | `/tmp/neron-layout-owned-gate.log`                                                                                 |
+| Tools/deployment/CI paths                    | PASS: syntax of 8 Python, 14 shell, 36 MJS and 17 JSON files; 18 native source/support paths discovered; source-stamp checks over 165 control inputs and temporary fresh/stale states; root-based workspace tooling imports. No release construction, provider operation or service startup was run by this gate.     | `/tmp/neron-layout-tools-gate.log`                                                                                 |
+| Root workspace dependencies                  | Frozen install passed using Node 22.19.0 and pnpm 9.15.0, including preparation after the relocated generator fallback was repaired. Dependency setup is not workspace build/test qualification.                                                                                                                      | `build/layout/workspace/dependencies/workspace-install.log`                                                        |
+| Independent control-plane dependencies/build | `npm ci --ignore-scripts` and `npm run build` passed using Node 24.22.0/npm 11.19.1. Runtime startup, PostgreSQL integration and source-control qualification are outside this result.                                                                                                                                | `build/layout/workspace/dependencies/control-install.log`, `build/layout/workspace/dependencies/control-build.log` |
 
 The focused gate logs under `/tmp` are local working evidence and are not release receipts. Combined layout closure must retain the required artifacts under its declared evidence policy and rerun only checks invalidated by subsequent relevant edits. Integrated workspace build passed under Node 22.19.0/pnpm 9.15.0 (65/65 Turbo tasks; `build/layout/workspace/dependencies/workspace-build.log`) after repairing the profile-worker generator directory URL and restoring its input source. Broader runtime, cache invalidation, prepared-image, packaged startup and combined layout evidence remain unestablished. No passing component gate changes SCM-025 from UNRUN.

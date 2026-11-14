@@ -1,6 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Native source recovery profile",
+  "description": "Complete declaration for the current recovery parser. Schema validity does not qualify a topology or demonstrate RPO/RTO; failure-domain loss remains unsupported.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -13,6 +14,7 @@
   ],
   "properties": {
     "schema_version": {
+      "type": "integer",
       "const": 1
     },
     "profile_id": {
@@ -33,18 +35,18 @@
       "properties": {
         "failure_domain": {
           "type": "string",
-          "minLength": 1
+          "minLength": 1,
+          "maxLength": 256
         },
         "acknowledgment": {
-          "enum": [
-            "FSYNC_PRIMARY",
-            "SYNC_REPLICA"
-          ]
+          "enum": ["FSYNC_PRIMARY", "SYNC_REPLICA"]
         },
         "replica_failure_domains": {
           "type": "array",
           "items": {
-            "type": "string"
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
           },
           "uniqueItems": true
         },
@@ -53,17 +55,25 @@
           "minItems": 1,
           "uniqueItems": true,
           "items": {
-            "enum": [
-              "PROCESS_LOSS",
-              "PRIMARY_INSTANCE_LOSS"
-            ]
+            "enum": ["PROCESS_LOSS", "PRIMARY_INSTANCE_LOSS"]
           }
         },
         "evidence_digest": {
           "type": "string",
           "pattern": "^sha256:[0-9a-f]{64}$"
         }
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "acknowledgment": { "const": "SYNC_REPLICA" } },
+            "required": ["acknowledgment"]
+          },
+          "then": {
+            "properties": { "replica_failure_domains": { "minItems": 1 } }
+          }
+        }
+      ]
     },
     "placements": {
       "type": "array",
@@ -82,15 +92,18 @@
         "properties": {
           "backend_id": {
             "type": "string",
-            "minLength": 1
+            "minLength": 1,
+            "maxLength": 256
           },
           "region": {
             "type": "string",
-            "minLength": 1
+            "minLength": 1,
+            "maxLength": 256
           },
           "failure_domain": {
             "type": "string",
-            "minLength": 1
+            "minLength": 1,
+            "maxLength": 256
           },
           "evidence_digest": {
             "type": "string",
@@ -148,10 +161,7 @@
     "objectives": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "rpo_seconds",
-        "rto_seconds"
-      ],
+      "required": ["rpo_seconds", "rto_seconds"],
       "properties": {
         "rpo_seconds": {
           "type": "integer",

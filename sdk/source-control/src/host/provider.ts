@@ -10,6 +10,7 @@ import {
   repositoryPath,
   withinScope,
   type WorkspaceDescriptor,
+  type CheckpointResult,
 } from "./client.js";
 import { NativeObjectCache } from "./cache.js";
 import { SourceWorkspaceJournal } from "./journal.js";
@@ -22,8 +23,20 @@ import {
   type VirtualHostConfiguration,
 } from "./capabilities.js";
 
-import { NATIVE_SOURCE_ENVIRONMENT_ID as nativeProviderId, type NativeSliceInput } from "../environment.js";
+import {
+  NATIVE_SOURCE_ENVIRONMENT_ID as nativeProviderId,
+  type NativeSliceInput,
+} from "../environment.js";
 
+interface NativeCheckpointAcknowledgment {
+  operationId: string;
+  workspaceId: string;
+  workspaceGeneration: string;
+  scopeGeneration: string;
+  overlayGeneration: string;
+  baseRevisionId: string;
+  result: CheckpointResult;
+}
 interface NativeState {
   schema_version: 1;
   id: string;
@@ -31,6 +44,7 @@ interface NativeState {
   descriptor: WorkspaceDescriptor;
   path: string;
   snapshots: string[];
+  checkpoint?: NativeCheckpointAcknowledgment;
   cacheCounters?: NativeObjectCache["metrics"];
 }
 async function privateJSON(filename: string): Promise<any> {
@@ -452,7 +466,10 @@ export class NativeSlicesProvider {
     if (!journal.entries.length && !journal.overflow && !journal.pending) {
       this.accumulate(state, runtime.cache);
       await this.save(state);
-      return this.detail(id);
+      return {
+        ...(await this.detail(id)),
+        checkpoint: state.checkpoint ?? null,
+      };
     }
     const result =
       state.input.mode === "VIRTUAL"
@@ -464,11 +481,30 @@ export class NativeSlicesProvider {
             runtime.materializer,
           ).checkpoint(runtime.descriptor);
     this.accumulate(state, runtime.cache);
+    const receipt = result.receipt as {
+      operation_id: string;
+      overlay_generation: string;
+    };
+    state.checkpoint = {
+      operationId: receipt.operation_id,
+      workspaceId: state.input.workspaceId,
+      workspaceGeneration:
+        journal.pending?.request.expected_workspace_generation ??
+        runtime.descriptor.workspace_generation,
+      scopeGeneration:
+        journal.pending?.request.expected_scope_generation ??
+        runtime.descriptor.scope_generation,
+      overlayGeneration: receipt.overlay_generation,
+      baseRevisionId:
+        journal.pending?.request.base_revision_id ??
+        runtime.descriptor.base_revision_id,
+      result,
+    };
     state.descriptor = result.workspace;
     if (!state.snapshots.includes(result.revision_id))
       state.snapshots.push(result.revision_id);
     await this.save(state);
-    return this.detail(id);
+    return { ...(await this.detail(id)), checkpoint: state.checkpoint };
   }
   async detail(id: string) {
     const state = await this.load(id);

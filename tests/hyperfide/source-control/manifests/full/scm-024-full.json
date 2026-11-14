@@ -1,0 +1,131 @@
+{
+  "schema_version": 1,
+  "kind": "hyperfide.source-full-case-inputs",
+  "feature": "hyperfide-source-control",
+  "case_id": "SCM-024",
+  "variant": "full",
+  "registered_variant": "case:hyperfide-source-control/SCM-024/full",
+  "registry": {
+    "path": "tests/hyperfide/source-control/registry.json",
+    "sha256": "5379f8bfbf1bfd71546fc127263da683819d91dba66234aa028b695170b58874"
+  },
+  "claims": {
+    "path": "tests/hyperfide/source-control/claims.json",
+    "sha256": "c305a628a204c85f9deeafb6a768032d60535e469a887bf95a5c833436ec65e6"
+  },
+  "registration": {
+    "path": "tests/hyperfide/source-control/registrations/verifier-scm-024.json",
+    "sha256": "44e42c1622b960824a4ef40885904f909121995e2d1d25e61b6c9579e7cd3200"
+  },
+  "inputs": [
+    {
+      "path": "tests/hyperfide/source-control/full_case/verifier_layout.py",
+      "sha256": "1365b7a68c9ae42d289bb47cf77d6e980925e9c77dc833e30ab18c41d90eecbc",
+      "size": 7987
+    },
+    {
+      "path": "tests/hyperfide/source-control/full_case/verifier_cases.json",
+      "sha256": "5e3fdb746fb19865aca679c225069f11c07d66bafade1705982c429b09e57941",
+      "size": 4357
+    },
+    {
+      "path": "spec/workflow.kvx",
+      "sha256": "f088279c3d072179b24d5a4dcc8d345fc83a7b446ea2677a9b28d3da91fb0448",
+      "size": 8967
+    },
+    {
+      "path": "tests/hyperfide/qualify.py",
+      "sha256": "facde05a960bb5650b4f77533cca9e05c42ea48beaeb0cb2928d70b2139d2c1a",
+      "size": 57877
+    },
+    {
+      "path": "tests/hyperfide/check-evidence.py",
+      "sha256": "2deefd325682d42211c6f4815a1c7535ec4c6ba0911116e891ff773905868d6c",
+      "size": 42606
+    },
+    {
+      "path": "tests/hyperfide/manifest.schema.json",
+      "sha256": "d72531468aee8d49af426480472465b2c378c544622d8d50f626463b555504ac",
+      "size": 7719
+    },
+    {
+      "path": "tests/hyperfide/evidence_store.py",
+      "sha256": "e7df48581f4839d3ca8af601f22e9cae34d58250580f7a1cb0f80d2b0302a6db",
+      "size": 22632
+    },
+    {
+      "path": "tests/hyperfide/publish-evidence.py",
+      "sha256": "61254691e1e95b954cab7aff29d3edb8abb07ccd70fe44fe783923c336f68fbb",
+      "size": 10715
+    },
+    {
+      "path": "tests/hyperfide/source-control/release_campaign.py",
+      "sha256": "5f4df7d996d7a2579b7bf782778741527743acbcb620b87a3d64952b9d857150",
+      "size": 26753
+    },
+    {
+      "path": "tests/hyperfide/source-control/release_campaign_test.py",
+      "sha256": "8cb7a4300b3b405938f2f215ff0c1428633dff1f2dc96aead462d266de1cdf89",
+      "size": 20292
+    },
+    {
+      "path": "tests/hyperfide/source-control/closure.py",
+      "sha256": "f4ef96e4ad9f595478da63ecc2b3c73133cb37ff38e16db0789b8b751050fd69",
+      "size": 12371
+    },
+    {
+      "path": "tests/hyperfide/source-control/campaign_fixture.py",
+      "sha256": "934b59e184988ddfad22dd656e96b89c009ae0339f0436dc6ec39b8cb7ed4dc8",
+      "size": 3453
+    },
+    {
+      "path": "spec/hyperfide-source-control/tools/validate_spec.py",
+      "sha256": "a4e77e8321e83f5f97f1b286f724b345e7133614ce6c3844e9d33a2b601ad780",
+      "size": 25371
+    },
+    {
+      "path": "tests/hyperfide/cases/source_control/0_2.py",
+      "sha256": "01f855c92b860e32c3f9eb29e8137499790bf048537e0538c0c5eab352fcd99e",
+      "size": 9736
+    },
+    {
+      "path": "tests/hyperfide/cases/source_control/6_3.py",
+      "sha256": "a4f3171776147ff2ade6af6290d5bf8a146f6c1b368ce9dfb01b4362a57a6d70",
+      "size": 11750
+    },
+    {
+      "path": "tests/hyperfide/cases/source_control/7_2.py",
+      "sha256": "932d82fd9cecb5b7b97871dc88245f0ec6b1b86e54c5c8eca136500ec678a255",
+      "size": 8630
+    },
+    {
+      "path": "tests/hyperfide/source-control/full_case/verifier_manifest.py",
+      "sha256": "b306db6de63e178c404c16aaa0eb3859e56d9bf124436e1b8de3c7167a6363b4",
+      "size": 2504
+    },
+    {
+      "path": "tests/hyperfide/source-control/status_contract_test.py",
+      "sha256": "61395578307f75cec507704c8b0ca0b2e65a9e17fabb3fd70bedd82654e4ff05",
+      "size": 8912
+    },
+    {
+      "path": "tests/hyperfide/support/fleet_live_qualification.py",
+      "sha256": "d1bf81aedc9b73152ba1de6a9d5d3d284329bb3a6060916b73e1649335cb37bd",
+      "size": 137525
+    },
+    {
+      "path": "tests/hyperfide/cases/source_control/0_9.py",
+      "sha256": "450712e946ee5db4686c6fd2b89c2a0cf362de7bdf82ab039dea24f2e78d6d93",
+      "size": 31929
+    }
+  ],
+  "seed": 23,
+  "policy": {
+    "source_variant": "full",
+    "execution_profile": "independent-verifier-conformance"
+  },
+  "approval": {
+    "approved": true,
+    "allowed_actions": []
+  }
+}

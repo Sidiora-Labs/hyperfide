@@ -1,0 +1,9 @@
+[repair.22.37.30]
+starting_revision = "c6a45ed6d0f1f5ee8cf4a80ea804efdef8e8d9c4"
+final_revision = "private-gate-ledger:22.37.30:verify:revision"
+revision_resolution = "The final revision is the candidate revision in the task's private hf-done evidence; its hf-build revision must match. The evidence is external because embedding the containing commit hash would change that hash."
+change = "Assignment pins the verified base root at WORKSPACE position zero in the workspace insertion transaction, using the shared workspace pin helper and the computed capability expiry."
+test = "tests/hyperfide/cases/source_control/assigned_workspace_retention_test.py"
+assertions = "One live base pin covers the assigned capability, assignment replay preserves that pin, and an actual participant upload and first checkpoint advance the workspace generation while retaining both roots."
+build_command = "hf-build"
+verification_command = "hf-done"

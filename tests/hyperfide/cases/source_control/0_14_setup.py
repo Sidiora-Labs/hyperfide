@@ -14,7 +14,8 @@ import uuid
 
 ROOT=Path(__file__).resolve().parents[4]
 AREA=ROOT/'build/fleet/integration/private'
-NODE=Path('/root/.nvm/versions/node/v24.22.0/bin/node')
+NODE_COMMAND=os.environ.get('HYPERFIDE_FLEET_NODE') or shutil.which('node')
+NODE=Path(NODE_COMMAND).resolve() if NODE_COMMAND else None
 spec=importlib.util.spec_from_file_location('fleet_live',Path(__file__).with_name('0_14_live.py'))
 live=importlib.util.module_from_spec(spec);spec.loader.exec_module(live)
 REQUIRED_ACTIONS='''identity.describe identity.service.issue identity.principal.renew identity.principal.revoke identity.binding.observe identity.grant.issue identity.runner.register identity.runner.heartbeat hierarchy.supervisor.register hierarchy.leader.acquire hierarchy.package.configure hierarchy.package.handoff.acknowledge fleet.cohort.bind fleet.session.bind fleet.observe fleet.session.reason fleet.decision.inspect fleet.decision.apply fleet.identity.bootstrap spec.inspect spec.task.resolve recovery.control.start spec.dependencies.check spec.dependencies.admit spec.amendment.admit provider.pools.configure provider.pools.readiness provider.pools.list provider.pools.capacity provider.pools.observe provider.pools.attest-capacity provider.profiles.register provider.intents.prepare-create provider.intents.get provider.intents.execute provider.intents.reconcile provider.intents.prepare-destroy provider.inventory.observe-known provider.remote.execute-bound provider.worker.start provider.worker.status provider.worker.stop artifact.object.put artifact.object.read artifact.object.inspect artifact.object.reconcile artifact.manifest.commit artifact.manifest.read artifact.object.locate fleet.install.register fleet.install.admit fleet.install.adopt fleet.install.status fleet.install.delivery.register fleet.install.delivery.pending fleet.install.delivery.schedule fleet.install.delivery.collect fleet.manager.execute runner.registry.observe runner.registry.describe runner.registry.prepare runner.job.claim runner.dispatch.consume runner.dispatch.describe runner.launch.event.record connector.qualification.record connector.qualification.inspect native.auth.snapshot native.auth.probe native.auth.qualify agent.launch-plan.fetch agent.launch-plan.prepare agent.launch-plan.inspect agent.admission.reserve outbox.consumer.register outbox.consumer.bind-session outbox.consumer.resolve-session instructions.consumer.register outbox.claim outbox.acknowledge outbox.retry'''.split()
@@ -116,6 +117,7 @@ def main():
     p=argparse.ArgumentParser();p.add_argument('phase',choices=['prepare','bootstrap']);p.add_argument('--origin');p.add_argument('--config',default=str(AREA/'0_14-live-config.json'));args=p.parse_args()
     report={'schema_version':1,'phase':args.phase,'status':'BLOCKED','database_writes_claimed':False}
     try:
+        live.require_node()
         origin=args.origin
         if args.phase=='prepare' and not origin:
             origin=live.read(args.config).get('origin')

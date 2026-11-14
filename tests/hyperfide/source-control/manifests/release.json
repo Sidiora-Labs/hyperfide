@@ -1,0 +1,145 @@
+{
+  "schema_version": 2,
+  "release_id": "00000000-0000-0000-0000-000000000000",
+  "source": {
+    "scope": {
+      "organisation_id": "00000000-0000-0000-0000-000000000000",
+      "repository_id": "00000000-0000-0000-0000-000000000000",
+      "security_domain_id": "00000000-0000-0000-0000-000000000000"
+    },
+    "revision_id": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+    "root_tree_id": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+    "authority_epoch": "1",
+    "policy_version": "REPLACE_WITH_QUALIFIED_POLICY"
+  },
+  "source_format_version": 1,
+  "protocol_version": 1,
+  "closure_packet": {
+    "path": "/private/hyperfide/release/closure-packet.json",
+    "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "size": 0
+  },
+  "artifacts": [
+    {
+      "path": "/private/hyperfide/release/native-source-runtime.tar.gz",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "size": 0,
+      "roles": ["cli", "host", "native", "sdk", "service"]
+    }
+  ],
+  "operator_acceptance": {
+    "path": "/private/hyperfide/release/operator-acceptance.json",
+    "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "size": 0
+  },
+  "runtime": {
+    "package_manifest": {
+      "path": "/private/hyperfide/release/package-manifest.json",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "size": 0
+    },
+    "profile": {
+      "path": "/private/hyperfide/release/runtime-profile.json",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "size": 0
+    },
+    "receipt": {
+      "path": "/private/hyperfide/release/running-system-receipt.json",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "size": 0
+    }
+  },
+  "evidence_classes": {
+    "component": [
+      {
+        "path": "/private/hyperfide/release/7.1-component-receipt.json",
+        "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+        "size": 0
+      }
+    ],
+    "live_backend": [
+      {
+        "case_id": "SCM-002",
+        "variant": "real-s3",
+        "receipt_id": "00000000-0000-0000-0000-000000000000",
+        "receipt_sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+      },
+      {
+        "case_id": "SCM-022",
+        "variant": "real-s3-72h",
+        "receipt_id": "00000000-0000-0000-0000-000000000000",
+        "receipt_sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+      }
+    ],
+    "live_fleet": [
+      {
+        "case_id": "SCM-014",
+        "variant": "hyperfide-fleet",
+        "receipt_id": "00000000-0000-0000-0000-000000000000",
+        "receipt_sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+      },
+      {
+        "case_id": "SCM-022",
+        "variant": "real-worker",
+        "receipt_id": "00000000-0000-0000-0000-000000000000",
+        "receipt_sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+      },
+      {
+        "case_id": "SCM-023",
+        "variant": "api-cli-ui",
+        "receipt_id": "00000000-0000-0000-0000-000000000000",
+        "receipt_sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+      }
+    ],
+    "github": [
+      {
+        "case_id": "SCM-015",
+        "variant": "github",
+        "receipt_id": "00000000-0000-0000-0000-000000000000",
+        "receipt_sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+      }
+    ],
+    "consolidation": [
+      {
+        "case_id": "SCM-017",
+        "variant": "cutover",
+        "receipt_id": "00000000-0000-0000-0000-000000000000",
+        "receipt_sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+      }
+    ],
+    "growth": [
+      {
+        "case_id": "SCM-020",
+        "variant": "growth",
+        "receipt_id": "00000000-0000-0000-0000-000000000000",
+        "receipt_sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+      },
+      {
+        "case_id": "SCM-021",
+        "variant": "mixed-load",
+        "receipt_id": "00000000-0000-0000-0000-000000000000",
+        "receipt_sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+      },
+      {
+        "case_id": "SCM-021",
+        "variant": "open-admission",
+        "receipt_id": "00000000-0000-0000-0000-000000000000",
+        "receipt_sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+      }
+    ],
+    "recovery": [
+      {
+        "case_id": "SCM-018",
+        "variant": "metadata-failover",
+        "receipt_id": "00000000-0000-0000-0000-000000000000",
+        "receipt_sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+      },
+      {
+        "case_id": "SCM-019",
+        "variant": "restore",
+        "receipt_id": "00000000-0000-0000-0000-000000000000",
+        "receipt_sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+      }
+    ]
+  }
+}

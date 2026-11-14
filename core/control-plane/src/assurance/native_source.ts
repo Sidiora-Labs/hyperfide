@@ -16,6 +16,7 @@ import {
 import type { SourceContext, SourceSQL } from "../source_control/metadata.js";
 import type { NativeCandidateRecord } from "../source_control/candidates.js";
 import type { SourceCandidateEvidence } from "../source_control/evidence.js";
+import { SourceRetentionService } from "../source_control/retention.js";
 import { reserveSourceOperation } from "../source_control/operations.js";
 import type { SourceObjectService } from "../source_control/objects.js";
 import type { InvocationContext } from "../transport/protocol.js";
@@ -550,15 +551,20 @@ export class NativeSourceEvidenceVerifier {
           stored.output.stderr_object_id,
           ...stored.artifacts.map((a) => a.object_id),
         ];
-      for (let index = 0; index < ids.length; index++) {
+      for (const object_id of new Set(ids)) {
         const pinned = (
           await tx.query(
-            `SELECT 1 FROM hyperfide.source_object_pins p JOIN hyperfide.source_object_placements s ON s.organisation_id=p.organisation_id AND s.repository_id=p.repository_id AND s.security_domain_id=p.security_domain_id AND s.object_id=p.object_id AND s.incarnation_id=p.incarnation_id WHERE p.organisation_id=$1 AND p.repository_id=$2 AND p.security_domain_id=$3 AND p.owner_kind='HOLD' AND p.owner_id=$4 AND p.position=$5 AND p.object_id=$6 AND s.state='VERIFIED' FOR SHARE OF p,s`,
+            `SELECT 1 FROM hyperfide.source_retention_roots r JOIN hyperfide.source_object_pins p ON p.organisation_id=r.organisation_id AND p.repository_id=r.repository_id AND p.security_domain_id=r.security_domain_id AND p.object_id=r.object_id AND p.incarnation_id=r.incarnation_id AND p.owner_kind='HOLD' AND p.owner_id='root:'||r.root_id::text JOIN hyperfide.source_object_placements s ON s.organisation_id=p.organisation_id AND s.repository_id=p.repository_id AND s.security_domain_id=p.security_domain_id AND s.object_id=p.object_id AND s.incarnation_id=p.incarnation_id WHERE r.organisation_id=$1 AND r.repository_id=$2 AND r.security_domain_id=$3 AND r.root_id=$4 AND r.owner_kind='EVIDENCE' AND r.owner_id=$5 AND r.object_id=$6 AND r.state='ACTIVE' AND (r.expires_at IS NULL OR r.expires_at>clock_timestamp()) AND (p.expires_at IS NULL OR p.expires_at>clock_timestamp()) AND s.state='VERIFIED' FOR SHARE OF r,p,s`,
             [
               ...sourceScopeValues(context.scope),
-              "native-evidence:" + row.evidence_id,
-              index,
-              ids[index],
+              SourceRetentionService.producerRootId(
+                context.scope,
+                "EVIDENCE",
+                row.evidence_id,
+                object_id,
+              ),
+              row.evidence_id,
+              object_id,
             ],
           )
         ).rows[0];
@@ -940,14 +946,18 @@ export class NativeSourceAssurance extends NativeSourceEvidenceVerifier {
             observed.output.stderr_object_id,
             ...observed.artifacts.map((a) => a.object_id),
           ];
-        for (let index = 0; index < ids.length; index++)
-          await this.pin(
-            tx,
-            context.scope,
-            ids[index]!,
-            "native-evidence:" + evidenceId,
-            index,
-          );
+        for (const object_id of [...new Set(ids)].sort())
+          await SourceRetentionService.acquire(tx, context.scope, {
+            root_id: SourceRetentionService.producerRootId(
+              context.scope,
+              "EVIDENCE",
+              evidenceId,
+              object_id,
+            ),
+            owner_kind: "EVIDENCE",
+            owner_id: evidenceId,
+            object_id,
+          });
         const pass =
           observed.command.exit_code === 0 &&
           observed.command.signal === null &&
@@ -1029,6 +1039,24 @@ export class NativeSourceAssurance extends NativeSourceEvidenceVerifier {
           `UPDATE hyperfide.${table} SET revoked_at=COALESCE(revoked_at,clock_timestamp()) WHERE organisation_id=$1 AND repository_id=$2 AND security_domain_id=$3 AND ${key}=$4`,
           [...sourceScopeValues(context.scope), id],
         );
+        if (input.evidence_id) {
+          const roots = (
+            await tx.query(
+              "SELECT root_id FROM hyperfide.source_retention_roots WHERE organisation_id=$1 AND repository_id=$2 AND security_domain_id=$3 AND owner_kind='EVIDENCE' AND owner_id=$4 ORDER BY root_id",
+              [...sourceScopeValues(context.scope), id],
+            )
+          ).rows;
+          for (const root of roots)
+            await SourceRetentionService.release(tx, context.scope, {
+              root_id: root.root_id,
+              owner_kind: "EVIDENCE",
+              owner_id: id,
+            });
+          await tx.query(
+            "DELETE FROM hyperfide.source_object_pins WHERE organisation_id=$1 AND repository_id=$2 AND security_domain_id=$3 AND owner_kind='HOLD' AND owner_id=$4",
+            [...sourceScopeValues(context.scope), "native-evidence:" + id],
+          );
+        }
         return { schema_version: 1, id, revoked: true };
       },
     );

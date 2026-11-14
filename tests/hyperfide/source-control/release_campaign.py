@@ -129,6 +129,92 @@ def failed_cleanup(campaign, receipt_id, expected_hash=None):
     return digest(path)
 
 
+def bind_full_manifest(root, value, shared, registry_path, claims_path, variants):
+    """Bind reviewed, pinned inputs to a supplied genuine native capture."""
+    fields = {'schema_version', 'kind', 'feature', 'case_id', 'variant', 'registered_variant',
+              'registry', 'claims', 'registration', 'inputs', 'seed', 'policy', 'approval'}
+    require(isinstance(value, dict) and set(value) == fields and value['schema_version'] == 1
+            and value['kind'] == 'hyperfide.source-full-case-inputs'
+            and value['feature'] == 'hyperfide-source-control', 'Unsupported pinned full-case manifest')
+    require(pin(root, value['registry']) == registry_path and pin(root, value['claims']) == claims_path,
+            'Pinned full-case registry or claims differs from campaign')
+    require(value['registered_variant'] in variants, 'Pinned full-case registration is unknown')
+    registration, registered_path = variants[value['registered_variant']]
+    require(pin(root, value['registration']) == registered_path and registration.get('scope') == 'full-case'
+            and registration.get('cases') == [value['case_id']] and registration.get('case_variant') == value['variant'],
+            'Pinned full-case registration identity differs')
+    require(isinstance(value['inputs'], list) and [item.get('path') for item in value['inputs']] == registration['source_files'],
+            'Pinned full-case reviewed input inventory differs')
+    for item in value['inputs']:
+        require(isinstance(item, dict) and set(item) == {'path', 'sha256', 'size'}, 'Exact bounded source input pin required')
+        path = pin(root, {key: item[key] for key in ('path', 'sha256')})
+        require(type(item['size']) is int and item['size'] == path.stat().st_size, 'Pinned source input size differs')
+    native = copy.deepcopy(shared)
+    native['test_inventory_sha256'] = Q.digest(Q.canonical(registration['assertion_ids']))
+    Q.native_capture(root, native, registration['assertion_ids'])
+    manifest = {'schema_version': 2, 'feature': value['feature'], 'native_source': native,
+                'campaign_id': value['case_id'].lower() + '-' + value['variant'],
+                'registered_variant': value['registered_variant'], 'scope': 'full-case',
+                'case_ids': [value['case_id']], 'expected_assertion_ids': registration['assertion_ids'],
+                'inputs': value['inputs'], 'resources': registration.get('resources', []),
+                'approval': value['approval'], 'seed': value['seed'], 'policy': value['policy']}
+    registry = read(registry_path)
+    Q.validate_manifest(manifest, registration, registry)
+    return manifest
+
+def inventory_digest(value):
+    return hashlib.sha256(canonical(value)).hexdigest()
+
+
+def receipt_inventory(root, output, files, source_roots):
+    records = []
+    for path in sorted({Path(name).absolute() for name in files}):
+        require(not path.is_symlink(), 'Symbolic receipt inventory input: ' + str(path))
+        records.append({'path': str(path), 'sha256': digest(path) if path.is_file() else None,
+                        'size': path.stat().st_size if path.is_file() else None})
+    return {'files': records, 'source_roots': source_roots,
+            'source': Q.source_inventory(root, {'source_roots': source_roots}, output)}
+
+
+def record_receipt_reuse(root, output, state):
+    """Preserve receipts, but invalidate their result when any bound input changes."""
+    invalid = []
+    for key, entry in sorted(state['entries'].items()):
+        if entry['status'] != 'PASS':
+            continue
+        before, after, reason = entry.get('inventory_sha256'), None, ''
+        try:
+            inventory = entry.get('reuse_inventory')
+            require(isinstance(inventory, dict) and before == inventory_digest(inventory),
+                    'Recorded receipt inventory digest is missing or inconsistent')
+            current = receipt_inventory(root, output, [item['path'] for item in inventory['files']], inventory['source_roots'])
+            after = inventory_digest(current)
+            require(before == after, 'Affected receipt inventory digest changed')
+            campaign = local(output, entry['campaign'])
+            checked(campaign, entry['receipt_id'], entry['receipt_sha256'])
+            require(read(campaign/'manifest.json').get('policy', {}).get('source_variant') == entry['variant'],
+                    'Stored campaign input differs: manifest.json')
+            require(read(campaign/'receipts'/(entry['receipt_id']+'.json')).get('case_ids') == [entry['case_id']],
+                    'Stored campaign input differs: case identity')
+            decision = 'REUSE'
+            reason = 'Unchanged inventory digest and canonical independent checker confirm unaffected receipt'
+        except (CampaignError, Q.GateError, OSError, ValueError, KeyError, subprocess.SubprocessError) as error:
+            decision, reason = 'INVALID', str(error)
+            entry.update(status='INVALID', retry_safe=False, diagnostic=reason)
+            invalid.append(key)
+        record = {'case_id': entry['case_id'], 'variant': entry['variant'],
+                  'campaign': entry['campaign'], 'receipt_id': entry['receipt_id'],
+                  'receipt_sha256': entry['receipt_sha256'], 'decision': decision,
+                  'previous_inventory_sha256': before, 'current_inventory_sha256': after,
+                  'reason': reason}
+        reference = 'reuse/' + inventory_digest(record) + '.json'
+        immutable(output / reference, record)
+        recorded = {'record': reference, **record}
+        if recorded not in state.setdefault('reuse_records', []):
+            state['reuse_records'].append(recorded)
+    save(output, state)
+    require(not invalid, 'Affected receipts are INVALID; historical evidence retained: ' + ', '.join(invalid))
+
 def run(root, plan_path, output, resume=False):
     root, output = root.resolve(), output.resolve()
     require(output.is_relative_to(root) and output != root, 'Output must be inside its workspace')
@@ -147,6 +233,10 @@ def run_locked(root, plan_path, output, resume):
     require(set(plan) == {'schema_version', 'release_id', 'registry', 'claims', 'native_source', 'entries'}
             and plan['schema_version'] == 1, 'Unsupported campaign plan')
     require(str(uuid.UUID(plan['release_id'])) == plan['release_id'], 'Canonical release UUID required')
+    if resume and (output / 'state.json').is_file():
+        prior = read(local(output, 'state.json'))
+        require(prior.get('release_id') == plan['release_id'], 'Resume release identity differs')
+        record_receipt_reuse(root, output, prior)
     registry_path, claims_path, native_path = (pin(root, plan[name]) for name in ('registry', 'claims', 'native_source'))
     registry, variants = Q.load_registry(registry_path)
     claims, shared = read(claims_path), read(native_path)
@@ -157,9 +247,13 @@ def run_locked(root, plan_path, output, resume):
         required = claim.get('required_variants')
         require(isinstance(required, list) and required and all(isinstance(item, str) and item and all(c.isalnum() or c == '-' for c in item) for item in required) and len(required) == len(set(required)), 'Invalid required variants: ' + case)
         require(claim.get('requirement_clauses') == registry['cases'][case].get('reqs'), 'Claim requirement clauses differ: ' + case)
+        if 'full_assertion_ids' in claim:
+            require(claim['full_assertion_ids'] == registry['cases'][case].get('full_assertion_ids'), 'Claim assertion inventory differs: ' + case)
     expected = {(case, variant) for case, claim in claims['cases'].items() for variant in claim['required_variants']}
     require(isinstance(plan['entries'], list), 'Explicit case/variant manifest list required')
-    prepared, seen, inventories = [], set(), []
+    tools = [Path(__file__).resolve(), ROOT / 'tests/hyperfide/qualify.py',
+             ROOT / 'tests/hyperfide/check-evidence.py', ROOT / 'tests/hyperfide/source-control/closure.py']
+    prepared, seen, inventories, reuse_inputs, bound_manifests = [], set(), [], {}, []
     for entry in plan['entries']:
         require(isinstance(entry, dict) and set(entry) == {'case_id', 'variant', 'manifest'}, 'Exact entry required')
         key = (entry['case_id'], entry['variant'])
@@ -167,6 +261,11 @@ def run_locked(root, plan_path, output, resume):
         seen.add(key)
         path = pin(root, entry['manifest'])
         manifest = read(path)
+        manifest_path = path
+        if manifest.get('kind') == 'hyperfide.source-full-case-inputs':
+            manifest = bind_full_manifest(root, manifest, shared, registry_path, claims_path, variants)
+            manifest_path = output / 'bound-manifests' / (inventory_digest(manifest)+'.json')
+            bound_manifests.append((manifest_path, manifest))
         require(manifest.get('registered_variant') in variants, 'Manifest has no canonical registration')
         registration, registered_path = variants[manifest['registered_variant']]
         Q.validate_manifest(manifest, registration, registry)
@@ -191,10 +290,13 @@ def run_locked(root, plan_path, output, resume):
             require(isinstance(captured, dict) and captured in captured_files
                     and captured.get('sha256') == digest(reviewed_path),
                     'Shared native tree does not bind current implementation file: ' + logical)
+        native_files = [shared['manifest'], shared['readiness_receipt'], *shared['toolchain'],
+                        *source_manifest['files'], *read(local(root, shared['readiness_receipt']['path']))['objects']]
+        reviewed.update(local(root, item['path']) for item in native_files)
+        reviewed.update([registry_path, claims_path, native_path, path, registered_path, *tools])
+        reuse_inputs[key] = receipt_inventory(root, output, reviewed, registration['source_roots'])
         inventories.append({'registration_sha256': digest(registered_path), 'source': inventory})
-        prepared.append((entry, path, registration, registered_path))
-    tools = [Path(__file__).resolve(), ROOT / 'tests/hyperfide/qualify.py',
-             ROOT / 'tests/hyperfide/check-evidence.py', ROOT / 'tests/hyperfide/source-control/closure.py']
+        prepared.append((entry, manifest_path, registration, registered_path))
     frozen = {'plan_sha256': digest(plan_path), 'pins': {name: plan[name] for name in ('registry', 'claims', 'native_source')},
               'inventories': inventories, 'tools': {str(path.relative_to(ROOT)): digest(path) for path in tools}}
     fingerprint = hashlib.sha256(canonical(frozen)).hexdigest()
@@ -218,12 +320,14 @@ def run_locked(root, plan_path, output, resume):
     else:
         require(not resume, 'No campaign exists to resume')
         require(not any(path.name != '.release.lock' for path in output.iterdir()), 'Nonempty output refused')
-        state = {'schema_version': 1, 'release_id': plan['release_id'], 'fingerprint': fingerprint, 'entries': {}, 'history': []}
+        state = {'schema_version': 1, 'release_id': plan['release_id'], 'fingerprint': fingerprint, 'entries': {}, 'history': [], 'reuse_records': []}
         immutable(output / 'plan.json', plan)
         immutable(output / 'inputs.json', frozen)
         save(output, state)
     immutable(output / 'plan.json', plan)
     immutable(output / 'inputs.json', frozen)
+    for path, manifest in bound_manifests:
+        immutable(path, manifest)
     for entry, manifest_path, registration, registered_path in prepared:
         unchanged()
         key = entry['case_id'] + '/' + entry['variant']
@@ -236,8 +340,10 @@ def run_locked(root, plan_path, output, resume):
                 if stored.exists():
                     require(digest(stored) == digest(original), 'Stored campaign input differs: ' + filename)
         if previous and previous['status'] == 'PASS':
-            checked(local(output, previous['campaign']), previous['receipt_id'], previous['receipt_sha256'])
+            require(previous.get('inventory_sha256') == inventory_digest(reuse_inputs[(entry['case_id'], entry['variant'])]),
+                    'Receipt inventory changed after reuse decision')
             continue
+        require(not previous or previous['status'] != 'INVALID', 'Affected receipt remains INVALID: ' + key)
         if previous and previous['status'] == 'FAIL':
             if not previous.get('retry_safe'):
                 continue
@@ -266,7 +372,9 @@ def run_locked(root, plan_path, output, resume):
         attempt.mkdir(parents=True)
         campaign = attempt / 'campaign'
         record = {'case_id': entry['case_id'], 'variant': entry['variant'], 'status': 'RUNNING',
-                  'attempt': attempt.relative_to(output).as_posix(), 'campaign': campaign.relative_to(output).as_posix()}
+                  'attempt': attempt.relative_to(output).as_posix(), 'campaign': campaign.relative_to(output).as_posix(),
+                  'reuse_inventory': reuse_inputs[(entry['case_id'], entry['variant'])],
+                  'inventory_sha256': inventory_digest(reuse_inputs[(entry['case_id'], entry['variant'])])}
         state['entries'][key] = record
         state['history'].append(record)
         save(output, state)
@@ -305,7 +413,7 @@ def run_locked(root, plan_path, output, resume):
     immutable(output / ('closure-' + hashlib.sha256(canonical(packet)).hexdigest() + '.json'), packet)
     missing = sorted(expected - {(item['case_id'], item['variant']) for item in evidence})
     report = {'schema_version': 1, 'status': 'BLOCKED' if missing else 'PASS', 'release_id': plan['release_id'],
-              'fingerprint': fingerprint, 'missing_variants': [case + '/' + variant for case, variant in missing], 'entries': sorted(state['entries'].values(), key=lambda item: (item['case_id'], item['variant']))}
+              'fingerprint': fingerprint, 'reuse_records': state.get('reuse_records', []), 'missing_variants': [case + '/' + variant for case, variant in missing], 'entries': sorted(state['entries'].values(), key=lambda item: (item['case_id'], item['variant']))}
     if not missing:
         immutable(output / 'closure.json', packet)
         report['closure'] = CLOSURE.verify_packet(output / 'closure.json', registry_path, claims_path)

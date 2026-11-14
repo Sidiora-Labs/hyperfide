@@ -6,7 +6,7 @@ import {
   parseUUID,
   type SourceScope,
 } from "./contracts.js";
-import type { WorkspaceBudgets } from "./workspaces.js";
+import { pinWorkspaceRoot, type WorkspaceBudgets } from "./workspaces.js";
 import {
   SourceMetadata,
   sourceDigest,
@@ -50,7 +50,13 @@ import {
   deriveQualificationInputs,
 } from "../hierarchy/packets.js";
 import { loadProofObligations } from "../spec/obligations.js";
-import { nativeCandidateSourceDigest,validateCandidateDependencies,nativeCandidateDependencyDigest,type CandidateDependency,type CandidateExecutionDependency } from "./candidates.js";
+import {
+  nativeCandidateSourceDigest,
+  validateCandidateDependencies,
+  nativeCandidateDependencyDigest,
+  type CandidateDependency,
+  type CandidateExecutionDependency,
+} from "./candidates.js";
 import { readReadyFleetInstall } from "../preparation/fleet_authority.js";
 
 export interface FleetSourceAssignmentInput {
@@ -696,6 +702,14 @@ export class SourceFleetService {
         sourceDigest(workspace),
       ],
     );
+    await pinWorkspaceRoot(
+      tx,
+      context,
+      input.workspace_id,
+      source.root_tree_id,
+      0,
+      expiry,
+    );
     const binding = {
       workspace_id: input.workspace_id,
       generation,
@@ -1071,9 +1085,25 @@ export class SourceFleetService {
           "FLEET_POLICY_MISMATCH",
           "Task proof policy must bind this native assignment baseline",
         );
-      const dependencyRows=(packet.packet.mandatory as {inputs:{dependencies:CandidateExecutionDependency[]}}).inputs.dependencies;
-      const dependencies=validateCandidateDependencies(dependencyRows.map(value=>({revision_id:value.source_object_id,execution_dependency:value})));
-      if(nativeCandidateDependencyDigest(dependencies)!==derived.dependency_digest)sourceFailure("FLEET_DEPENDENCY_MISMATCH","Native dependency projection differs from the immutable execution packet");
+      const dependencyRows = (
+        packet.packet.mandatory as {
+          inputs: { dependencies: CandidateExecutionDependency[] };
+        }
+      ).inputs.dependencies;
+      const dependencies = validateCandidateDependencies(
+        dependencyRows.map((value) => ({
+          revision_id: value.source_object_id,
+          execution_dependency: value,
+        })),
+      );
+      if (
+        nativeCandidateDependencyDigest(dependencies) !==
+        derived.dependency_digest
+      )
+        sourceFailure(
+          "FLEET_DEPENDENCY_MISMATCH",
+          "Native dependency projection differs from the immutable execution packet",
+        );
       const inputs = {
         source: nativeCandidateSourceDigest(
           context.scope,

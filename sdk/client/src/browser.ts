@@ -45,9 +45,22 @@ export function createBrowserHyperfideSdk(
   });
 }
 
-export { HyperfideHttpError, HyperfideRequestTimeoutError } from "./response.js";
+export {
+  HyperfideHttpError,
+  HyperfideRequestTimeoutError,
+} from "./response.js";
+export { SystemInstallError } from "./areas/system.js";
 export type { HyperfideHttpErrorArgs } from "./response.js";
-export { createHyperfideSdk, createBuiltinPlanCommandTextInput, createHttpTransport };
-export type { HyperfideSdk, HyperfideSdkAreas, HyperfideSdkContext, HyperfideSdkTransport };
+export {
+  createHyperfideSdk,
+  createBuiltinPlanCommandTextInput,
+  createHttpTransport,
+};
+export type {
+  HyperfideSdk,
+  HyperfideSdkAreas,
+  HyperfideSdkContext,
+  HyperfideSdkTransport,
+};
 export type * from "./areas/skills.js";
 export type * from "./public-types.js";

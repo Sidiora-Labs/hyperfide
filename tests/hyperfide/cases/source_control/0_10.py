@@ -2,6 +2,7 @@
 from pathlib import Path
 import json
 import hashlib
+import importlib.util
 import os
 import subprocess
 import sys
@@ -229,7 +230,42 @@ console.log(JSON.stringify({status:failed.length?'FAIL':'PASS',scope:'fleet-cont
 process.exitCode = failed.length ? 1 : 0;
 '''
 
+def require_layout_receipt(root=ROOT):
+    spec = importlib.util.spec_from_file_location('layout_receipt_producer', Path(__file__).with_name('0_9.py'))
+    producer = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(producer)
+    try:
+        path = root / 'build/layout/0.9/receipt.json'
+        if path.is_symlink() or not path.resolve().is_relative_to(root.resolve()):
+            raise ValueError('Layout receipt must be an ordinary project file')
+        receipt = producer.document(path)
+        producer.validate_layout_receipt(receipt, root / 'tests/hyperfide/source-control/layout-receipt.schema.json')
+        mapping_path = root / 'spec/hyperfide-source-control/repository-layout.json'
+        mapping = producer.document(mapping_path)
+        if receipt['status'] != 'PASS' or receipt['case_qualification'] != 'PASS':
+            raise ValueError('Passing layout and case qualification required')
+        if receipt['bindings']['mapping_sha256'] != producer.digest(mapping_path) or receipt['bindings']['layout_generation'] != mapping['layout_generation']:
+            raise ValueError('Layout mapping digest or generation differs')
+        bindings = receipt['bindings']
+        current = producer.capture_bindings(root)
+        if producer.canonical_digest(bindings['source_snapshot']) != bindings['source_snapshot_sha256']:
+            raise ValueError('Layout source snapshot digest differs')
+        for key in ['source_snapshot', 'source_snapshot_sha256', 'source_prefix', 'source_tree_id']:
+            if bindings[key] != current[key]:
+                raise ValueError('Layout source binding differs: ' + key)
+        if producer.check_final_revision_clean(current, root)['status'] != 'PASS':
+            raise ValueError('Layout relevant tracked source is dirty')
+    except (OSError, ValueError, KeyError, TypeError, subprocess.SubprocessError) as error:
+        raise ValueError('LAYOUT_RECEIPT_REQUIRED: ' + str(error)) from error
+    return receipt
+
+
 def main():
+    try:
+        layout_receipt = require_layout_receipt()
+    except ValueError as error:
+        print(str(error), file=sys.stderr)
+        return 2
     node = os.environ.get('HYPERFIDE_NODE_BINARY', 'node')
     result = subprocess.run([node, '--input-type=module', '-e', PROGRAM, str(ROOT)], cwd=ROOT,
                             text=True, capture_output=True, timeout=90)
@@ -238,13 +274,37 @@ def main():
         sys.stderr.write(result.stderr)
         return result.returncode
     evidence = json.loads(result.stdout)
+    consumer = ROOT / 'tests/hyperfide/cases/source_control/support/contract_surface_consumer.mjs'
+    surface_result = subprocess.run([node, str(consumer)], cwd=ROOT,
+                                    text=True, capture_output=True, timeout=90)
+    if surface_result.returncode:
+        sys.stdout.write(result.stdout)
+        sys.stdout.write(surface_result.stdout)
+        sys.stderr.write(result.stderr)
+        sys.stderr.write(surface_result.stderr)
+        return surface_result.returncode
+    surface = json.loads(surface_result.stdout)
+    if surface['status'] != 'PASS':
+        raise ValueError('Control plane contract surface did not pass')
+    evidence['control_plane_contract_surface'] = surface
+    evidence['results'].append({'id': 'control-plane.contract-surface', 'outcome': 'PASS'})
+    evidence['checks'] = len(evidence['results'])
+    evidence['layout_receipt'] = {'path': 'build/layout/0.9/receipt.json',
+                                  'sha256': hashlib.sha256((ROOT / 'build/layout/0.9/receipt.json').read_bytes()).hexdigest(),
+                                  'status': layout_receipt['status'],
+                                  'mapping_sha256': layout_receipt['bindings']['mapping_sha256'],
+                                  'layout_generation': layout_receipt['bindings']['layout_generation']}
     revision = subprocess.check_output(['git', 'rev-parse', '--verify', 'HEAD^{commit}'], cwd=ROOT, text=True).strip()
     tree = subprocess.check_output(['git', 'rev-parse', '--verify', 'HEAD^{tree}'], cwd=ROOT, text=True).strip()
     inputs = ['contracts/fleet/index.mjs', 'contracts/fleet/index.d.mts',
               'spec/hyperfide-source-control/examples/fleet/.neron',
               'spec/hyperfide-source-control/examples/fleet/package.kvx',
               'spec/hyperfide-source-control/examples/fleet/interfaces.kvx',
-              'tests/hyperfide/cases/source_control/0_10.py']
+              'tests/hyperfide/cases/source_control/0_10.py',
+              'tests/hyperfide/cases/source_control/support/contract_surface_consumer.mjs',
+              'core/control-plane/dist/scheduler/fleet.js',
+              'core/control-plane/dist/contracts/fleet/index.mjs',
+              'core/control-plane/dist/contracts/fleet/index.d.mts']
     evidence['source_binding'] = {'baseline_revision': 'git:' + revision, 'baseline_tree': tree,
                                   'working_inputs': {name: 'sha256:' + hashlib.sha256((ROOT / name).read_bytes()).hexdigest() for name in inputs},
                                   'fixture_authority': 'CONTROLLED_PARSER_AND_INDEX_INPUTS'}

@@ -3405,6 +3405,9 @@ importers:
       '@hyperfide/plugin-sdk':
         specifier: workspace:*
         version: link:../../sdk/plugins
+      '@hyperfide/source-control':
+        specifier: workspace:*
+        version: link:../../sdk/source-control
       zod:
         specifier: 4.6.5
         version: 4.6.5

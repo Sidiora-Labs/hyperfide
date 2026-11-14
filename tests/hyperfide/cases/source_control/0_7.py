@@ -227,7 +227,7 @@ def main():
             revision = native.get('source_revision')
             if not isinstance(revision, str) or subprocess.run(['git', 'merge-base', '--is-ancestor', revision, receipt['source_revision']], cwd=ROOT, capture_output=True).returncode:
                 raise ValueError('Native packaging qualifying revision is not an ancestor')
-            tree = subprocess.check_output(['git', 'rev-parse', revision + '^{tree}'], cwd=ROOT, text=True).strip()
+            tree = contract.source_tree_id(revision, ROOT)
             if native.get('source_tree_id') != tree:
                 raise ValueError('Native packaging qualifying tree differs')
             commands, _observed = contract.validate_execution(native, [assertion_id])
@@ -254,4 +254,5 @@ def main():
 
 
 if __name__ == '__main__':
-    raise SystemExit(main())
+    raise SystemExit(main() if '--inventory' in sys.argv or '--startup' in sys.argv
+                     else evidence_contract().run_driver('0.7', main))

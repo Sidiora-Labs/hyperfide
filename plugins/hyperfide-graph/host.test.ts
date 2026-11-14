@@ -3,7 +3,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, expect, it } from "vitest";
 import { experimental_createHostEntryHarness } from "@hyperfide/plugin-sdk/testing/host";
-import entry from "./host.js";
+import entry, { runBinary } from "./host.js";
+import { NativeGraphRefusal } from "./contract.js";
 const dirs: string[] = [];
 afterEach(async () => {
   await Promise.all(
@@ -78,9 +79,13 @@ it("kills a command that exceeds its deadline", async () => {
 });
 it("rejects a binary whose version cannot be verified", async () => {
   const input = await fixture("console.log('{}');");
-  await writeFile(input.binaryPath, "#!/usr/bin/env node\nprocess.exit(1);\n", { mode: 0o755 });
+  await writeFile(input.binaryPath, "#!/usr/bin/env node\nprocess.exit(1);\n", {
+    mode: 0o755,
+  });
   const host = experimental_createHostEntryHarness(entry);
-  await expect(host.experimental_call("run", input)).rejects.toThrow(/failed verification/);
+  await expect(host.experimental_call("run", input)).rejects.toThrow(
+    /failed verification/,
+  );
   await host.experimental_dispose();
 });
 it("requires protected source configuration for native graph access", async () => {
@@ -88,13 +93,102 @@ it("requires protected source configuration for native graph access", async () =
   delete process.env.HF_SOURCE_CONFIG;
   const host = experimental_createHostEntryHarness(entry);
   try {
-    await expect(host.experimental_call("run", {
-      hostId: "host", repository: "/no/local/repository", command: "index-status", timeoutMs: 2000,
-      nativeSource: { buildId: "11111111-1111-4111-8111-111111111111", revisionId: `sha256:${"a".repeat(64)}`, rootTreeId: `sha256:${"b".repeat(64)}` },
-    })).rejects.toThrow(/HF_SOURCE_CONFIG/);
+    await expect(
+      host.experimental_call("run", {
+        hostId: "host",
+        repository: "/no/local/repository",
+        command: "index-status",
+        timeoutMs: 2000,
+        nativeSource: {
+          buildId: "11111111-1111-4111-8111-111111111111",
+          revisionId: `sha256:${"a".repeat(64)}`,
+          rootTreeId: `sha256:${"b".repeat(64)}`,
+        },
+      }),
+    ).rejects.toThrow(/HF_SOURCE_CONFIG/);
   } finally {
     if (original === undefined) delete process.env.HF_SOURCE_CONFIG;
     else process.env.HF_SOURCE_CONFIG = original;
     await host.experimental_dispose();
   }
 });
+
+async function refuses_checkout_commands_when_native_source_has_no_graph_pin() {
+  const original = process.env.HF_SOURCE_CONFIG;
+  const folder = await mkdtemp(join(tmpdir(), "hyperfide-native-graph-"));
+  dirs.push(folder);
+  const filename = join(folder, "source.json");
+  await writeFile(filename, JSON.stringify({ schema_version: 1 }), {
+    mode: 0o600,
+  });
+  process.env.HF_SOURCE_CONFIG = filename;
+  try {
+    for (const command of ["survey", "why"] as const) {
+      const request = {
+        hostId: "host",
+        repository: "/no/local/checkout",
+        command,
+        target: "apps/web.ts",
+        timeoutMs: 2000,
+      };
+      await expect(runBinary(request)).rejects.toBeInstanceOf(
+        NativeGraphRefusal,
+      );
+      await expect(runBinary(request)).rejects.toMatchObject({
+        code: "NATIVE_GRAPH_PIN_REQUIRED",
+      });
+    }
+  } finally {
+    if (original === undefined) delete process.env.HF_SOURCE_CONFIG;
+    else process.env.HF_SOURCE_CONFIG = original;
+  }
+}
+it(refuses_checkout_commands_when_native_source_has_no_graph_pin);
+
+async function refuses_native_checkout_with_invalid_transport_or_conflicting_pin() {
+  const original = process.env.HF_SOURCE_CONFIG;
+  const folder = await mkdtemp(join(tmpdir(), "hyperfide-native-graph-"));
+  dirs.push(folder);
+  const filename = join(folder, "source.json");
+  const nativeSource = {
+    buildId: "11111111-1111-4111-8111-111111111111",
+    revisionId: `sha256:${"a".repeat(64)}`,
+    rootTreeId: `sha256:${"b".repeat(64)}`,
+  };
+  await writeFile(
+    filename,
+    JSON.stringify({ nativeSource, transport: { schema_version: 1 } }),
+    { mode: 0o600 },
+  );
+  process.env.HF_SOURCE_CONFIG = filename;
+  try {
+    for (const command of ["survey", "why"] as const) {
+      const request = {
+        hostId: "host",
+        repository: "/no/local/checkout",
+        command,
+        target: "apps/web.ts",
+        timeoutMs: 2000,
+      };
+      await expect(runBinary(request)).rejects.toMatchObject({
+        code: "NATIVE_SOURCE_CONFIG_INVALID",
+      });
+      await expect(
+        runBinary({ ...request, nativeSource }),
+      ).rejects.toMatchObject({ code: "NATIVE_SOURCE_CONFIG_INVALID" });
+      await expect(
+        runBinary({
+          ...request,
+          nativeSource: {
+            ...nativeSource,
+            revisionId: `sha256:${"c".repeat(64)}`,
+          },
+        }),
+      ).rejects.toMatchObject({ code: "NATIVE_GRAPH_SOURCE_MISMATCH" });
+    }
+  } finally {
+    if (original === undefined) delete process.env.HF_SOURCE_CONFIG;
+    else process.env.HF_SOURCE_CONFIG = original;
+  }
+}
+it(refuses_native_checkout_with_invalid_transport_or_conflicting_pin);

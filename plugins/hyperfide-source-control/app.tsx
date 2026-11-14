@@ -7,9 +7,12 @@ import {
 import {
   sourceContract,
   requestSchema,
+  sourceCheckpointReceiptMatches,
+  sourceHostCheckpointMatches,
   type SourceActionInput,
   type SourceProductRequest,
   type SourceProductResponse,
+  type SourceWorkspaceEvidence,
 } from "./contract.js";
 import { WorkspaceDetail } from "./views/workspace-detail.js";
 import { ChangeDetail } from "./views/change-detail.js";
@@ -21,6 +24,7 @@ import { Field, Receipt, buttonClass, inputClass } from "./views/shared.js";
 const journalKey = "hyperfide.source.pending.v1";
 const isRead = (action: SourceActionInput) =>
   [
+    "readiness",
     "revision",
     "service-metrics",
     "history",
@@ -34,6 +38,95 @@ const isRead = (action: SourceActionInput) =>
     "transformation",
     "transfer",
   ].includes(action.kind);
+type Completion = {
+  request: SourceProductRequest;
+  response: SourceProductResponse;
+};
+function object(value: unknown): Record<string, unknown> | null {
+  return value !== null && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+export function workspaceReceiptEvidence(
+  request: SourceProductRequest,
+  response: SourceProductResponse,
+  previous: SourceWorkspaceEvidence[],
+): SourceWorkspaceEvidence | null {
+  if (!response.ok || response.operationId !== request.operationId) return null;
+  const result = object(response.result);
+  if (!result) return null;
+  if (request.action.kind === "workspace") {
+    const recovered = object(result.checkpointEvidence);
+    const checkpoint = recovered?.checkpoint;
+    if (
+      recovered?.projectId === request.projectId &&
+      sourceHostCheckpointMatches(checkpoint, result.workspace) &&
+      checkpoint.workspaceId === request.action.workspaceId
+    )
+      return {
+        projectId: request.projectId,
+        workspaceGeneration: checkpoint.result.workspace.workspace_generation,
+        scopeGeneration: checkpoint.scopeGeneration,
+        workspaceId: checkpoint.workspaceId,
+        revisionId: checkpoint.result.revision_id,
+        stage: "ACKNOWLEDGED",
+        operationId: checkpoint.operationId,
+      };
+    return null;
+  }
+  if (
+    request.action.kind === "checkpoint" &&
+    sourceCheckpointReceiptMatches(
+      request.operationId,
+      request.action,
+      result,
+    ) &&
+    typeof result.revision_id === "string"
+  )
+    return {
+      projectId: request.projectId,
+      workspaceGeneration: String(
+        BigInt(request.action.workspaceGeneration) + 1n,
+      ),
+      scopeGeneration: request.action.scopeGeneration,
+      workspaceId: request.action.workspaceId,
+      revisionId: result.revision_id,
+      stage: "ACKNOWLEDGED",
+      operationId: request.operationId,
+    };
+  if (
+    request.action.kind === "submit" &&
+    result.state === "SUBMITTED" &&
+    typeof result.revision_id === "string" &&
+    typeof result.submission_id === "string"
+  ) {
+    const prior = previous.find(
+      (value) =>
+        value.projectId === request.projectId &&
+        value.revisionId === result.revision_id,
+    );
+    if (prior)
+      return { ...prior, stage: "SUBMITTED", operationId: request.operationId };
+  }
+  const stage =
+    request.action.kind === "accept" && typeof result.acceptance_id === "string"
+      ? "ACCEPTED"
+      : ["publication", "resume-publication", "publish"].includes(
+            request.action.kind,
+          ) &&
+          result.status === "PUBLISHED" &&
+          typeof result.git_oid === "string"
+        ? "EXPORTED"
+        : null;
+  const prior = previous.find(
+    (value) =>
+      value.projectId === request.projectId &&
+      value.revisionId === result.revision_id,
+  );
+  return stage && prior
+    ? { ...prior, stage, operationId: request.operationId }
+    : null;
+}
 function savedRequest(): SourceProductRequest | null {
   try {
     const raw = sessionStorage.getItem(journalKey);
@@ -62,7 +155,53 @@ export function SourcePanel(_props: PluginNavPanelProps) {
     [sending, setSending] = useState(false),
     [receipt, setReceipt] = useState<unknown>(),
     [journal, setJournal] = useState<SourceProductRequest | null>(savedRequest),
-    [metrics, setMetrics] = useState<unknown>();
+    [metrics, setMetrics] = useState<unknown>(),
+    [completion, setCompletion] = useState<Completion | null>(null),
+    [workspaceEvidence, setWorkspaceEvidence] = useState<
+      SourceWorkspaceEvidence[]
+    >([]);
+  const completed = useCallback(
+    (request: SourceProductRequest, response: SourceProductResponse) => {
+      setCompletion({ request, response });
+      setWorkspaceEvidence((previous) => {
+        const evidence = workspaceReceiptEvidence(request, response, previous);
+        if (!evidence)
+          return request.action.kind === "workspace"
+            ? previous.filter(
+                (value) =>
+                  value.projectId !== request.projectId ||
+                  value.workspaceId !==
+                    (
+                      request.action as Extract<
+                        SourceActionInput,
+                        { kind: "workspace" }
+                      >
+                    ).workspaceId,
+              )
+            : previous;
+        const prior = previous.find(
+          (value) =>
+            value.projectId === evidence.projectId &&
+            value.workspaceId === evidence.workspaceId,
+        );
+        const stages = ["ACKNOWLEDGED", "SUBMITTED", "ACCEPTED", "EXPORTED"];
+        if (
+          prior?.revisionId === evidence.revisionId &&
+          stages.indexOf(prior.stage) > stages.indexOf(evidence.stage)
+        )
+          return previous;
+        return [
+          ...previous.filter(
+            (value) =>
+              value.projectId !== evidence.projectId ||
+              value.workspaceId !== evidence.workspaceId,
+          ),
+          evidence,
+        ].slice(-128);
+      });
+    },
+    [],
+  );
   useEffect(() => {
     let current = true;
     void rpc
@@ -100,19 +239,31 @@ export function SourcePanel(_props: PluginNavPanelProps) {
       setSending(true);
       setError("");
       setNotice("");
+      if (request.action.kind === "workspace") {
+        const workspaceId = request.action.workspaceId;
+        setWorkspaceEvidence((previous) =>
+          previous.filter(
+            (value) =>
+              value.projectId !== request.projectId ||
+              value.workspaceId !== workspaceId,
+          ),
+        );
+      }
       try {
         const response = await rpc.call("execute", request);
         setReceipt(response);
         if (!response.ok) {
           setError(`${response.error.code}: ${response.error.message}`);
           if (
-            response.error.outcome === "UNKNOWN" ||
-            response.error.retry === "RETRY_SAME_OPERATION"
+            !isRead(request.action) &&
+            (response.error.outcome === "UNKNOWN" ||
+              response.error.retry === "RETRY_SAME_OPERATION")
           )
             save(request);
-          else save(null);
+          else if (!isRead(request.action)) save(null);
         } else {
-          save(null);
+          if (!isRead(request.action)) save(null);
+          completed(request, response);
           const labels: Partial<Record<SourceActionInput["kind"], string>> = {
             open: "Workspace opened",
             checkpoint: "Checkpoint committed",
@@ -135,7 +286,7 @@ export function SourcePanel(_props: PluginNavPanelProps) {
         }
         return response;
       } catch (cause) {
-        save(request);
+        if (!isRead(request.action)) save(request);
         const message = cause instanceof Error ? cause.message : String(cause);
         setError(
           "Response unavailable. Reconcile or retry the retained operation. " +
@@ -155,11 +306,11 @@ export function SourcePanel(_props: PluginNavPanelProps) {
         setSending(false);
       }
     },
-    [rpc, save],
+    [rpc, save, completed],
   );
   const run = useCallback(
     async (action: SourceActionInput): Promise<SourceProductResponse> => {
-      if (activeRequest.current)
+      if (activeRequest.current && !isRead(action))
         return {
           ok: false,
           operationId: activeRequest.current.operationId,
@@ -210,6 +361,26 @@ export function SourcePanel(_props: PluginNavPanelProps) {
         result &&
         ["SUCCEEDED", "COMMITTED", "CANCELLED", "FAILED"].includes(result.state)
       ) {
+        if (["SUCCEEDED", "COMMITTED"].includes(result.state)) {
+          if (
+            journal.action.kind === "checkpoint" &&
+            !sourceCheckpointReceiptMatches(
+              journal.operationId,
+              journal.action,
+              result.result,
+            )
+          ) {
+            setError(
+              "Checkpoint outcome has no matching receipt. Retain and retry the same operation.",
+            );
+            return;
+          }
+          completed(journal, {
+            ok: true,
+            operationId: journal.operationId,
+            result: result.result,
+          });
+        }
         save(null);
         setError("");
       }
@@ -313,9 +484,16 @@ export function SourcePanel(_props: PluginNavPanelProps) {
                   onClick={() => {
                     setTab(value);
                     if (value === "metrics")
-                      void rpc
-                        .call("metrics", { projectId })
-                        .then(setMetrics)
+                      void run({ kind: "service-metrics", maxRows: 50 })
+                        .then((response) => {
+                          if (response.ok)
+                            setMetrics({
+                              source: response.result,
+                              requests: (
+                                response.result as { product_requests: unknown }
+                              ).product_requests,
+                            });
+                        })
                         .catch((cause) => setError(String(cause)));
                   }}
                 >
@@ -331,6 +509,14 @@ export function SourcePanel(_props: PluginNavPanelProps) {
                   pending={sending || journal !== null}
                   revisions={project.revisions}
                   assignments={project.assignments}
+                  journal={journal?.projectId === projectId ? journal : null}
+                  completion={
+                    completion?.request.projectId === projectId
+                      ? completion
+                      : null
+                  }
+                  evidence={workspaceEvidence}
+                  completed={completed}
                 />
               )}{" "}
               {tab === "changes" && (

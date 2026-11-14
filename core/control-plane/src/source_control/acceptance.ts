@@ -1,16 +1,97 @@
-import {resolveEpochAdoption} from './migration/epoch_adoption.js';
+import { resolveEpochAdoption } from "./migration/epoch_adoption.js";
 import { parseObjectId, parseUUID } from "./contracts.js";
-import type { SourceScope } from "./contracts.js";
-import { sourceDigest, sourceFailure } from "./metadata.js";
-import type { SourceContext, SourceSQL } from "./metadata.js";
+import type {
+  SourceScope,
+  SourceLifecycleProjection,
+  SourceLifecycleReadRequest,
+} from "./contracts.js";
+import { sourceDigest, sourceFailure, sourceScopeValues } from "./metadata.js";
+import type { SourceContext, SourceSQL, SourceMetadata } from "./metadata.js";
 import {
   SourceCandidateService,
   candidateScope,
   recordSourceEvent,
 } from "./candidates.js";
-import type {NativeCandidateRecord,CandidateQualification} from "./candidates.js";
+import type {
+  NativeCandidateRecord,
+  CandidateQualification,
+} from "./candidates.js";
 import type { CandidateMutation } from "./candidates.js";
 import { verifyCandidateEvidence } from "./evidence.js";
+
+export async function readSourceLifecycle(
+  metadata: SourceMetadata,
+  context: SourceContext,
+  input: SourceLifecycleReadRequest,
+): Promise<SourceLifecycleProjection> {
+  parseObjectId(input.revision_id);
+  parseUUID(input.domain_id);
+  return metadata.transaction(async (tx) => {
+    await metadata.guard(tx, context, "source.lifecycle.read");
+    const row = (
+      await tx.query<{
+        root_tree_id: string;
+        stages: SourceLifecycleProjection["stages"];
+      }>(
+        `
+      WITH candidates AS (
+        SELECT candidate_id FROM hyperfide.source_native_candidates
+        WHERE organisation_id=$1 AND repository_id=$2 AND security_domain_id=$3 AND revision_id=$4 AND domain_id=$5
+      ), acceptances AS (
+        SELECT acceptance_id FROM hyperfide.source_native_acceptances
+        WHERE organisation_id=$1 AND repository_id=$2 AND security_domain_id=$3 AND revision_id=$4 AND domain_id=$5
+      )
+      SELECT r.root_tree_id, (
+        SELECT jsonb_agg(jsonb_build_object('state',s.state,'receipt_id',s.receipt_id) ORDER BY s.stage,s.receipt_id)
+        FROM (
+          SELECT 0 AS stage,'CREATED' AS state,r.revision_id AS receipt_id
+          UNION ALL
+          SELECT 1,'SUBMITTED',c.candidate_id::text FROM candidates c
+          UNION ALL
+          SELECT 2,'QUALIFIED',q.qualification_id FROM hyperfide.source_candidate_qualifications q
+          JOIN candidates c USING(candidate_id)
+          WHERE q.organisation_id=$1 AND q.repository_id=$2 AND q.security_domain_id=$3
+          UNION ALL
+          SELECT 3,'ACCEPTED',a.acceptance_id FROM acceptances a
+          UNION ALL
+          SELECT 4,'REMOTELY_PUBLISHED',p.operation_id::text FROM hyperfide.source_git_publications p
+          JOIN acceptances a USING(acceptance_id)
+          WHERE p.organisation_id=$1 AND p.repository_id=$2 AND p.security_domain_id=$3
+            AND p.revision_id=$4 AND p.root_tree_id=r.root_tree_id AND p.status='PUBLISHED'
+          ORDER BY stage,receipt_id LIMIT 257
+        ) s
+      ) AS stages
+      FROM hyperfide.source_revisions r JOIN hyperfide.source_integration_domains d
+        USING(organisation_id,repository_id,security_domain_id)
+      WHERE r.organisation_id=$1 AND r.repository_id=$2 AND r.security_domain_id=$3 AND r.revision_id=$4 AND d.domain_id=$5
+    `,
+        [
+          ...sourceScopeValues(context.scope),
+          input.revision_id,
+          input.domain_id,
+        ],
+      )
+    ).rows[0];
+    if (!row)
+      sourceFailure(
+        "NOT_FOUND",
+        "Revision or integration domain is unavailable in this source scope",
+      );
+    if (row.stages.length > 256)
+      sourceFailure(
+        "LIMIT_EXCEEDED",
+        "Lifecycle receipt count exceeds the bounded projection",
+      );
+    return {
+      schema_version: 1,
+      scope: { ...context.scope },
+      revision_id: input.revision_id,
+      root_tree_id: row.root_tree_id,
+      domain_id: input.domain_id,
+      stages: row.stages,
+    };
+  });
+}
 
 export interface NativeAcceptanceReceipt {
   schema_version: 1;
@@ -211,7 +292,8 @@ export class SourceAcceptanceService {
         "Native acceptance is unavailable in this source scope",
       );
     const receipt = row.receipt as NativeAcceptanceReceipt;
-    if(receipt.authority_epoch!==context.authority_epoch)await resolveEpochAdoption(tx,context,receipt);
+    if (receipt.authority_epoch !== context.authority_epoch)
+      await resolveEpochAdoption(tx, context, receipt);
     return receipt;
   }
   async read(
@@ -267,7 +349,8 @@ export class SourceAcceptanceService {
     context: SourceContext,
     receipt: NativeAcceptanceReceipt,
   ): Promise<NativeAcceptanceReceipt> {
-    if(receipt.authority_epoch!==context.authority_epoch)return this.verifyAdoptedEvidence(tx,context,receipt);
+    if (receipt.authority_epoch !== context.authority_epoch)
+      return this.verifyAdoptedEvidence(tx, context, receipt);
     const candidate = await this.candidates.candidateInTransaction(
       tx,
       context,
@@ -306,17 +389,81 @@ export class SourceAcceptanceService {
       );
     return receipt;
   }
-  private async verifyAdoptedEvidence(tx:SourceSQL,context:SourceContext,receipt:NativeAcceptanceReceipt):Promise<NativeAcceptanceReceipt>{
-    const adoption=await resolveEpochAdoption(tx,context,receipt),{result_digest,...body}=receipt;
-    if(sourceDigest(body)!==result_digest)sourceFailure('QUALIFICATION_STALE','Historical acceptance digest differs');
-    const candidateRow=(await tx.query('SELECT manifest FROM hyperfide.source_native_candidates WHERE organisation_id=$1 AND repository_id=$2 AND security_domain_id=$3 AND candidate_id=$4',[...candidateScope(context),receipt.candidate_id])).rows[0];
-    const qualificationRow=(await tx.query('SELECT result FROM hyperfide.source_candidate_qualifications WHERE organisation_id=$1 AND repository_id=$2 AND security_domain_id=$3 AND qualification_id=$4',[...candidateScope(context),receipt.qualification_id])).rows[0];
-    const domain=(await tx.query('SELECT policy_id,policy_digest FROM hyperfide.source_integration_domains WHERE organisation_id=$1 AND repository_id=$2 AND security_domain_id=$3 AND domain_id=$4',[...candidateScope(context),receipt.domain_id])).rows[0];
-    const candidate=candidateRow?.manifest as NativeCandidateRecord|undefined,qualification=qualificationRow?.result as CandidateQualification|undefined;
-    if(!candidate||!qualification||!domain||candidate.authority_epoch!==receipt.authority_epoch||qualification.authority_epoch!==receipt.authority_epoch||candidate.revision_id!==receipt.revision_id||candidate.root_tree_id!==receipt.root_tree_id||candidate.manifest_digest!==receipt.manifest_digest||candidate.policy_id!==receipt.policy_id||candidate.policy_digest!==receipt.policy_digest||qualification.candidate_id!==candidate.candidate_id||qualification.policy_id!==candidate.policy_id||qualification.policy_digest!==candidate.policy_digest||qualification.evidence.evidence_digest!==receipt.evidence_digest||qualification.manifest_digest!==candidate.manifest_digest||domain.policy_id!==receipt.policy_id||domain.policy_digest!==receipt.policy_digest)sourceFailure('QUALIFICATION_STALE','Historical accepted source or policy differs');
-    const evidence=await verifyCandidateEvidence(this.candidates.verifier,tx,{...context,authority_epoch:receipt.authority_epoch,policy_version:adoption.original_policy_version},candidate,qualification.evidence.evidence_ids);
-    if(sourceDigest(evidence)!==sourceDigest(qualification.evidence))sourceFailure('QUALIFICATION_STALE','Historical accepted evidence changed or was revoked');
+  private async verifyAdoptedEvidence(
+    tx: SourceSQL,
+    context: SourceContext,
+    receipt: NativeAcceptanceReceipt,
+  ): Promise<NativeAcceptanceReceipt> {
+    const adoption = await resolveEpochAdoption(tx, context, receipt),
+      { result_digest, ...body } = receipt;
+    if (sourceDigest(body) !== result_digest)
+      sourceFailure(
+        "QUALIFICATION_STALE",
+        "Historical acceptance digest differs",
+      );
+    const candidateRow = (
+      await tx.query(
+        "SELECT manifest FROM hyperfide.source_native_candidates WHERE organisation_id=$1 AND repository_id=$2 AND security_domain_id=$3 AND candidate_id=$4",
+        [...candidateScope(context), receipt.candidate_id],
+      )
+    ).rows[0];
+    const qualificationRow = (
+      await tx.query(
+        "SELECT result FROM hyperfide.source_candidate_qualifications WHERE organisation_id=$1 AND repository_id=$2 AND security_domain_id=$3 AND qualification_id=$4",
+        [...candidateScope(context), receipt.qualification_id],
+      )
+    ).rows[0];
+    const domain = (
+      await tx.query(
+        "SELECT policy_id,policy_digest FROM hyperfide.source_integration_domains WHERE organisation_id=$1 AND repository_id=$2 AND security_domain_id=$3 AND domain_id=$4",
+        [...candidateScope(context), receipt.domain_id],
+      )
+    ).rows[0];
+    const candidate = candidateRow?.manifest as
+        | NativeCandidateRecord
+        | undefined,
+      qualification = qualificationRow?.result as
+        | CandidateQualification
+        | undefined;
+    if (
+      !candidate ||
+      !qualification ||
+      !domain ||
+      candidate.authority_epoch !== receipt.authority_epoch ||
+      qualification.authority_epoch !== receipt.authority_epoch ||
+      candidate.revision_id !== receipt.revision_id ||
+      candidate.root_tree_id !== receipt.root_tree_id ||
+      candidate.manifest_digest !== receipt.manifest_digest ||
+      candidate.policy_id !== receipt.policy_id ||
+      candidate.policy_digest !== receipt.policy_digest ||
+      qualification.candidate_id !== candidate.candidate_id ||
+      qualification.policy_id !== candidate.policy_id ||
+      qualification.policy_digest !== candidate.policy_digest ||
+      qualification.evidence.evidence_digest !== receipt.evidence_digest ||
+      qualification.manifest_digest !== candidate.manifest_digest ||
+      domain.policy_id !== receipt.policy_id ||
+      domain.policy_digest !== receipt.policy_digest
+    )
+      sourceFailure(
+        "QUALIFICATION_STALE",
+        "Historical accepted source or policy differs",
+      );
+    const evidence = await verifyCandidateEvidence(
+      this.candidates.verifier,
+      tx,
+      {
+        ...context,
+        authority_epoch: receipt.authority_epoch,
+        policy_version: adoption.original_policy_version,
+      },
+      candidate,
+      qualification.evidence.evidence_ids,
+    );
+    if (sourceDigest(evidence) !== sourceDigest(qualification.evidence))
+      sourceFailure(
+        "QUALIFICATION_STALE",
+        "Historical accepted evidence changed or was revoked",
+      );
     return receipt;
   }
-
 }

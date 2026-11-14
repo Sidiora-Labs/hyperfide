@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Controlled SDK HTTP, actual native recipe interruption, signed result and recovery application."""
-import argparse,base64,copy,datetime,hashlib,importlib.util,json,os,select,shutil,signal,sqlite3,subprocess,sys,tempfile,time,uuid
+import argparse,base64,copy,datetime,hashlib,importlib.util,json,os,re,select,shutil,signal,sqlite3,subprocess,sys,tempfile,time,uuid
 from pathlib import Path
+from urllib.parse import unquote,urlsplit
 ROOT=Path(__file__).resolve().parents[4];SUPPORT=ROOT/'tests/hyperfide/support'
 def load(name,file):
  s=importlib.util.spec_from_file_location(name,file);m=importlib.util.module_from_spec(s);s.loader.exec_module(m);return m
@@ -16,6 +17,29 @@ cloud=load('interrupted_sdk_http',SUPPORT/'source_archive_http_fixture.py')
 runtime_module=load('interrupted_real_runtime',SUPPORT/'fleet_interrupted_install_runtime.py')
 authority=load('interrupted_initial_authority',SUPPORT/'fleet_install_recovery_seed.py')
 registration=load('interrupted_initial_registration',SUPPORT/'fleet_preparation_registration_seed.py')
+class InterruptedInstallProvider(cloud.BlaxelHttpFixture):
+ def __init__(self,metadata,holder):
+  self.archive_responses=[]
+  super().__init__(metadata,lambda p:holder['handlers'].resolve_path(p),lambda m,i,b:holder['handlers'].process_handler(m,i,b))
+  owner=self
+  class Handler(self.server.RequestHandlerClass):
+   def route(self):
+    path=unquote(urlsplit(self.path).path)
+    archive=re.fullmatch(r'(?:.*/sandboxes/[^/]+)?/filesystem/+(tmp/hyperfide-output/1/([^/]+)/(receipt\.json|stdout|stderr))',path)
+    if self.command=='GET' and archive:
+     with owner.lock:owner.requests.append({'method':self.command,'path':path,'body_size':0})
+     spool,process,filename=archive.groups()
+     if process not in holder['handlers'].processes:
+      raise PermissionError('Output archive must name an owned process capture file')
+     remote='/'+spool
+     try:data=holder['handlers'].read(remote)
+     except FileNotFoundError:
+      owner.archive_responses.append({'process':process,'file':filename,'status':404,'response_size':0})
+      return self.send(404,{'error':'Actual process capture file absent'})
+     owner.archive_responses.append({'process':process,'file':filename,'status':200,'response_size':len(data),'digest':sha(data)})
+     return self.send(200,data,binary=True)
+    return super().route()
+  self.server.RequestHandlerClass=Handler
 def uid_pids(uid):
  found=[]
  for entry in Path('/proc').iterdir():
@@ -35,20 +59,25 @@ def main(*,before_executor=None,scenario=None,job_timeout_ms=120000):
  owned=Path(tempfile.mkdtemp(prefix='hf-install-interrupted-',dir=protected));owned.chmod(0o755);stack=None;backend=None;executor=None;handlers=None;checks=[];policy=None
  runtime=runtime_module.prepare_runtime(owned/'runtime',ROOT/'core/control-plane/dist',native_source=args.native_path,native_digest=args.native_digest)
  holder={}
- backend=cloud.BlaxelHttpFixture({'metadata':{'name':'pending-controlled-input'}},lambda p:holder['handlers'].resolve_path(p),lambda m,i,b:holder['handlers'].process_handler(m,i,b))
+ backend=InterruptedInstallProvider({'metadata':{'name':'pending-controlled-input'}},holder)
  def setup(f):
   config=f.path/'executor.json';write(config,{'schema_version':1,'principals':[{'credential_id':f.ids['provisioner'],'key_path':str(f.keys['provisioner']['path'])}],'concurrency':1})
   secrets=f.path/'secret-store';attachments=f.path/'attachments';secrets.mkdir(mode=0o700);attachments.mkdir(mode=0o700);credentials=f.path/'credentials.json';write(credentials,{'schema_version':1,'secret_root':str(secrets),'attachment_root':str(attachments),'sources':[],'targets':[]})
   limits={'SANDBOX':'100','PROVISIONING':'100','CPU_MILLIS':'100000','MEMORY_BYTES':'1099511627776','DISK_BYTES':'1099511627776'}
   pools=f.path/'pools.json';write(pools,{'schema_version':1,'organisation_id':f.ids['organisation'],'revision':'EXPLICIT_INTERRUPTION_FIXTURE_INPUT','accounts':[{'provider':'blaxel','account_key':'archive-fixture-account','approved_limits':limits,'planning_limits':limits}],'pools':[{'id':f.ids['pool'],'provider':'blaxel','account_key':'archive-fixture-account','environment_key':'archive-fixture-workspace','region':'us-pdx-1','profile_id':f.ids['profile'],'preparation_digest':f.preparation,'approved_limits':limits,'planning_limits':limits,'create_policy':{'seed_reference':'DECLARED_LOCAL_FILES','network':'ISOLATED','stdin_required':False}}],'maximum_operation_ms':max(300000,job_timeout_ms+60000)})
-  f.env.update(NODE_OPTIONS=(f.env.get('NODE_OPTIONS','')+' --import '+str(SUPPORT/'source_archive_sdk_transport.mjs')).strip(),HF_SOURCE_ARCHIVE_HTTP_FIXTURE=backend.endpoint,HF_SOURCE_ARCHIVE_FIXTURE_CWD=str(f.path),BL_DISABLE_H2='true',BL_DISABLE_CONTROL_PLANE_H2='true',HF_BLAXEL_LIVE_ENABLED='true',HF_BLAXEL_API_KEY='isolated-fixture-no-live-authority',HF_BLAXEL_WORKSPACE='archive-fixture-workspace',HF_BLAXEL_ACCOUNT_ID='archive-fixture-account',HF_CREDENTIAL_CONFIG_FILE=str(credentials),HF_RUNNER_EXECUTOR_CONFIG_FILE=str(config),HF_PROVISIONER_EXECUTOR_CONFIG_FILE=str(config),HYPERFIDE_POOL_CONFIG=str(pools),HYPERFIDE_SUPERVISOR_PYTHON='/usr/bin/python3')
+  f.env.update(NODE_OPTIONS=(f.env.get('NODE_OPTIONS','')+' --import '+str(SUPPORT/'source_archive_sdk_transport.mjs')).strip(),HF_SOURCE_ARCHIVE_HTTP_FIXTURE=backend.endpoint,HF_SOURCE_ARCHIVE_FIXTURE_CWD=str(f.path),BL_DISABLE_H2='true',BL_DISABLE_CONTROL_PLANE_H2='true',HF_BLAXEL_LIVE_ENABLED='true',HF_BLAXEL_API_KEY='isolated-fixture-no-live-authority',HF_BLAXEL_WORKSPACE='archive-fixture-workspace',HF_BLAXEL_ACCOUNT_ID='archive-fixture-account',HF_CREDENTIAL_CONFIG_FILE=str(credentials),HF_RUNNER_EXECUTOR_CONFIG_FILE=str(config),HF_PROVISIONER_EXECUTOR_CONFIG_FILE=str(config),HYPERFIDE_POOL_CONFIG=str(pools),HYPERFIDE_SUPERVISOR_PYTHON=sys.executable)
   placement=f.path/'placement.json';write(placement,{**{k:json.loads(f.policy.read_text())[k] for k in ['schema_version','programme_id','repository','spec_revision','policy_revision']},'supervisory_host_id':'ISOLATED_COMPONENT_MAIN','restrictions':{'profile_digest':sha(b'ISOLATED_INPUT_NOT_MAIN_HOST_QUALIFICATION'),'evidence_digest':sha(b'ISOLATED_COMPONENT_INPUT'),'qualification':'QUALIFIED','expires_at':'2099-01-01T00:00:00.000Z'}});f.env['HF_PLACEMENT_POLICY_FILE']=str(placement);f.env['HF_EXECUTION_HOST_BINDING']=json.dumps({'host_id':'ISOLATED_COMPONENT_MAIN','kind':'SUPERVISORY','boot_generation':'1'})
  try:
   names=archive.components(['16.1','16.2','fleet-install','fleet-install-delivery','12.4-executor','12.4','10.3','1.1'])
   stack=stackmod.SubmissionStack(owned/'resources.json',['q1'],extra_components=names,before_start=setup,baseline_files=runtime_module.BASELINE_FILES,provider_config={'provider':'blaxel','account':'archive-fixture-account','workspace':'archive-fixture-workspace','region':'us-pdx-1','image_digest':runtime['image_digest'],'runtime_platform':'linux-amd64'})
   f=stack.fixture;i=f.ids;scope={'organisation_id':i['organisation'],'run_id':i['run']};claim=stack.claim('q1',upload=False);token=claim['token']
   def ok(action,value,component='fleet-install-delivery',key='operator'):
-   status,response=f.invoke(action,value,component=component,key=key)
+   operation=f.operation(component,action,value,authority=getattr(f,'authorities',{}).get(key))
+   status,response=f.request(operation,key=key)
+   if response.get('error',{}).get('code')=='AUTH_SCOPE_DENIED':
+    payload=json.loads(base64.urlsafe_b64decode(operation['payload_b64']+'='*(-len(operation['payload_b64'])%4)))
+    principals=f.sql('SELECT credential_id,run_id,allowed_actions FROM hyperfide.identity_principals WHERE credential_id=$1',[i['provisioner']])
+    print('INSTALL_AUTH_SCOPE_DENIED '+json.dumps({'provisioner_principals':principals,'invocation':{'credential_id':i[key],'action':payload['action'],'run_id':payload['run_id']}}),file=sys.stderr,flush=True)
    if status!=200 or response.get('ok') is not True:raise AssertionError(action+': '+json.dumps(response.get('error',response)))
    return response['result']
   for object_id,kind in [(stack.baseline,'commit'),(stack.git('rev-parse',stack.baseline+'^{tree}'),'tree')]:
@@ -83,7 +112,10 @@ def main(*,before_executor=None,scenario=None,job_timeout_ms=120000):
   ok('fleet.install.delivery.register',{'input_digest':registered_spec['input_digest'],'environment_id':env_id,'environment_generation':1,'sandbox_id':token['sandbox_id'],'boot_id':i['boot'],'boot_generation':token['sandbox_boot_generation'],'session_id':registered['session_id'],'reservation_id':allocation['allocation']['reservation_id'],'target_binding_id':allocation['target_binding_id'],'source':{'repository_key':i['repository'],'source_object_id':stack.baseline,'source_tree_id':stack.git('rev-parse',stack.baseline+'^{tree}'),'source_manifest_digest':inputs['source_manifest_digest']},'staging':refs,'timeout_ms':job_timeout_ms})
   config={'transport_config':str(owned/'transport.json'),'state_dir':str(state),'slot_root':str(owned/'slots'),'connector_plan_path':str(owned/'unused-plan.json'),**scope,'sandbox_id':token['sandbox_id'],'boot_id':i['boot'],'boot_generation':token['sandbox_boot_generation'],'consumer_id':uid(),'preparation_recipes':{'environment.prepare.v1':registered['recipe']}}
   write(owned/'transport.json',{'origin':f.origin,'ca_file':str(f.ca),'key_path':str(f.keys['runner']['path']),'credential_id':i['runner'],'timeout_ms':10000});write(state/'runner.json',config);(owned/'slots').mkdir(mode=0o711)
-  handlers=worker.NativeArchiveWorkerHandlers([owned,f.path,Path('/tmp/hyperfide-output/1')],[Path('/usr/bin/python3').resolve(),Path(shutil.which('node')).resolve(),Path(runtime['native_path'])],{'PATH':str(Path(shutil.which('node')).parent)+':/usr/bin:/bin','LANG':'C.UTF-8'},owned/'process-output');holder['handlers']=handlers
+  # Bind the provider's fixed subreaper path to the suite's actual interpreter
+  # through the fixture's explicit guest path resolver, retaining launch bytes.
+  def provider_path(path):return Path(sys.executable).resolve() if path=='/usr/bin/python3' else Path(path)
+  handlers=worker.NativeArchiveWorkerHandlers([owned,f.path,Path('/tmp/hyperfide-output/1')],[Path(sys.executable).resolve(),Path(shutil.which('node')).resolve(),Path(runtime['native_path'])],{'PATH':str(Path(shutil.which('node')).parent)+':/usr/bin:/bin','LANG':'C.UTF-8'},owned/'process-output',path_resolver=provider_path);holder['handlers']=handlers
   ok('fleet.install.delivery.schedule',{'operation_id':logical})
   last_heartbeat=0.0
   def heartbeat():
@@ -108,6 +140,7 @@ def main(*,before_executor=None,scenario=None,job_timeout_ms=120000):
    executor.stdin.write(json.dumps({'id':'failed-stage-status','operation':'status'})+'\n');executor.stdin.flush()
    status_line=executor.stdout.readline()
    jobs=f.sql('SELECT state,result FROM hyperfide.runner_remote_jobs WHERE organisation_id=$1 AND run_id=$2 AND operation_id=$3',[i['organisation'],i['run'],logical])
+   print('INSTALL_OUTPUT_ARCHIVE '+json.dumps({'archive_responses':backend.archive_responses,'job_state':jobs}),file=sys.stderr,flush=True)
    raise AssertionError('Actual dependency stage not reached: '+status_line+' jobs='+json.dumps(jobs)+' processes='+json.dumps([handlers.describe(name) for name in handlers.processes])+' transport='+json.dumps({'requests':backend.requests,'errors':handlers.observations,'observations':f.sql('SELECT observation FROM hyperfide.provider_remote_observations')})+' stderr='+(owned/'executor.stderr').read_text()[-2000:])
   prior_ledger=(staging.with_name(staging.name+'.ledger.json')).read_bytes();baseline_lock=(staging/'source/package-lock.json').read_bytes();os.kill(pid,signal.SIGKILL)
   deadline=time.monotonic()+40;failed=None
@@ -115,7 +148,9 @@ def main(*,before_executor=None,scenario=None,job_timeout_ms=120000):
    heartbeat();rows=f.sql('SELECT state,result,result_digest FROM hyperfide.runner_remote_jobs WHERE organisation_id=$1 AND run_id=$2 AND operation_id=$3',[i['organisation'],i['run'],logical])
    if rows and rows[0]['state'] in ['COMPLETED','UNKNOWN']:failed=rows[0];break
    time.sleep(.2)
-  if not failed or failed['state']!='COMPLETED' or failed['result']['outcome']!='FAILED' or failed['result']['cleanup']['complete'] is not True or failed['result']['cleanup']['observed_process_absent'] is not True:raise AssertionError('Real interrupted owner did not produce signed FAILED/quiescence: '+json.dumps(failed))
+  if not failed or failed['state']!='COMPLETED' or failed['result']['outcome']!='FAILED' or failed['result']['cleanup']['complete'] is not True or failed['result']['cleanup']['observed_process_absent'] is not True:
+   print('INSTALL_OUTPUT_ARCHIVE '+json.dumps({'archive_responses':backend.archive_responses,'job_state':failed}),file=sys.stderr,flush=True)
+   raise AssertionError('Real interrupted owner did not produce signed FAILED/quiescence: '+json.dumps(failed))
   checks.append('actual recipe SIGKILL retained native owner produced signed FAILED and confirmed quiescence')
   old_plan=f.sql('SELECT plan_digest FROM hyperfide.runner_remote_jobs WHERE organisation_id=$1 AND run_id=$2 AND operation_id=$3',[i['organisation'],i['run'],logical])[0]['plan_digest']
   recovery={'install_operation_id':logical,'admission_digest':a['admission_digest'],'runner_operation_id':logical,'runner_plan_digest':old_plan,'quiescence_operation_id':logical,'quiescence_receipt_digest':failed['result']['cleanup']['receipt_digest']}
@@ -130,7 +165,16 @@ def main(*,before_executor=None,scenario=None,job_timeout_ms=120000):
    heartbeat();rows=f.sql('SELECT state,result FROM hyperfide.runner_remote_jobs WHERE organisation_id=$1 AND run_id=$2 AND operation_id=$3',[i['organisation'],i['run'],newop])
    if rows and rows[0]['state'] in ['COMPLETED','UNKNOWN']:success=rows[0];break
    time.sleep(.2)
-  if not success or success['state']!='COMPLETED' or success['result']['outcome']!='SUCCEEDED':raise AssertionError('Replacement execution failed '+json.dumps(success))
+  if not success or success['state']!='COMPLETED' or success['result']['outcome']!='SUCCEEDED':
+   print('INSTALL_OUTPUT_ARCHIVE '+json.dumps({'archive_responses':backend.archive_responses,'job_state':success}),file=sys.stderr,flush=True)
+   raise AssertionError('Replacement execution failed '+json.dumps(success))
+  for name in handlers.processes:
+   for filename in ('receipt.json','stdout','stderr'):
+    responses=[response for response in backend.archive_responses if response['process']==name and response['file']==filename and response['status']==200]
+    data=handlers.read('/tmp/hyperfide-output/1/'+name+'/'+filename)
+    if not responses or any(response['response_size']!=len(data) or response['digest']!=sha(data) for response in responses):
+     print('INSTALL_OUTPUT_ARCHIVE '+json.dumps({'archive_responses':backend.archive_responses,'requests':backend.requests}),file=sys.stderr,flush=True)
+     raise AssertionError('Complete actual process archive was not served: '+json.dumps({'process':name,'file':filename,'responses':responses,'size':len(data)}))
   collected=ok('fleet.install.delivery.collect',{'operation_id':newop})
   if collected.get('state')!='READY' or (environment/'source/package-lock.json').read_bytes()!=baseline_lock:raise AssertionError('Resumed source pins or readiness differ')
   qualification=load('interrupted_live_lineage_oracle',SUPPORT/'fleet_live_qualification.py')
@@ -181,6 +225,7 @@ def main(*,before_executor=None,scenario=None,job_timeout_ms=120000):
   histories=list(parent.glob(staging.name+'.recovery-*.json'))
   if not any(p.read_bytes()==prior_ledger for p in histories):raise AssertionError('Original stage evidence was overwritten')
   checks.extend(['actual replacement recipe reused retained stage and completed native readiness','original source lock bytes and interrupted stage evidence retained'])
+  checks.append('provider served complete measured receipt/stdout/stderr archives for each actual polled process')
   print(json.dumps({'status':'PASS','scope':'controlled-SDK actual-native interrupted-install component boundary','fixture_preconditions':['accepted initial graph/admission/identity/ownership/capacity metadata','labeled admitted recovery decision input; no model claim'],'checks':checks}))
   return 0
  finally:

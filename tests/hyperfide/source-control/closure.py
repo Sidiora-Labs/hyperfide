@@ -65,6 +65,35 @@ def source_identity(value):
     require(isinstance(value['policy_version'], str) and value['policy_version'].strip(), 'Source policy version required')
     return value
 
+def receipt_obligations(receipt, manifest, campaign, case_id, assertions):
+    prefix = 'Unmet closure obligation for ' + case_id + ': '
+    require(receipt.get('selected_case_ids') == [case_id], prefix + 'nonempty exact case selection obligation is unmet')
+    observed = receipt.get('assertions')
+    require(isinstance(observed, list) and observed, prefix + 'nonzero observed assertion inventory obligation is unmet')
+    ids = [row.get('id') for row in observed if isinstance(row, dict)]
+    require(len(ids) == len(observed) and len(set(ids)) == len(ids) and ids == assertions,
+            prefix + 'exact assertion coverage obligation is unmet; duplicate assertions cannot fill gaps')
+    require(all(row.get('status') == 'PASS' and 'expected' in row and 'actual' in row
+                and canonical(row['expected']) == canonical(row['actual']) for row in observed),
+            prefix + 'successful assertion observations obligation is unmet')
+    command = receipt.get('command', {})
+    require(isinstance(command, dict) and type(command.get('exit_code')) is int and command['exit_code'] == 0
+            and command.get('timed_out') is False and command.get('leaked_descendants') == []
+            and command.get('remaining_descendants') == [], prefix + 'observed command exit status and process cleanup obligation is unmet')
+    cleanup = receipt.get('cleanup', {})
+    require(isinstance(cleanup, dict) and cleanup.get('complete') is True and isinstance(cleanup.get('resources'), list),
+            prefix + 'complete cleanup obligation is unmet')
+    registration = load(campaign / 'registration.json')
+    argv = registration.get('argv')
+    require(isinstance(argv, list) and argv and all(isinstance(arg, str) and arg for arg in argv),
+            prefix + 'registered driver obligation is unmet')
+    workspace = receipt.get('source', {}).get('workspace')
+    require(isinstance(workspace, str) and Path(workspace).is_absolute(), prefix + 'driver source workspace obligation is unmet')
+    for name in registration.get('source_files', []):
+        require(path_from(workspace, name).is_file(), prefix + 'registered driver/source input is missing: ' + name)
+    require(manifest.get('native_source') == receipt.get('source', {}).get('native'),
+            prefix + 'complete native input identity obligation is unmet')
+
 def verify_packet(packet_path, registry_path=None, claims_path=None):
     packet_path = Path(packet_path).resolve()
     registry_path = Path(registry_path or ROOT / 'tests/hyperfide/source-control/registry.json').resolve()
@@ -83,6 +112,8 @@ def verify_packet(packet_path, registry_path=None, claims_path=None):
         claim = claims['cases'][case_id]
         require(claim.get('requirement_clauses') == case.get('reqs') and bool(claim.get('requirement_clauses')), 'Claim requirement inventory differs: ' + case_id)
         variants, assertions = claim.get('required_variants'), case.get('full_assertion_ids')
+        if 'full_assertion_ids' in claim:
+            require(claim['full_assertion_ids'] == assertions, 'Claim full assertion inventory differs: ' + case_id)
         require(isinstance(variants, list) and variants and len(set(variants)) == len(variants), 'Required variants are absent or duplicated: ' + case_id)
         require(isinstance(assertions, list) and assertions and len(set(assertions)) == len(assertions), 'Full assertion inventory is absent or duplicated: ' + case_id)
         for assertion in assertions:
@@ -106,15 +137,22 @@ def verify_packet(packet_path, registry_path=None, claims_path=None):
         receipt_path = campaign / 'receipts' / (record['receipt_id'] + '.json')
         require(record['receipt_sha256'] == digest(receipt_path), 'Evidence receipt hash differs')
         receipt, manifest = load(receipt_path), load(campaign / 'manifest.json')
-        require(receipt.get('scope') == 'full-case' and receipt.get('full_case_status') == 'PASS', 'Component evidence cannot close a full case')
+        require(receipt.get('scope') == 'full-case', 'Component evidence cannot close a full case')
         require(receipt.get('case_ids') == [record['case_id']], 'Receipt must identify its exact canonical case')
         require(receipt.get('expected_assertion_ids') == registry['cases'][record['case_id']]['full_assertion_ids'], 'Full case assertion inventory differs')
         require(manifest.get('policy', {}).get('source_variant') == record['variant'], 'Evidence backend/provider variant differs')
         captured = receipt.get('source', {}).get('native')
-        require(isinstance(captured, dict) and {field: captured.get(field) for field in IDENTITY} == source, 'Evidence source or policy is stale')
+        require(isinstance(captured, dict) and {field: captured.get(field) for field in IDENTITY} == source, 'Evidence source or policy is stale; complete native input identity obligation is unmet')
+        obligation_error = None
+        try:
+            receipt_obligations(receipt, manifest, campaign, record['case_id'], registry['cases'][record['case_id']]['full_assertion_ids'])
+        except ClosureError as error:
+            obligation_error = str(error)
+        require(receipt.get('full_case_status') == 'PASS', 'Full-case passing outcome obligation is unmet: ' + record['case_id'])
         command = [sys.executable, '-I', str(ROOT / 'tests/hyperfide/check-evidence.py'), '--campaign', str(campaign), '--receipt', record['receipt_id']]
         result = subprocess.run(command, capture_output=True, text=True, timeout=120)
-        require(result.returncode == 0, 'Independent evidence checker refused ' + record['case_id'] + ': ' + result.stdout[-600:])
+        require(result.returncode == 0, 'Independent evidence checker refused ' + record['case_id'] + ': ' + (obligation_error or '') + ' ' + result.stdout[-600:])
+        require(obligation_error is None, obligation_error or 'Closure receipt obligations are unmet')
         report = json.loads(result.stdout)
         require(report.get('checked') is True and report.get('observed_outcome') == 'PASS' and report.get('full_case_status') == 'PASS' and report.get('receipt_sha256') == record['receipt_sha256'], 'Independent checker did not confirm exact evidence')
         require(not report.get('unverifiable_references'), 'Evidence has unverifiable references')

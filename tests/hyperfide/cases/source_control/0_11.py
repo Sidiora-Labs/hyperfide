@@ -28,6 +28,18 @@ def main():
         print(inventory.stderr, file=sys.stderr)
         return inventory.returncode
     report['assertions'].update({name: True for name in json.loads(inventory.stdout)['assertions']})
+    refusals = subprocess.run(
+        ['node', str(Path(__file__).parent / 'fixtures/install/installer_refusals.mjs')],
+        cwd=ROOT, capture_output=True, text=True, timeout=90,
+    )
+    (OUT / 'installer-refusals.log').write_text(refusals.stdout + refusals.stderr)
+    if refusals.returncode:
+        print(refusals.stderr, file=sys.stderr)
+        return refusals.returncode
+    refusal_report = json.loads(refusals.stdout)
+    if refusal_report['status'] != 'PASS' or not refusal_report['assertions'] or not all(refusal_report['assertions'].values()):
+        raise AssertionError('Installer refusals did not assert every criterion')
+    report['assertions'].update(refusal_report['assertions'])
     report.update(task='0.11', scope='scoped Git and installed closure filesystem components only',
                   signed_environment_installation='UNRUN', provider_qualification='UNRUN')
     (OUT / 'source-adapter-receipt.json').write_text(json.dumps(report, indent=2) + '\n')

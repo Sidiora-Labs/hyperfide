@@ -19,14 +19,35 @@ The private deployment configuration is mode 0600 and contains:
   "schema_version": 1,
   "endpoint": "https://source.example.invalid/source",
   "isolated_scope": true,
-  "scope": {"organisation_id": "UUID", "repository_id": "UUID", "security_domain_id": "UUID"},
+  "scope": {
+    "organisation_id": "UUID",
+    "repository_id": "UUID",
+    "security_domain_id": "UUID"
+  },
   "backend_identity": "measured backend identity",
-  "deployment_identity": {"provider":"provider","service_id":"service","deployment_id":"immutable deployment","image_digest":"sha256:HEX","resource_profile_digest":"sha256:HEX"},
+  "deployment_identity": {
+    "provider": "provider",
+    "service_id": "service",
+    "deployment_id": "immutable deployment",
+    "image_digest": "sha256:HEX",
+    "resource_profile_digest": "sha256:HEX"
+  },
   "credential_file": "/private/renewable-credential.json",
   "output_directory": "/private/campaign-results",
-  "budgets": {"max_checkpoint_p95_ms": 1000, "max_growth_ratio": 2},
-  "corpora": [{"logical_files": 10000, "revision_id": "sha256:HEX", "edit_paths": ["ten existing file paths"]}],
-  "observer": {"argv": ["/private/measured-observer"], "executable_digest": "sha256:HEX", "timeout_seconds": 60, "env_keys": []}
+  "budgets": { "max_checkpoint_p95_ms": 1000, "max_growth_ratio": 2 },
+  "corpora": [
+    {
+      "logical_files": 10000,
+      "revision_id": "sha256:HEX",
+      "edit_paths": ["ten existing file paths"]
+    }
+  ],
+  "observer": {
+    "argv": ["/private/measured-observer"],
+    "executable_digest": "sha256:HEX",
+    "timeout_seconds": 60,
+    "env_keys": []
+  }
 }
 ```
 
@@ -39,7 +60,14 @@ The bearer credential file is mode 0600, with `schema_version: 1`, the exact `en
 The observer, drills and real-worker canary are pinned executable commands. Their environment contains only PATH, LANG, the explicitly listed `env_keys`, `HF_SOURCE_CAMPAIGN_SCOPE`, and `HF_SOURCE_CAMPAIGN_RESULT`. Each command writes a fresh JSON receipt to that result path:
 
 ```json
-{"schema_version":1,"status":"PASS","scope":{},"evidence":[{"path":"measured-evidence.json","size":123,"sha256":"sha256:HEX"}]}
+{
+  "schema_version": 1,
+  "status": "PASS",
+  "scope": {},
+  "evidence": [
+    { "path": "measured-evidence.json", "size": 123, "sha256": "sha256:HEX" }
+  ]
+}
 ```
 
 The scope must match exactly; evidence files must remain inside the output directory and match their measured sizes/hashes. Observer receipts additionally contain `observations` with the exact `backend_identity`, `real_s3: true`, and nonnegative integer counters: `persisted_revisions`, `storage_requests`, `storage_bytes`, `hydrated_bytes`, `cache_hits`, `cache_misses`, `queue_depth`, `lock_wait_ms`, `connection_count`, and `publication_lag_ms`. Capture these from the deployed service and storage instrumentation. The before/after durable revision delta must equal distinct acknowledged client revisions. An observer label alone does not establish real storage: retain its raw provider/service evidence for independent case verification.
@@ -54,3 +82,26 @@ edit objects; the result records `content_condition.profile` as
 `cold-unique-edit-objects`. Initial corpus metadata verification still warms the
 read path equally before measurement. This profile does not claim a globally
 cold object-store or operating-system cache.
+
+Campaign receipt validation reconciles distinct authored revision IDs against the
+durable ledger and excludes prepared/imported revisions. Every operation needs a
+latency sample, and checkpoint campaigns need measured checkpoint RPC samples.
+Corpus preparation warms metadata reads, so receipts identify this cache scope as
+warm. They must not claim a globally cold cache. API_ONLY logical opens never count
+as materialized files.
+
+Each result retains before/after observer samples and the measured deltas for
+`hydrated_bytes`, `cache_hits`, `cache_misses`, and `storage_requests`. Missing or
+regressed counters fail validation. API_ONLY paths have no filesystem materializer
+or client object cache, so their hydration and cache counters remain zero; actual
+storage requests are measured separately. These counters cannot be inferred from
+logical opens. Mixed and admission receipts must reconcile all four counters.
+
+The deployed driver records `status: BLOCKED` and `missing_capability` when a full
+profile lacks `real_backend`, the required `capacity.growth`, `capacity.mixed`,
+`capacity.admission` or `capacity.endurance`, or a required deployed API action.
+These outcomes exit zero and retain `receipt.json` in the configured private output
+directory; they do not qualify a campaign. Invalid configuration and failed measured
+assertions remain errors. The bounded component gate exercises these outcomes, all
+receipt mislabel/inflation negatives, and reads every object reachable from each
+acknowledged revision root, including internal radix nodes and file content.

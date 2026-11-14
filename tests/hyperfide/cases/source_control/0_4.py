@@ -211,12 +211,16 @@ def cache():
         print(json.dumps({'scope':'actual Turbo dry-run cache-key engine over isolated current workspace manifests; no build execution','moved_input':source.relative_to(ROOT).as_posix(),'cold':cold,'warm':warm,'changed':changed,'source_sha256':sha(source)}))
 
 
-def layout_bindings():
+def evidence_contract():
     filename=SELF.with_name('0_9.py')
     spec=importlib.util.spec_from_file_location('layout_receipt_bindings',filename)
     module=importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
-    return module.capture_bindings()
+    return module
+
+
+def layout_bindings():
+    return evidence_contract().capture_bindings()
 
 
 def consume_evidence(path,bindings):
@@ -238,7 +242,7 @@ def consume_evidence(path,bindings):
         revision=receipt.get('source_revision')
         if not isinstance(revision,str) or subprocess.run(['git','merge-base','--is-ancestor',revision,bindings['source_revision']],cwd=ROOT,capture_output=True).returncode:
             raise ValueError('EVIDENCE_STALE: qualifying revision is not a real ancestor '+kind)
-        if receipt.get('source_tree_id')!=git('rev-parse',revision+'^{tree}'):
+        if receipt.get('source_tree_id')!=evidence_contract().source_tree_id(revision, ROOT):
             raise ValueError('EVIDENCE_STALE: qualifying Git tree '+kind)
         if receipt.get('status')!='PASS' or not receipt.get('commands'):
             raise ValueError('EVIDENCE_INCOMPLETE: '+kind)
@@ -310,4 +314,4 @@ def main():
     return {'PASS':0,'FAIL':1,'BLOCKED':2}[report['status']]
 
 if __name__=='__main__':
-    raise SystemExit(main())
+    raise SystemExit(main() if '--probe' in sys.argv else evidence_contract().run_driver('0.4', main))

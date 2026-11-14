@@ -1,0 +1,86 @@
+{
+  "schema_version": 1,
+  "exceptions": [
+    {
+      "file": "docs/SOURCE-REFERENCE.md",
+      "line_range": [1, 35],
+      "revision": "a2a367f9",
+      "classification": "revision-bound-source-reference",
+      "reason": "Historical index paths and declaration locations retain the explicitly pinned a2a367f9 baseline; current category mapping is separate.",
+      "section_sha256": "0b7d73a37399c33dcfb6da03e2085d11f74b8467b8d1617cb403bb03c567fed6"
+    },
+    {
+      "file": "docs/reference/editors-vscode.md",
+      "line_range": [1, 505],
+      "revision": "a2a367f9",
+      "classification": "revision-bound-source-reference",
+      "reason": "Historical index paths and declaration locations retain the explicitly pinned a2a367f9 baseline; current category mapping is separate.",
+      "section_sha256": "a578ea8d10a7becc5ed1d1acf3496b055d0cbdcdedf6667fcb426e994616532f"
+    },
+    {
+      "file": "docs/reference/services-artifacts-and-storage.md",
+      "line_range": [1, 793],
+      "revision": "a2a367f9",
+      "classification": "revision-bound-source-reference",
+      "reason": "Historical index paths and declaration locations retain the explicitly pinned a2a367f9 baseline; current category mapping is separate.",
+      "section_sha256": "6b07ed905d03be309a1b00681ace531dae41fca35ff72738137ae89cfb4d96b6"
+    },
+    {
+      "file": "docs/reference/services-graph-and-spec.md",
+      "line_range": [1, 552],
+      "revision": "a2a367f9",
+      "classification": "revision-bound-source-reference",
+      "reason": "Historical index paths and declaration locations retain the explicitly pinned a2a367f9 baseline; current category mapping is separate.",
+      "section_sha256": "f3ad4f309e8bc7cafbcf493da967c4cbe9038e77ef535dc7d8a301f2b20c8f5d"
+    },
+    {
+      "file": "docs/reference/services-identity-and-policy.md",
+      "line_range": [1, 499],
+      "revision": "a2a367f9",
+      "classification": "revision-bound-source-reference",
+      "reason": "Historical index paths and declaration locations retain the explicitly pinned a2a367f9 baseline; current category mapping is separate.",
+      "section_sha256": "4ee389c5043c97ce0ffd502dec2e3998ac00d30e2ca7e71ca33f1733f011269e"
+    },
+    {
+      "file": "docs/reference/services-integration-and-review.md",
+      "line_range": [1, 876],
+      "revision": "a2a367f9",
+      "classification": "revision-bound-source-reference",
+      "reason": "Historical index paths and declaration locations retain the explicitly pinned a2a367f9 baseline; current category mapping is separate.",
+      "section_sha256": "e1250c57522b97920194362bb5bab5c36999b9c934a9dd20cd9dcaa87416ec95"
+    },
+    {
+      "file": "docs/reference/services-providers-and-preparation.md",
+      "line_range": [1, 1043],
+      "revision": "a2a367f9",
+      "classification": "revision-bound-source-reference",
+      "reason": "Historical index paths and declaration locations retain the explicitly pinned a2a367f9 baseline; current category mapping is separate.",
+      "section_sha256": "94ba31566ee60900405524005a5d46aa413ef76f960940b2b655854dfe47d89b"
+    },
+    {
+      "file": "docs/reference/services-runtime.md",
+      "line_range": [1, 877],
+      "revision": "a2a367f9",
+      "classification": "revision-bound-source-reference",
+      "reason": "Historical index paths and declaration locations retain the explicitly pinned a2a367f9 baseline; current category mapping is separate.",
+      "section_sha256": "9a4acde63672c73d276b74d443bbf42f516c1c1070b0096b35fb440289d4f4d3"
+    },
+    {
+      "file": "docs/hyperfide/console-evaluation.md",
+      "line_range": [1, 108],
+      "revision": "a2a367f9",
+      "classification": "historical-evaluation-reference",
+      "reason": "Preserved dated console evaluation retains its original source identities; it does not provide current command guidance.",
+      "section_sha256": "6dfef67976b6b4901f0753755e985152cc81fa37eef689dc7c6d7995fbd10919"
+    },
+    {
+      "file": "docs/hyperfide/operations.md",
+      "line_range": [531, 585],
+      "revision": "a2a367f9",
+      "classification": "historical-measurement-reference",
+      "reason": "Historical measurement retains the original platform/apps/server input scope; current command guidance remains separate.",
+      "section_sha256": "f35be478e46817e17bd4a6cdf05d18a25533afa40cff04e89a099dd61b4ffe3f",
+      "reference": "platform/apps/server/"
+    }
+  ]
+}

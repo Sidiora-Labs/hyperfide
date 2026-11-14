@@ -9,6 +9,8 @@ import {
   repositoryPath,
   withinScope,
   workspaceError,
+  assertObjectId,
+  rawDigest,
   type SourceEntry,
   type WorkspaceDescriptor,
 } from "./client.js";
@@ -90,11 +92,22 @@ interface Node {
 interface Handle {
   node: Node;
   bytes?: Buffer;
+  base?: FileBase;
   writable: boolean;
   directory: boolean;
   names?: { name: string; inode: bigint; kind: string }[];
   iterator?: AsyncGenerator<{ name: string; inode: bigint; kind: string }>;
   exhausted?: boolean;
+}
+interface FileBase {
+  size: number;
+  digest: string;
+  parts: {
+    object_id: string;
+    kind: "blob" | "chunk";
+    offset: number;
+    length: number;
+  }[];
 }
 interface State {
   schema_version: 1;
@@ -141,6 +154,7 @@ function errorNumber(error: unknown): number {
   const code = (error as { code?: string }).code;
   if (code && code in errno) return errno[code as keyof typeof errno];
   if (code && /AUTH|DENIED|SCOPE/.test(code)) return errno.EACCES;
+  if (code === "ATTEMPT_EXPIRED") return errno.EACCES;
   if (code && /STALE|GENERATION|FENCED/.test(code)) return errno.ESTALE;
   if (code && /BUDGET|PRESSURE|LIMIT/.test(code)) return errno.ENOSPC;
   if ((error as { name?: string }).name === "AbortError") return errno.EINTR;
@@ -160,6 +174,7 @@ function binding(descriptor: WorkspaceDescriptor): string {
         descriptor.base_revision_id,
         descriptor.root_tree_id,
         descriptor.authority_epoch,
+        descriptor.attempt_expires_at,
       ]),
     )
     .digest("hex");
@@ -226,6 +241,8 @@ export class NativeVirtualFilesystem {
     metadataRequests: 0,
     contentHydrations: 0,
     hydratedBytes: 0,
+    rangeReads: 0,
+    rangeFetchedBytes: 0,
     requests: 0,
   };
   constructor(
@@ -617,10 +634,28 @@ export class NativeVirtualFilesystem {
     write = false,
     signal?: AbortSignal,
   ): Promise<void> {
+    if (
+      write &&
+      this.descriptor.attempt_expires_at !== null &&
+      Date.now() >= Date.parse(this.descriptor.attempt_expires_at)
+    )
+      workspaceError(
+        "ATTEMPT_EXPIRED",
+        "Workspace attempt deadline has passed",
+      );
     if (name) {
       if (!this.visible(name)) fail("ENOENT");
       if (write || withinScope(name, this.descriptor.read_paths)) {
         await this.client.assertAccess(this.descriptor, name, write, signal);
+        if (
+          write &&
+          this.descriptor.attempt_expires_at !== null &&
+          Date.now() >= Date.parse(this.descriptor.attempt_expires_at)
+        )
+          workspaceError(
+            "ATTEMPT_EXPIRED",
+            "Workspace attempt deadline has passed",
+          );
         return;
       }
     }
@@ -630,6 +665,15 @@ export class NativeVirtualFilesystem {
     );
     if (binding(current) !== binding(this.descriptor))
       workspaceError("WORKSPACE_STALE", "Virtual workspace generation changed");
+    if (
+      write &&
+      this.descriptor.attempt_expires_at !== null &&
+      Date.now() >= Date.parse(this.descriptor.attempt_expires_at)
+    )
+      workspaceError(
+        "ATTEMPT_EXPIRED",
+        "Workspace attempt deadline has passed",
+      );
   }
   private async lookup(name: string, signal?: AbortSignal): Promise<Node> {
     if (!name) return this.nodes.get(1n)!;
@@ -722,6 +766,146 @@ export class NativeVirtualFilesystem {
         .then(resolve, reject)
         .finally(() => signal.removeEventListener("abort", abort));
     });
+  }
+  private async fileBase(node: Node, signal?: AbortSignal): Promise<FileBase> {
+    const acquired = await this.cache.acquire(
+      this.descriptor.scope,
+      node.entry.object_id,
+      () => this.client.readObject(node.entry.object_id, signal),
+      () => this.current(node.path, false, signal),
+    );
+    try {
+      if (acquired.object.kind !== "file")
+        workspaceError("FILE_DESCRIPTOR", "Expected a native file descriptor");
+      const text = acquired.object.payload.toString("utf8");
+      let tuple: unknown;
+      try {
+        tuple = JSON.parse(text);
+      } catch {
+        workspaceError("FILE_DESCRIPTOR", "Invalid file descriptor JSON");
+      }
+      if (
+        !Array.isArray(tuple) ||
+        tuple.length !== 4 ||
+        tuple[0] !== 1 ||
+        JSON.stringify(tuple) !== text ||
+        typeof tuple[1] !== "string" ||
+        !/^(0|[1-9]\d*)$/.test(tuple[1]) ||
+        typeof tuple[2] !== "string" ||
+        !/^sha256:[a-f0-9]{64}$/.test(tuple[2]) ||
+        !Array.isArray(tuple[3]) ||
+        tuple[3].length !== 2
+      )
+        workspaceError("FILE_DESCRIPTOR", "Canonical file descriptor required");
+      const size = number(BigInt(tuple[1]));
+      if (size > this.descriptor.budgets.max_file_bytes) fail("EFBIG");
+      const content = tuple[3],
+        parts: FileBase["parts"] = [];
+      if (
+        content[0] === "blob" &&
+        typeof content[1] === "string" &&
+        size <= 4 * 1024 * 1024
+      ) {
+        assertObjectId(content[1]);
+        parts.push({
+          object_id: content[1],
+          kind: "blob",
+          offset: 0,
+          length: size,
+        });
+      } else if (
+        content[0] === "chunks" &&
+        Array.isArray(content[1]) &&
+        size > 4 * 1024 * 1024 &&
+        content[1].length <= 4096
+      ) {
+        let offset = 0;
+        for (const [index, part] of content[1].entries()) {
+          if (
+            !Array.isArray(part) ||
+            part.length !== 2 ||
+            typeof part[0] !== "string" ||
+            typeof part[1] !== "string" ||
+            !/^[1-9]\d*$/.test(part[1])
+          )
+            workspaceError("FILE_DESCRIPTOR", "Invalid chunk descriptor");
+          assertObjectId(part[0]);
+          const length = number(BigInt(part[1]));
+          if (
+            length > 4 * 1024 * 1024 ||
+            (index < content[1].length - 1 && length !== 4 * 1024 * 1024)
+          )
+            workspaceError("FILE_DESCRIPTOR", "Invalid canonical chunk length");
+          parts.push({ object_id: part[0], kind: "chunk", offset, length });
+          offset += length;
+        }
+        if (offset !== size)
+          workspaceError(
+            "FILE_DESCRIPTOR",
+            "Chunk lengths differ from the file length",
+          );
+      } else
+        workspaceError(
+          "FILE_DESCRIPTOR",
+          "Invalid file content representation",
+        );
+      return { size, digest: tuple[2], parts };
+    } finally {
+      await acquired.release();
+    }
+  }
+  private async readRange(
+    handle: Handle,
+    offset: number,
+    length: number,
+    signal?: AbortSignal,
+  ): Promise<Buffer> {
+    await this.current(handle.node.path, false, signal);
+    if (handle.directory) fail("EISDIR");
+    if (handle.bytes) return handle.bytes.subarray(offset, offset + length);
+    const base = handle.base!;
+    const end = Math.min(base.size, offset + length);
+    if (offset >= end) return Buffer.alloc(0);
+    const result = Buffer.alloc(end - offset);
+    this.metrics.rangeReads++;
+    for (const part of base.parts) {
+      if (part.offset >= end || part.offset + part.length <= offset) continue;
+      const acquired = await this.cache.acquire(
+        this.descriptor.scope,
+        part.object_id,
+        async () => {
+          const object = await this.client.readObject(part.object_id, signal);
+          this.metrics.rangeFetchedBytes += object.payload.length;
+          this.metrics.hydratedBytes += object.payload.length;
+          this.metrics.contentHydrations++;
+          return object;
+        },
+        () => this.current(handle.node.path, false, signal),
+      );
+      try {
+        const { kind, payload } = acquired.object;
+        if (
+          kind !== part.kind ||
+          payload.length !== part.length ||
+          (kind === "blob" && rawDigest(payload) !== base.digest)
+        )
+          workspaceError(
+            "OBJECT_INTEGRITY",
+            "Range content type, length or digest mismatch",
+          );
+        const start = Math.max(offset, part.offset),
+          stop = Math.min(end, part.offset + part.length);
+        payload.copy(
+          result,
+          start - offset,
+          start - part.offset,
+          stop - part.offset,
+        );
+      } finally {
+        await acquired.release();
+      }
+    }
+    return result;
   }
   private async attribute(node: Node, signal?: AbortSignal): Promise<Buffer> {
     const size = await this.size(node, signal),
@@ -917,7 +1101,13 @@ export class NativeVirtualFilesystem {
     if (writable && flags & constants.O_TRUNC)
       await this.exclusive(() => this.store(node, Buffer.alloc(0)));
     let bytes: Buffer | undefined;
-    if (!directory) bytes = await this.bytes(node, signal);
+    let base: FileBase | undefined;
+    if (!directory) {
+      if (!node.overlay && node.entry.kind === "file")
+        base = await this.fileBase(node, signal);
+      if (!base || base.parts[0]?.kind !== "chunk")
+        bytes = await this.bytes(node, signal);
+    }
     const held = [...this.handles.values()].reduce(
       (sum, handle) => sum + (handle.bytes?.length ?? 0),
       bytes?.length ?? 0,
@@ -929,6 +1119,7 @@ export class NativeVirtualFilesystem {
       writable,
       directory,
       ...(bytes ? { bytes } : {}),
+      ...(base ? { base } : {}),
     });
     const result = Buffer.alloc(16);
     result.writeBigUInt64LE(id);
@@ -987,10 +1178,8 @@ export class NativeVirtualFilesystem {
         );
       case op.READ: {
         const handle = this.handle(body.readBigUInt64LE(0));
-        await this.current(handle.node.path, false, signal);
-        const bytes = handle.bytes!;
         const offset = number(body.readBigUInt64LE(8));
-        return bytes.subarray(offset, offset + body.readUInt32LE(16));
+        return this.readRange(handle, offset, body.readUInt32LE(16), signal);
       }
       case op.READDIR:
         return this.exclusive(async () => {
@@ -1052,7 +1241,8 @@ export class NativeVirtualFilesystem {
           if (body.length !== 40 + size) fail("EINVAL");
           const prior = handle.node.overlay
             ? await this.bytes(handle.node, signal)
-            : handle.bytes!;
+            : (handle.bytes ??
+              (await this.readRange(handle, 0, handle.base!.size, signal)));
           if (offset + size > this.descriptor.budgets.max_file_bytes)
             fail("EFBIG");
           const bytes = Buffer.alloc(Math.max(prior.length, offset + size));
@@ -1513,6 +1703,7 @@ export class NativeVirtualFilesystem {
   }
   async checkpoint() {
     return this.exclusive(async () => {
+      await this.current(undefined, true);
       const before = await this.journal.snapshot();
       if (!before.pending) await this.current();
       const advancing = new NativeWorkspaceClient(

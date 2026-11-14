@@ -16,7 +16,7 @@ OUT=ROOT/'build/layout/0.5'
 TOOLCHAIN=ROOT/'tests/hyperfide/support/layout_toolchain.py'
 sys.path.insert(0,str(TOOLCHAIN.parent))
 from layout_toolchain import node_tool
-NODE=node_tool('24.22.0','HYPERFIDE_LAYOUT_NODE24')
+NODE=None
 BINARY=ROOT/'hyperfide'
 NATIVE=ROOT/'build/hyperfide-native'
 SERVICE=ROOT/'core/control-plane'
@@ -105,6 +105,8 @@ def installed_probe():
 
 PROBES={'native':native_probe,'control':control_probe,'control-inner':control_inner,'core':core_probe,'installed':installed_probe}
 def main():
+ global NODE
+ NODE=node_tool('24.22.0','HYPERFIDE_LAYOUT_NODE24')
  OUT.mkdir(parents=True,exist_ok=True)
  if len(sys.argv)==3 and sys.argv[1]=='--probe':PROBES[sys.argv[2]]();return 0
  module=importlib.util.spec_from_file_location('layout_final',Path(__file__).with_name('0_9.py'));gate=importlib.util.module_from_spec(module);module.loader.exec_module(gate)
@@ -120,4 +122,7 @@ def main():
  for artifact in [OUT/'installed-inventory.json']:
   if artifact.is_file():receipt['artifacts'].append({'path':str(artifact.relative_to(ROOT)),'sha256':sha(artifact)})
  (OUT/'receipt.json').write_text(json.dumps(receipt,indent=2)+'\n');print(json.dumps(receipt,indent=2));return 0 if receipt['status']=='PASS' else 1
-if __name__=='__main__':raise SystemExit(main())
+if __name__=='__main__':
+ contract=importlib.util.spec_from_file_location('layout_driver_runner',Path(__file__).with_name('0_9.py'))
+ gate=importlib.util.module_from_spec(contract);contract.loader.exec_module(gate)
+ raise SystemExit(main() if '--probe' in sys.argv else gate.run_driver('0.5',main))

@@ -11,25 +11,36 @@ import { createFleetHandlers } from "./fleet-view/rpc.js";
 import { Dispatcher } from "./dispatcher/dispatcher.js";
 import { FakeMachineProvider } from "./testing/fake-machine.js";
 import { EchoRunner } from "./testing/echo-runner.js";
+import { fleetRpcContract } from "./fleet-view/contract.js";
+import { imageBuilderContract } from "./image-builder/rpc.js";
 
 const cleanup: (() => Promise<unknown>)[] = [];
 afterEach(async () => {
   for (const close of cleanup.splice(0).reverse()) await close();
 });
 
-it("reports paused, idle and no providers and upserts imported timelines", async () => {
+it("reports manager-directed planning while paused and upserts imported timelines", async () => {
   const dataDir = await mkdtemp(join(tmpdir(), "hyperfide-import-"));
   cleanup.push(() => rm(dataDir, { recursive: true, force: true }));
   const directory = join(dataDir, "plugins", "hyperfide-dispatch");
   const tasks = vi.fn(async () => []);
   const dispatcher = new Dispatcher({
-    directory, machines: new FakeMachineProvider(), runner: new EchoRunner(),
-    cap: 8, keys: [], spec: { tasks, merged: async () => false,
-      claim: async () => false, release: async () => {} },
+    directory,
+    machines: new FakeMachineProvider(),
+    runner: new EchoRunner(),
+    cap: 8,
+    keys: [],
+    spec: {
+      tasks,
+      merged: async () => false,
+      claim: async () => false,
+      release: async () => {},
+    },
     limits: async () => ({ global: 8, host: 8, otherRunning: 0 }),
-    checkpoint: async () => "parent", prepare: "true",
+    checkpoint: async () => "parent",
+    prepare: "true",
     integration: async () => ({ tip: "main", bundle: new Uint8Array() }),
-    packet: async task => ({ task, prompt: task }),
+    packet: async (task) => ({ task, prompt: task }),
   });
   await dispatcher.start();
   cleanup.push(async () => dispatcher.close());
@@ -52,7 +63,7 @@ it("reports paused, idle and no providers and upserts imported timelines", async
   expect((await rpc.fleetLedger()).budget).toMatchObject({
     paused: true,
     cap: 0,
-    status: "Paused; idle; no providers configured",
+    status: "Manager directed; authority decisions required",
   });
   const at = "2026-10-24T12:00:00Z";
   const job = {
@@ -112,22 +123,37 @@ it("loads without reading the bind-gated SDK and publishes all RPC contracts", (
       throw new Error("Server has not bound");
     },
   } as unknown as HyperfidePluginApi);
-  expect(register).toHaveBeenCalledTimes(2);
+  expect(register).toHaveBeenCalledTimes(3);
   expect(register).toHaveBeenNthCalledWith(
     1,
-    expect.anything(),
-    expect.anything(),
+    expect.objectContaining({ managerDecision: expect.anything() }),
+    expect.objectContaining({ managerDecision: expect.any(Function) }),
     expect.objectContaining({ experimental_discoverable: true }),
   );
   expect(register).toHaveBeenNthCalledWith(
     2,
-    expect.anything(),
-    expect.anything(),
+    fleetRpcContract,
+    expect.objectContaining({
+      fleetLedger: expect.any(Function),
+      fleetAction: expect.any(Function),
+      fleetImportLedgers: expect.any(Function),
+    }),
+    expect.objectContaining({ experimental_discoverable: true }),
+  );
+  expect(register).toHaveBeenNthCalledWith(
+    3,
+    imageBuilderContract,
+    expect.objectContaining({
+      imageBuildConfiguration: expect.any(Function),
+      imageBuilds: expect.any(Function),
+      imageBuildStart: expect.any(Function),
+      imageBuildCancel: expect.any(Function),
+    }),
     expect.objectContaining({ experimental_discoverable: true }),
   );
 });
 
-it("joins persisted dispatch jobs to registered machines and the spec read model", async () => {
+it("joins persisted jobs to machines and spec tasks while refusing legacy controls without a manager decision", async () => {
   const dataDir = await mkdtemp(join(tmpdir(), "hyperfide-dispatch-server-"));
   cleanup.push(() => rm(dataDir, { recursive: true, force: true }));
   const directory = join(dataDir, "plugins", "hyperfide-dispatch");
@@ -179,42 +205,77 @@ it("joins persisted dispatch jobs to registered machines and the spec read model
   expect(callRpc).toHaveBeenCalledWith(
     expect.objectContaining({ pluginId: "hyperfide-spec", method: "features" }),
   );
-  await backend.setPaused(true);
-  await backend.setCap(3);
+  const refusal =
+    "MANAGER_DECISION_REQUIRED: use the authenticated managerDecision tool";
+  await expect(backend.setPaused(true)).rejects.toThrow(refusal);
+  await expect(backend.setCap(3)).rejects.toThrow(refusal);
+  await expect(backend.cancelJob("job-1")).rejects.toThrow(refusal);
+  await expect(backend.destroyMachine("machine-1")).rejects.toThrow(refusal);
   expect((await backend.readLedger()).budget).toMatchObject({
-    cap: 3,
+    cap: 2,
     maximum: 4,
-    paused: true,
+    paused: false,
+    status: "Manager directed; authority decisions required",
   });
-  await backend.cancelJob("job-1");
-  expect(remove).toHaveBeenCalledWith({ hostId: "machine-1" });
-  expect(await storage.get("job:job-1")).toMatchObject({
-    state: "failed",
-    cancelled: true,
+  expect(remove).not.toHaveBeenCalled();
+  expect(await storage.get("job:job-1")).toEqual({
+    id: "job-1",
+    task: "1.1",
+    state: "running",
+    attempt: 1,
+    machine: "machine-1",
+    keyId: "key-1",
+    commits: [],
   });
 });
 
-it("starts the default server dispatcher paused with no providers and stops on dispose", async () => {
+it("starts the default server dispatcher waiting for manager authority and stops on dispose", async () => {
   const dataDir = await mkdtemp(join(tmpdir(), "hyperfide-service-"));
   cleanup.push(() => rm(dataDir, { recursive: true, force: true }));
   let service: { start(signal: AbortSignal): Promise<void> } | undefined;
   const controller = new AbortController();
   const api = {
-    pluginId: "hyperfide-dispatch", server: { experimental_dataDir: dataDir },
+    pluginId: "hyperfide-dispatch",
+    server: { experimental_dataDir: dataDir },
     settings: { define: () => ({ get: async () => ({}) }) },
-    rpc: { register: vi.fn() }, onDispose: (close: () => Promise<unknown>) => cleanup.push(close),
-    background: { service: (_: string, value: typeof service) => { service = value; } },
+    rpc: { register: vi.fn() },
+    onDispose: (close: () => Promise<unknown>) => cleanup.push(close),
+    background: {
+      service: (_: string, value: typeof service) => {
+        service = value;
+      },
+    },
     storage: { kv: { get: async () => undefined } },
-    sdk: { hosts: { list: async () => [], experimental_listProviders: async () => [] }, projects: { list: async () => [] } },
+    sdk: {
+      hosts: {
+        list: async () => [],
+        experimental_listProviders: async () => [],
+      },
+      projects: { list: async () => [] },
+    },
   } as unknown as HyperfidePluginApi;
   dispatchPlugin(api);
   expect(service).toBeDefined();
   const running = service!.start(controller.signal);
-  cleanup.push(async () => { controller.abort(); await running; });
+  cleanup.push(async () => {
+    controller.abort();
+    await running;
+  });
   const backend = createServerBackend(api);
-  await vi.waitFor(async () => {
-    expect((await backend.readLedger()).budget).toMatchObject({ paused: true, cap: 0, maximum: 0, status: "Paused; idle; no providers configured" });
-  }, { timeout: 10_000 });
+  await vi.waitFor(
+    async () => {
+      expect((await backend.readLedger()).budget).toMatchObject({
+        paused: true,
+        cap: 0,
+        maximum: 0,
+        status: "Manager directed; authority decisions required",
+      });
+    },
+    { timeout: 10_000 },
+  );
+  await expect(backend.setPaused(false)).rejects.toThrow(
+    "MANAGER_DECISION_REQUIRED: use the authenticated managerDecision tool",
+  );
   controller.abort();
   await running;
 });
@@ -228,34 +289,107 @@ it("builds an image through the registered provider create and checkpoint operat
   cleanup.push(() => rm(dataDir, { recursive: true, force: true }));
   const git = promisify(execFile);
   await git("git", ["init", "-b", "main"], { cwd: dataDir });
-  await git("git", ["-c", "user.name=Hyperfide", "-c", "user.email=tests@localhost", "commit", "--allow-empty", "-m", "base"], { cwd: dataDir });
+  await git(
+    "git",
+    [
+      "-c",
+      "user.name=Hyperfide",
+      "-c",
+      "user.email=tests@localhost",
+      "commit",
+      "--allow-empty",
+      "-m",
+      "base",
+    ],
+    { cwd: dataDir },
+  );
   const fleetPath = join(dataDir, "fleet.json");
-  await writeFile(fleetPath, JSON.stringify({ checkpoint: "parent", workspace: "/workspace", shellPrefix: "", base: { steps: [["prepare", "true", 10]] } }));
+  await writeFile(
+    fleetPath,
+    JSON.stringify({
+      checkpoint: "parent",
+      workspace: "/workspace",
+      shellPrefix: "",
+      base: { steps: [["prepare", "true", 10]] },
+    }),
+  );
   const checkpoint = vi.fn(async (name: string) => ({ name }));
   const destroy = vi.fn(async () => {});
-  const create = vi.fn(async () => ({ id: "builder", checkpoint, destroy,
-    writeFile: vi.fn(async () => {}), exec: vi.fn(async () => ({ exitCode: 0, stdout: "built", stderr: "", timedOut: false, truncated: false, ms: 1 })) }));
+  const create = vi.fn(async () => ({
+    id: "builder",
+    checkpoint,
+    destroy,
+    writeFile: vi.fn(async () => {}),
+    exec: vi.fn(async () => ({
+      exitCode: 0,
+      stdout: "built",
+      stderr: "",
+      timedOut: false,
+      truncated: false,
+      ms: 1,
+    })),
+  }));
   const values = new Map<string, unknown>();
   let handlers: Record<string, (input?: any) => Promise<any>> = {};
   registerServerImageBuilder({
     onDispose: (close: () => Promise<unknown>) => cleanup.push(close),
-    settings: { define: () => ({ get: async () => ({ dispatch_repository: dataDir, dispatch_fleetPath: fleetPath }) }) },
-    rpc: { register: (_: unknown, value: typeof handlers) => { handlers = value; } },
-    storage: { kv: { list: async () => [...values.keys()], get: async (key: string) => values.get(key), set: async (key: string, value: unknown) => { values.set(key, value); } } },
-    sdk: { hosts: { experimental_listProviders: async () => [{ id: "registered" }] } },
-    experimental_machines: { getSandboxProvider: () => ({ capabilities: { checkpoint: true }, create }) },
+    settings: {
+      define: () => ({
+        get: async () => ({
+          dispatch_repository: dataDir,
+          dispatch_fleetPath: fleetPath,
+        }),
+      }),
+    },
+    rpc: {
+      register: (_: unknown, value: typeof handlers) => {
+        handlers = value;
+      },
+    },
+    storage: {
+      kv: {
+        list: async () => [...values.keys()],
+        get: async (key: string) => values.get(key),
+        set: async (key: string, value: unknown) => {
+          values.set(key, value);
+        },
+      },
+    },
+    sdk: {
+      hosts: { experimental_listProviders: async () => [{ id: "registered" }] },
+    },
+    experimental_machines: {
+      getSandboxProvider: () => ({
+        capabilities: { checkpoint: true },
+        create,
+      }),
+    },
   } as unknown as HyperfidePluginApi);
-  expect(await handlers.imageBuildConfiguration()).toMatchObject({ configured: true });
+  expect(await handlers.imageBuildConfiguration()).toMatchObject({
+    configured: true,
+  });
   const build = await handlers.imageBuildStart({ commit: "main" });
-  await vi.waitFor(async () => {
-    expect((await handlers.imageBuilds()).find((record: any) => record.id === build.id)).toMatchObject({ status: "succeeded", checkpoint: expect.stringContaining("hf-base-") });
-  }, { timeout: 10_000 });
-  expect(create).toHaveBeenCalledWith(expect.objectContaining({ fromCheckpoint: "parent" }));
+  await vi.waitFor(
+    async () => {
+      expect(
+        (await handlers.imageBuilds()).find(
+          (record: any) => record.id === build.id,
+        ),
+      ).toMatchObject({
+        status: "succeeded",
+        checkpoint: expect.stringContaining("hf-base-"),
+      });
+    },
+    { timeout: 10_000 },
+  );
+  expect(create).toHaveBeenCalledWith(
+    expect.objectContaining({ fromCheckpoint: "parent" }),
+  );
   expect(checkpoint).toHaveBeenCalledOnce();
   expect(destroy).toHaveBeenCalledOnce();
 });
 
-it("ticks after an operator resumes and applies registered compute, spec tasks and concurrency limits", async () => {
+it("refuses operator resume without a manager decision despite configured compute and spec tasks", async () => {
   const { execFile } = await import("node:child_process");
   const { promisify } = await import("node:util");
   const { writeFile } = await import("node:fs/promises");
@@ -263,48 +397,130 @@ it("ticks after an operator resumes and applies registered compute, spec tasks a
   cleanup.push(() => rm(directory, { recursive: true, force: true }));
   const git = promisify(execFile);
   await git("git", ["init", "-b", "main"], { cwd: directory });
-  await git("git", ["-c", "user.name=Hyperfide", "-c", "user.email=tests@localhost", "commit", "--allow-empty", "-m", "base"], { cwd: directory });
+  await git(
+    "git",
+    [
+      "-c",
+      "user.name=Hyperfide",
+      "-c",
+      "user.email=tests@localhost",
+      "commit",
+      "--allow-empty",
+      "-m",
+      "base",
+    ],
+    { cwd: directory },
+  );
   const fleetPath = join(directory, "fleet.json");
-  await writeFile(fleetPath, JSON.stringify({ checkpoint: "base", runnerKinds: ["codex"], dispatcher: {
-    feature: "feature", integrationRef: "main", prepare: "true", runner: "codex", mcp: {},
-  } }));
+  await writeFile(
+    fleetPath,
+    JSON.stringify({
+      checkpoint: "base",
+      runnerKinds: ["codex"],
+      dispatcher: {
+        feature: "feature",
+        integrationRef: "main",
+        prepare: "true",
+        runner: "codex",
+        mcp: {},
+      },
+    }),
+  );
   const machines = new FakeMachineProvider();
   const seed = await machines.create();
   await seed.checkpoint("base");
   await seed.destroy();
-  machines.scripts.push({ pattern: /codex/, result: { stdout: "secret-gateway completed" } });
-  const task = { id: "1", feature: "feature", title: "Task", status: "pending", wave: 1,
-    requires: [], touches: [], verify_cmd: "true", do: [], reqs: [], owner: "test", criteria: [] };
+  machines.scripts.push({
+    pattern: /codex/,
+    result: { stdout: "secret-gateway completed" },
+  });
+  const task = {
+    id: "1",
+    feature: "feature",
+    title: "Task",
+    status: "pending",
+    wave: 1,
+    requires: [],
+    touches: [],
+    verify_cmd: "true",
+    do: [],
+    reqs: [],
+    owner: "test",
+    criteria: [],
+  };
   let service: { start(signal: AbortSignal): Promise<void> } | undefined;
-  const callRpc = vi.fn(async ({ method }: { method: string }) => method === "getConfiguration"
-    ? { globalLimit: 2, hosts: [{ id: "host", effectiveLimit: 2 }] }
-    : method === "tasks" ? [task] : [{ id: "feature", tasks: [task] }]);
+  const callRpc = vi.fn(async ({ method }: { method: string }) =>
+    method === "getConfiguration"
+      ? { globalLimit: 2, hosts: [{ id: "host", effectiveLimit: 2 }] }
+      : method === "tasks"
+        ? [task]
+        : [{ id: "feature", tasks: [task] }],
+  );
   const api = {
-    pluginId: "hyperfide-dispatch", server: { experimental_dataDir: directory },
-    settings: { define: () => ({ get: async () => ({ dispatch_repository: directory, dispatch_fleetPath: fleetPath,
-      dispatch_gatewayKeys: JSON.stringify([{ id: "key", value: "secret-gateway", concurrency: 1 }]), dispatch_intervalMs: 100 }) }) },
-    rpc: { register: vi.fn() }, onDispose: (close: () => Promise<unknown>) => cleanup.push(close),
-    background: { service: (_: string, value: typeof service) => { service = value; } },
+    pluginId: "hyperfide-dispatch",
+    server: { experimental_dataDir: directory },
+    settings: {
+      define: () => ({
+        get: async () => ({
+          dispatch_repository: directory,
+          dispatch_fleetPath: fleetPath,
+          dispatch_gatewayKeys: JSON.stringify([
+            { id: "key", value: "secret-gateway", concurrency: 1 },
+          ]),
+          dispatch_intervalMs: 100,
+        }),
+      }),
+    },
+    rpc: { register: vi.fn() },
+    onDispose: (close: () => Promise<unknown>) => cleanup.push(close),
+    background: {
+      service: (_: string, value: typeof service) => {
+        service = value;
+      },
+    },
     experimental_machines: { getSandboxProvider: () => machines },
-    log: { warn: vi.fn() }, storage: { kv: { get: async () => undefined } },
-    sdk: { hosts: { list: async () => [], experimental_listProviders: async () => [{ id: machines.providerId }] },
-      projects: { list: async () => [] }, plugins: { callRpc }, threads: { listRunning: async () => [] } },
+    log: { warn: vi.fn() },
+    storage: { kv: { get: async () => undefined } },
+    sdk: {
+      hosts: {
+        list: async () => [],
+        experimental_listProviders: async () => [{ id: machines.providerId }],
+      },
+      projects: { list: async () => [] },
+      plugins: { callRpc },
+      threads: { listRunning: async () => [] },
+    },
   } as unknown as HyperfidePluginApi;
   dispatchPlugin(api);
   const controller = new AbortController();
   const running = service!.start(controller.signal);
-  cleanup.push(async () => { controller.abort(); await running; });
+  cleanup.push(async () => {
+    controller.abort();
+    await running;
+  });
   const backend = createServerBackend(api);
-  await vi.waitFor(async () => expect((await backend.readLedger()).budget.maximum).toBe(1), { timeout: 10_000 });
+  await running;
+  expect((await backend.readLedger()).budget).toMatchObject({
+    maximum: 0,
+    cap: 0,
+    paused: true,
+    status: "Manager directed; authority decisions required",
+  });
   expect(machines.execLog).toHaveLength(0);
-  await backend.setCap(1);
-  await backend.setPaused(false);
-  await vi.waitFor(async () => expect((await backend.readLedger()).jobs[0]?.state).toBe("succeeded"), { timeout: 10000 });
+  const rpc = createFleetHandlers(backend);
+  const refusal =
+    "MANAGER_DECISION_REQUIRED: use the authenticated managerDecision tool";
+  await expect(rpc.fleetAction({ kind: "raiseCap", cap: 1 })).rejects.toThrow(
+    refusal,
+  );
+  await expect(rpc.fleetAction({ kind: "resume" })).rejects.toThrow(refusal);
   const ledger = await backend.readLedger();
-  expect(ledger.jobs[0].log).toContain("[redacted] completed");
+  expect(ledger.jobs).toEqual([]);
   expect(JSON.stringify(ledger)).not.toContain("secret-gateway");
-  expect(ledger.timelines[0].events.map(event => event.stage)).toEqual(["claimed", "started", "finished"]);
-  expect(callRpc).toHaveBeenCalledWith(expect.objectContaining({ pluginId: "concurrency-limit", method: "getConfiguration" }));
+  expect(ledger.timelines).toEqual([]);
+  expect(ledger.budget).toMatchObject({ maximum: 0, cap: 0, paused: true });
+  expect(callRpc).not.toHaveBeenCalled();
+  expect(machines.execLog).toHaveLength(0);
   controller.abort();
   await running;
 });

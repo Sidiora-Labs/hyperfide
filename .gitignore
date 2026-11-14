@@ -133,6 +133,9 @@ output.txt
 # codex, claude code
 .claude/settings.local.json
 .codex
+!.codex/
+.codex/*
+!.codex/hooks.json
 .hermes/plans/
 .otto/
 

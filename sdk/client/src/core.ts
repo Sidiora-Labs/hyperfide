@@ -2,7 +2,10 @@ import {
   createDesktopBrowsersArea,
   type ExperimentalDesktopBrowsersArea,
 } from "./areas/desktop-browsers.js";
-import type { HyperfideSdkContext, HyperfideSdkTransport } from "./transport.js";
+import type {
+  HyperfideSdkContext,
+  HyperfideSdkTransport,
+} from "./transport.js";
 import {
   createEnvironmentsArea,
   type EnvironmentsArea,
@@ -35,6 +38,7 @@ import {
 } from "./areas/thread-sections.js";
 
 export type * from "./public-types.js";
+export { SystemInstallError } from "./areas/system.js";
 export { createBuiltinPlanCommandTextInput } from "@hyperfide/domain";
 
 export interface CreateHyperfideSdkArgs {
@@ -69,8 +73,12 @@ export interface HyperfideSdk extends HyperfideSdkAreas {
   guide: GuideArea;
 }
 
-export function createHyperfideSdk(args: CreateHyperfideSdkWithGuideArgs): HyperfideSdk;
-export function createHyperfideSdk(args: CreateHyperfideSdkArgs): HyperfideSdkAreas;
+export function createHyperfideSdk(
+  args: CreateHyperfideSdkWithGuideArgs,
+): HyperfideSdk;
+export function createHyperfideSdk(
+  args: CreateHyperfideSdkArgs,
+): HyperfideSdkAreas;
 export function createHyperfideSdk(
   args: CreateHyperfideSdkArgs | CreateHyperfideSdkWithGuideArgs,
 ): HyperfideSdkAreas | HyperfideSdk {

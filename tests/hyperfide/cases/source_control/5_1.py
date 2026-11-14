@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Verify native publication against the real Git object parser and receive-pack."""
 import importlib.util
+import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[4]
@@ -15,7 +16,12 @@ def main():
         '0738-source-control-capabilities.sql', '0739-source-control-workspaces.sql',
         '0740-source-control-transformations.sql', '0741-source-control-acceptance.sql',
         '0742-source-control-publication.sql', '0743-source-control-assurance.sql',
-    ], timeout=300)
+        '0764-source-control-publication-credentials.sql',
+    ], timeout=300, extra_files=(
+        "core/control-plane/src/integration/publication.ts",
+    ), actor_env={
+        'SOURCE_PUBLICATION_PLUGIN_HOST': '1' if '--publication-host' in sys.argv else '0',
+    })
 
 
 if __name__ == '__main__':

@@ -6,7 +6,19 @@ import {
   type SourceContext,
   type SourceSQL,
 } from "../metadata.js";
+export interface EpochSourceBinding {
+  kind: "graph" | "findings" | "qualification";
+  binding_id: string;
+  revision_id: string;
+  root_tree_id: string;
+  binding_digest: string;
+  from_epoch: string;
+  to_epoch: string;
+  predecessor_digest: string | null;
+}
 export interface EpochAdoption {
+  source_bindings: EpochSourceBinding[];
+  uninstalled_binding_kinds: EpochSourceBinding["kind"][];
   from_epoch: string;
   to_epoch: string;
   policy_version: string;
@@ -75,6 +87,8 @@ export async function adoptSourceEpoch(
     policy_map: [],
     domain_map: [],
     skipped_domains: [],
+    source_bindings: [],
+    uninstalled_binding_kinds: [],
   };
   for (const policy of policies) {
     const next = identity(
@@ -178,6 +192,95 @@ export async function adoptSourceEpoch(
       revision_id: domain.revision_id,
       root_tree_id: domain.root_tree_id,
     });
+  }
+  const queries: {
+    kind: EpochSourceBinding["kind"];
+    table: string;
+    sql: string;
+  }[] = [
+    {
+      kind: "graph",
+      table: "source_graph_builds",
+      sql: "SELECT g.build_id::text AS binding_id,g.revision_id,g.root_tree_id,to_jsonb(g)-'created_at' AS binding FROM hyperfide.source_graph_builds g WHERE g.organisation_id=$1 AND g.repository_id=$2 AND g.security_domain_id=$3 ORDER BY g.build_id LIMIT 10001 FOR SHARE",
+    },
+    {
+      kind: "findings",
+      table: "findings",
+      sql: "SELECT f.id::text||':'||r.revision_id AS binding_id,r.revision_id,r.root_tree_id,to_jsonb(f)-'created_at' AS binding FROM hyperfide.findings f JOIN hyperfide.source_revisions r ON r.organisation_id=f.organisation_id AND r.repository_id=f.repository_id AND (r.revision_id='sha256:'||f.source_object_id OR EXISTS(SELECT 1 FROM hyperfide.source_git_import_commits m WHERE m.organisation_id=r.organisation_id AND m.repository_id=r.repository_id AND m.security_domain_id=r.security_domain_id AND m.revision_id=r.revision_id AND m.git_oid='git:sha1:'||f.source_object_id)) WHERE r.organisation_id=$1 AND r.repository_id=$2 AND r.security_domain_id=$3 ORDER BY f.id,r.revision_id LIMIT 10001 FOR SHARE OF f",
+    },
+    {
+      kind: "qualification",
+      table: "source_candidate_qualifications",
+      sql: "SELECT q.qualification_id AS binding_id,c.revision_id,c.root_tree_id,q.result AS binding FROM hyperfide.source_candidate_qualifications q JOIN hyperfide.source_native_candidates c USING(organisation_id,repository_id,security_domain_id,candidate_id) WHERE q.organisation_id=$1 AND q.repository_id=$2 AND q.security_domain_id=$3 ORDER BY q.qualification_id LIMIT 10001 FOR SHARE OF q",
+    },
+  ];
+  for (const query of queries) {
+    const installed = (
+      await tx.query("SELECT to_regclass($1) IS NOT NULL AS present", [
+        "hyperfide." + query.table,
+      ])
+    ).rows[0]?.present;
+    if (!installed) {
+      result.uninstalled_binding_kinds.push(query.kind);
+      continue;
+    }
+    const bindings = (await tx.query(query.sql, scope)).rows;
+    if (bindings.length > 10000)
+      fail(
+        "EPOCH_ADOPTION_LIMIT",
+        "Source binding inventory exceeds its bounded epoch transition",
+      );
+    for (const row of bindings) {
+      const predecessor = (
+        await tx.query(
+          "SELECT record FROM hyperfide.source_audit WHERE organisation_id=$1 AND repository_id=$2 AND security_domain_id=$3 AND record->>'kind'='SOURCE_EPOCH_BINDING' AND record->'binding'->>'kind'=$4 AND record->'binding'->>'binding_id'=$5 ORDER BY (record->'binding'->>'to_epoch')::bigint DESC LIMIT 1",
+          [...scope, query.kind, row.binding_id],
+        )
+      ).rows[0]?.record;
+      if (
+        predecessor &&
+        predecessor.binding.to_epoch !== context.authority_epoch
+      )
+        fail(
+          "EPOCH_ADOPTION_CONFLICT",
+          "Source binding successor chain does not end at the current epoch",
+        );
+      const binding: EpochSourceBinding = {
+        kind: query.kind,
+        binding_id: row.binding_id,
+        revision_id: row.revision_id,
+        root_tree_id: row.root_tree_id,
+        binding_digest: sourceDigest(row.binding),
+        from_epoch: context.authority_epoch,
+        to_epoch: toEpoch,
+        predecessor_digest: predecessor ? sourceDigest(predecessor) : null,
+      };
+      const record = {
+        schema_version: 1,
+        kind: "SOURCE_EPOCH_BINDING",
+        migration_id: migrationId,
+        binding,
+      };
+      await tx.query(
+        "INSERT INTO hyperfide.source_audit(organisation_id,repository_id,security_domain_id,id,principal_id,operation_id,record) VALUES($1,$2,$3,$4,$5,$6,$7)",
+        [
+          ...scope,
+          identity(
+            migrationId +
+              ":" +
+              toEpoch +
+              ":binding:" +
+              query.kind +
+              ":" +
+              row.binding_id,
+          ),
+          context.principal_id,
+          migrationId,
+          record,
+        ],
+      );
+      result.source_bindings.push(binding);
+    }
   }
   await tx.query(
     "INSERT INTO hyperfide.source_epoch_adoptions(organisation_id,repository_id,security_domain_id,from_epoch,to_epoch,migration_id,policy_version,policy_map,domain_map,skipped_domains) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)",

@@ -2,9 +2,7 @@
   "schema_version": 1,
   "id": "source-control",
   "task": "2.1",
-  "roles": [
-    "control"
-  ],
+  "roles": ["control"],
   "module": "source_control/registration.js",
   "entry": "createComponent",
   "api_version": 1,
@@ -50,6 +48,7 @@
     "source.candidates.qualify",
     "source.acceptance.accept",
     "source.acceptance.read",
+    "source.lifecycle.read",
     "source.assurance.policy.register",
     "source.assurance.checker.register",
     "source.assurance.custody.create",
@@ -123,9 +122,5 @@
     "source.workspaces.widen",
     "source.audit.read"
   ],
-  "requires": [
-    "4.2",
-    "14.1",
-    "4.4"
-  ]
+  "requires": ["4.2", "14.1", "4.4"]
 }

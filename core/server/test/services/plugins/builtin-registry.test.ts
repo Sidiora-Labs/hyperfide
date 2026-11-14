@@ -31,6 +31,7 @@ const UNPREFIXED_BUNDLED_PLUGIN_IDS = [
   "hyperfide-machine-blaxel",
   "hyperfide-machine-railway",
   "hyperfide-qualify",
+  "hyperfide-source-control",
   "hyperfide-spec",
   "inline-vis",
   "keep-awake",
@@ -84,7 +85,7 @@ describe("bundled plugin artifact resolution", () => {
   it("uses newly prepared plugins when an upgrade leaves old server artifacts", async () => {
     const moduleDir = join(root, "apps/server/dist");
     const stale = join(moduleDir, "builtin-plugins");
-    const prepared = join(root, "packages/bundled-plugins/dist");
+    const prepared = join(moduleDir, "../../../tools/bundled-plugins/dist");
     await writeBundle(stale);
     await writeBundle(prepared);
 

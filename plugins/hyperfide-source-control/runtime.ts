@@ -13,9 +13,16 @@ import {
   type SourceAction,
 } from "@hyperfide/source-control";
 import {
+  SourceMetrics,
+  type SourceMetricAction,
+  type SourceMetricLabels,
+} from "../../core/host-daemon/src/source-control/metrics.js";
+import {
   sourceActionSchema,
+  sourceCheckpointReceiptMatches,
   type SourceActionInput,
   type SourceProductResponse,
+  type SourceClosureReadiness,
 } from "./contract.js";
 
 export async function loadSourceClient(filename: string): Promise<{
@@ -104,6 +111,71 @@ function childOperation(operationId: string, phase: string): string {
   const h = bytes.toString("hex");
   return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`;
 }
+export async function sourceClosureReadiness(
+  client: SourceControlClient,
+  action: {
+    revisionId: string;
+    readPaths: string[];
+    dependencyPaths?: string[];
+  },
+  authority?: SourceAuthority,
+): Promise<SourceClosureReadiness> {
+  const options = authority ? { authority } : {};
+  const revision = await client.call<{ root_tree_id: string }>(
+    "source.revisions.read",
+    { revision_id: action.revisionId },
+    options,
+  );
+  const required = [...new Set(action.dependencyPaths ?? [])];
+  const missingPaths: string[] = [],
+    outsideScope: string[] = [];
+  for (const path of required) {
+    if (
+      !action.readPaths.some(
+        (prefix) => path === prefix || path.startsWith(prefix + "/"),
+      )
+    ) {
+      outsideScope.push(path);
+      continue;
+    }
+    const result = await client.call<{ entry: unknown | null }>(
+      "source.trees.lookup",
+      { tree_id: revision.root_tree_id, path },
+      options,
+    );
+    if (!result.entry) missingPaths.push(path);
+  }
+  return {
+    state: missingPaths.length || outsideScope.length ? "INCOMPLETE" : "READY",
+    revisionId: action.revisionId,
+    checkedPaths: required.length,
+    missingPaths,
+    outsideScope,
+  };
+}
+export const sourceProductMetrics = new SourceMetrics(14);
+const recentProductOperations = new Map<string, string>();
+function productMetricAction(action: SourceActionInput): SourceMetricAction {
+  if (
+    ["open", "checkpoint", "submit", "qualify", "accept"].includes(action.kind)
+  )
+    return action.kind as SourceMetricAction;
+  if (["merge", "resolve-conflict"].includes(action.kind)) return "transform";
+  if (["publish", "publication"].includes(action.kind)) return "publish";
+  if (
+    ["operation", "resume-publication", "complete-transfer"].includes(
+      action.kind,
+    )
+  )
+    return "resume";
+  if (
+    ["cancel-operation", "cancel-publication", "cancel-transfer"].includes(
+      action.kind,
+    )
+  )
+    return "cancel";
+  return "read";
+}
 export async function executeSourceAction(
   binding: Awaited<ReturnType<typeof loadSourceClient>>,
   operationId: string,
@@ -117,10 +189,60 @@ export async function executeSourceAction(
       idempotency_key: id,
       ...(authority ? { authority } : {}),
     });
+  const metricAction = productMetricAction(action),
+    started = performance.now();
+  let release: (() => void) | undefined;
+  let labels: SourceMetricLabels = {
+    mode: action.kind === "open" ? action.mode : "UNKNOWN",
+    status: "success",
+    partition: [
+      "merge",
+      "resolve-conflict",
+      "qualify",
+      "accept",
+      "submit",
+    ].includes(action.kind)
+      ? "INTEGRATION"
+      : ["publish", "resume-publication", "publication"].includes(action.kind)
+        ? "REMOTE"
+        : "REQUEST",
+  };
   try {
+    release = sourceProductMetrics.admit(metricAction);
+    const integration =
+      labels.partition === "INTEGRATION" || labels.partition === "REMOTE";
+    if (
+      integration &&
+      (recentProductOperations.get(operationId) === action.kind ||
+        action.kind === "resume-publication" ||
+        action.kind === "resolve-conflict")
+    )
+      sourceProductMetrics.increment("integrationRetries", 1, {
+        ...labels,
+        partition: "INTEGRATION",
+      });
+    if (integration) {
+      recentProductOperations.set(operationId, action.kind);
+      if (recentProductOperations.size > 256)
+        recentProductOperations.delete(
+          recentProductOperations.keys().next().value!,
+        );
+    }
     let result: unknown;
     switch (action.kind) {
-      case "service-metrics": result=await call("source.metrics.read",{max_rows:action.maxRows??1024});break;
+      case "readiness":
+        result = await sourceClosureReadiness(client, action, authority);
+        break;
+      case "service-metrics": {
+        const sample = await call("source.metrics.read", {
+          max_rows: action.maxRows ?? 1024,
+        });
+        result = {
+          ...(sample as object),
+          product_requests: sourceProductMetrics.snapshot(),
+        };
+        break;
+      }
       case "revision":
         result = await call("source.revisions.read", {
           revision_id: action.revisionId,
@@ -141,7 +263,20 @@ export async function executeSourceAction(
           ...(action.cursor ? { cursor: action.cursor } : {}),
         });
         break;
-      case "open":
+      case "open": {
+        const readiness = await sourceClosureReadiness(
+          client,
+          action,
+          authority,
+        );
+        if (readiness.state !== "READY")
+          throw new SourceControlError(
+            "DEPENDENCY_CLOSURE_INCOMPLETE",
+            "Dependency closure is incomplete. Include every required path in the read scope and select a revision containing those paths.",
+            "NEVER",
+            "KNOWN",
+            { readiness },
+          );
         result = await call("source.workspaces.open", {
           workspace_id: action.workspaceId,
           base_revision_id: action.revisionId,
@@ -149,36 +284,30 @@ export async function executeSourceAction(
           write_paths: action.writePaths,
           mode: action.mode,
         });
+        result = { ...(result as object), readiness };
         break;
+      }
       case "workspace":
         result = await call("source.workspaces.detail", {
           workspace_id: action.workspaceId,
         });
         break;
       case "file": {
-        const manifest = (await call("source.fleet.manifest", {
+        const entry = (await call("source.objects.read", {
           revision_id: action.revisionId,
-          paths: [action.path],
-          max_files: 1,
-          max_bytes: 65536,
-          max_nodes: 256,
-          metadata_only: false,
+          path: action.path,
         })) as {
-          entries: Array<{
-            path: string;
-            content_base64: string;
-            size: number;
-            digest: string;
-            mode: string;
-          }>;
+          kind: "file" | "directory" | "symlink";
+          path: string;
+          content_base64: string;
+          byte_length: string;
+          content_digest?: string;
+          mode: string;
         };
-        const entry = manifest.entries.find(
-          (entry) => entry.path === action.path,
-        );
-        if (!entry)
+        if (entry.kind !== "file")
           throw new SourceControlError(
-            "NOT_FOUND",
-            "The file is absent from this revision",
+            "INVALID_REQUEST",
+            "Select a regular source file",
           );
         let content: string;
         try {
@@ -194,8 +323,8 @@ export async function executeSourceAction(
         result = {
           path: entry.path,
           content,
-          size: entry.size,
-          digest: entry.digest,
+          size: Number(entry.byte_length),
+          digest: entry.content_digest,
           mode: entry.mode,
         };
         break;
@@ -238,6 +367,13 @@ export async function executeSourceAction(
             },
           ],
         });
+        if (!sourceCheckpointReceiptMatches(operationId, action, result))
+          throw new SourceControlError(
+            "CHECKPOINT_RECEIPT",
+            "Checkpoint response does not bind the retained operation and workspace generation. Reconcile the same operation.",
+            "RETRY_SAME_OPERATION",
+            "UNKNOWN",
+          );
         break;
       }
       case "assignment":
@@ -358,8 +494,36 @@ export async function executeSourceAction(
       >;
       result = publicResult;
     }
+    if (result && typeof result === "object" && "workspace" in result) {
+      const workspace = result.workspace as {
+        mode?: SourceMetricLabels["mode"];
+      };
+      if (workspace.mode) labels = { ...labels, mode: workspace.mode };
+    }
+    sourceProductMetrics.record(
+      metricAction,
+      "success",
+      performance.now() - started,
+      action.kind === "checkpoint" ? Buffer.byteLength(action.content) : 0,
+      labels,
+    );
     return { ok: true, operationId, result };
   } catch (error) {
+    sourceProductMetrics.record(
+      metricAction,
+      error instanceof SourceControlError && error.outcome === "KNOWN"
+        ? "rejected"
+        : "unknown",
+      performance.now() - started,
+      0,
+      {
+        ...labels,
+        status:
+          error instanceof SourceControlError && error.outcome === "KNOWN"
+            ? "rejected"
+            : "unknown",
+      },
+    );
     if (error instanceof SourceControlError)
       return {
         ok: false,
@@ -369,8 +533,11 @@ export async function executeSourceAction(
           message: error.message,
           retry: error.retry,
           outcome: error.outcome,
+          ...(error.details ? { details: error.details } : {}),
         },
       };
     throw error;
+  } finally {
+    release?.();
   }
 }

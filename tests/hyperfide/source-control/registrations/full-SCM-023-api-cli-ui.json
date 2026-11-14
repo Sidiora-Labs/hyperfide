@@ -5,9 +5,7 @@
   "task": "6.3",
   "case_variant": "api-cli-ui",
   "scope": "full-case",
-  "cases": [
-    "SCM-023"
-  ],
+  "cases": ["SCM-023"],
   "assertion_ids": [
     "SCM-023.assignment-workspace-binding",
     "SCM-023.durable-checkpoint-lineage",
@@ -20,6 +18,8 @@
     "SCM-023.plain-sql-qualification-snapshot",
     "SCM-023.queue-preserves-qualified-dependencies",
     "SCM-023.replacement-reaches-qualified-acceptance",
+    "SCM-023.sparse-edit-materializes-only-scope",
+    "SCM-023.source-diff-matches-checkpoint",
     "SCM-023.signed-cli-revision-read",
     "SCM-023.signed-cli-history-without-checkout",
     "SCM-023.ui-shows-exact-fleet-accepted-source",
@@ -82,9 +82,7 @@
     "read-github"
   ],
   "resources": [],
-  "required_env": [
-    "HF_SOURCE_LIVE_JOURNEY_INPUT"
-  ],
+  "required_env": ["HF_SOURCE_LIVE_JOURNEY_INPUT"],
   "timeout_seconds": 1000,
   "required_artifacts": [
     "build/source-control/full-case/SCM-023-live/receipt.json",

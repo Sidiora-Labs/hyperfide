@@ -10,11 +10,16 @@ import os
 import re
 import subprocess
 import sys
+import tarfile
+import tempfile
+import shutil
+import traceback
 
 ROOT = Path(__file__).resolve().parents[4]
 PACK = ROOT / 'spec/hyperfide-source-control'
 OUT = ROOT / 'build/layout/0.9'
 LAYOUT_REVISION = 'fc5ea53bb00d659196c9fceee62fae75720fa22c'
+RECEIPT_SCHEMA = ROOT / 'tests/hyperfide/source-control/layout-receipt.schema.json'
 REQUIRED = {
     '0.4': ['root-workspace-membership', 'pinned-frozen-install', 'root-nested-discovery', 'dependency-resolution-conservation'],
     '0.5': ['native-frontdoor-and-components', 'control-schema-component-bootstrap', 'core-runtime', 'installed-cli-discovery'],
@@ -32,26 +37,65 @@ def canonical_digest(value):
     return hashlib.sha256(json.dumps(value, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
 
 
-def capture_bindings():
-    mapping = document(PACK / 'repository-layout.json')
-    paths = subprocess.check_output(['git', 'ls-files', '--cached', '--others', '--exclude-standard', '-z'], cwd=ROOT).decode().split('\0')
+def source_tree_id(revision, root):
+    prefix = subprocess.check_output(['git', 'rev-parse', '--show-prefix'], cwd=root, text=True).strip()
+    target = revision + ':' + prefix.rstrip('/') if prefix else revision + '^{tree}'
+    return subprocess.check_output(['git', 'rev-parse', target], cwd=root, text=True).strip()
+
+
+def capture_bindings(root=None):
+    root = ROOT if root is None else Path(root).resolve()
+    pack = root / 'spec/hyperfide-source-control'
+    mapping = document(pack / 'repository-layout.json')
+    host_commit = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=root, text=True).strip()
+    prefix = subprocess.check_output(['git', 'rev-parse', '--show-prefix'], cwd=root, text=True).strip()
+    paths = subprocess.check_output(['git', 'ls-files', '--cached', '--others', '--exclude-standard', '-z', '--', '.'], cwd=root).decode().split('\0')
     snapshot = {}
     for name in sorted(set(paths) - {''}):
         if name.startswith(('docs/', 'spec/', 'tests/')) or name.endswith('.md'):
             continue
-        source = ROOT / name
+        source = root / name
         if source.is_symlink():
             snapshot[name] = {'mode': '120000', 'sha256': hashlib.sha256(os.readlink(source).encode()).hexdigest()}
         elif source.is_file():
             snapshot[name] = {'mode': '100755' if source.stat().st_mode & 0o111 else '100644', 'sha256': digest(source)}
     return {
-        'source_revision': subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip(),
-        'source_tree_id': subprocess.check_output(['git', 'rev-parse', 'HEAD^{tree}'], cwd=ROOT, text=True).strip(),
-        'mapping_sha256': digest(PACK / 'repository-layout.json'),
+        'source_revision': host_commit,
+        'host_commit': host_commit,
+        'source_prefix': prefix,
+        'source_tree_id': source_tree_id('HEAD', root),
+        'mapping_sha256': digest(pack / 'repository-layout.json'),
         'layout_generation': mapping['layout_generation'],
         'source_snapshot': snapshot,
         'source_snapshot_sha256': canonical_digest(snapshot),
     }
+
+
+def run_driver(task, entrypoint):
+    """Retain a failing receipt if a driver cannot reach its normal writer."""
+    try:
+        return entrypoint()
+    except (OSError, ValueError, KeyError, TypeError, RuntimeError, subprocess.SubprocessError) as error:
+        out = ROOT / 'build/layout' / task
+        out.mkdir(parents=True, exist_ok=True)
+        log = out / 'driver-error.log'
+        log.write_text(traceback.format_exc())
+        missing = isinstance(error, FileNotFoundError)
+        failure = {'kind': 'driver-input' if missing else 'driver-failure', 'detail': str(error),
+                   'log': str(log.relative_to(ROOT)), 'log_sha256': digest(log)}
+        report = {
+            'schema_version': 1, 'task': task, 'status': 'BLOCKED' if missing else 'FAIL',
+            **capture_bindings(), 'commands': [], 'assertions': [], 'artifacts': [],
+            'missing_evidence': [failure] if missing else [],
+            'regressions': [] if missing else [failure],
+        }
+        receipt = out / 'receipt.json'
+        receipt.write_text(json.dumps(report, indent=2) + '\n')
+        print(json.dumps({'task': task, 'status': report['status'],
+                          'receipt': str(receipt.relative_to(ROOT)),
+                          'missing_evidence': report['missing_evidence'],
+                          'regressions': report['regressions']}))
+        return 2 if missing else 1
 
 
 def local(value):
@@ -77,8 +121,329 @@ def document(path):
     return result
 
 
+def validate_layout_receipt(value, schema_path=RECEIPT_SCHEMA):
+    """Validate the receipt schema's closed vocabulary without optional dependencies."""
+    schema = document(schema_path)
+    known = {'$schema', '$id', '$defs', '$ref', 'title', 'description', 'type',
+             'required', 'properties', 'additionalProperties', 'const', 'enum',
+             'minLength', 'pattern', 'format', 'items', 'minItems', 'maxItems',
+             'allOf', 'if', 'then', 'else'}
+
+    def equal(left, right):
+        return type(left) is type(right) and left == right
+
+    def validate(item, rule, location='$'):
+        if not isinstance(rule, dict) or set(rule) - known:
+            raise ValueError('Unsupported layout schema vocabulary at ' + location)
+        if '$ref' in rule:
+            ref = rule['$ref']
+            if not isinstance(ref, str) or not ref.startswith('#/$defs/'):
+                raise ValueError('Only local layout schema definitions are supported')
+            validate(item, schema['$defs'][ref[len('#/$defs/'):]], location)
+        kind = rule.get('type')
+        types = {'object': dict, 'array': list, 'string': str, 'integer': int, 'boolean': bool}
+        if kind is not None and (kind not in types or type(item) is not types[kind]):
+            raise ValueError('Layout receipt type differs at ' + location)
+        if 'const' in rule and not equal(item, rule['const']):
+            raise ValueError('Layout receipt constant differs at ' + location)
+        if 'enum' in rule and not any(equal(item, option) for option in rule['enum']):
+            raise ValueError('Layout receipt enum differs at ' + location)
+        if isinstance(item, dict):
+            if set(rule.get('required', [])) - set(item):
+                raise ValueError('Layout receipt required fields missing at ' + location)
+            properties = rule.get('properties', {})
+            extra = rule.get('additionalProperties', True)
+            for key, child in item.items():
+                if key in properties:
+                    validate(child, properties[key], location + '.' + key)
+                elif extra is False:
+                    raise ValueError('Layout receipt unknown field at ' + location + '.' + key)
+                elif isinstance(extra, dict):
+                    validate(child, extra, location + '.' + key)
+        if isinstance(item, list):
+            if len(item) < rule.get('minItems', 0) or len(item) > rule.get('maxItems', float('inf')):
+                raise ValueError('Layout receipt item bound differs at ' + location)
+            for child in item:
+                if 'items' in rule:
+                    validate(child, rule['items'], location + '[]')
+        if isinstance(item, str):
+            if len(item) < rule.get('minLength', 0) or ('pattern' in rule and re.search(rule['pattern'], item) is None):
+                raise ValueError('Layout receipt text differs at ' + location)
+            if 'format' in rule:
+                if rule['format'] != 'date-time':
+                    raise ValueError('Unsupported layout schema format')
+                if not re.fullmatch(r'\d{4}-\d{2}-\d{2}[Tt]\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:[Zz]|[+-]\d{2}:\d{2})', item):
+                    raise ValueError('Layout receipt date-time differs at ' + location)
+                datetime.fromisoformat(item.upper().replace('Z', '+00:00'))
+        for child in rule.get('allOf', []):
+            validate(item, child, location)
+        if 'if' in rule:
+            try:
+                validate(item, rule['if'], location)
+            except ValueError:
+                if 'else' in rule:
+                    validate(item, rule['else'], location)
+            else:
+                if 'then' in rule:
+                    validate(item, rule['then'], location)
+
+    validate(value, schema)
+
+
+def emit_report(report, path, schema_path=RECEIPT_SCHEMA):
+    failed = any(item['status'] != 'PASS' for item in report['checks'])
+    report['status'] = 'FAIL' if report['regressions'] else 'BLOCKED' if report['missing_evidence'] or failed else 'PASS'
+    report['case_qualification'] = 'PASS' if report['status'] == 'PASS' else 'UNRUN'
+    try:
+        validate_layout_receipt(report, schema_path)
+    except (OSError, ValueError, KeyError, TypeError) as error:
+        report['regressions'].append('Layout receipt schema violation: ' + str(error))
+        report['status'], report['case_qualification'] = 'FAIL', 'UNRUN'
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(report, indent=2) + '\n')
+    return 0 if report['status'] == 'PASS' else 2 if report['status'] == 'BLOCKED' else 1
+
+
+def resolve_history(mapping, layout_revision, root=ROOT):
+    """Resolve absent standalone history to the explicitly pinned imported subtree."""
+    def available(revision):
+        return subprocess.run(['git', 'cat-file', '-e', revision + '^{commit}'], cwd=root,
+                              env=dict(os.environ, GIT_NO_LAZY_FETCH='1'), capture_output=True).returncode == 0
+
+    if not isinstance(layout_revision, str) or not re.fullmatch(r'[0-9a-f]{40}(?:[0-9a-f]{24})?', layout_revision):
+        raise ValueError('Exact original layout revision required')
+    baseline = mapping['implementation_baseline']
+    if available(baseline) and available(layout_revision):
+        return {'baseline_revision': baseline, 'layout_revision': layout_revision, 'vendored': False}
+    path = root / 'spec/hyperfide-source-control/layout-vendored-baseline.json'
+    pin = document(path)
+    if pin.get('schema_version') != 1 or pin.get('upstream_implementation_baseline') != baseline or pin.get('upstream_layout_revision') != LAYOUT_REVISION or layout_revision not in (pin.get('upstream_layout_revision'), pin.get('import_commit')):
+        raise ValueError('Vendored baseline does not bind the frozen upstream revisions')
+    revision, prefix = pin.get('import_commit'), pin.get('subtree_prefix')
+    if not isinstance(revision, str) or not re.fullmatch(r'[0-9a-f]{40}(?:[0-9a-f]{24})?', revision) or not isinstance(prefix, str) or not prefix or prefix.startswith('/') or '\\' in prefix or any(part in {'', '.', '..', '.git'} for part in prefix.split('/')):
+        raise ValueError('Exact import commit and canonical subtree prefix required')
+    tree = subprocess.check_output(['git', 'rev-parse', '--verify', revision + ':' + prefix], cwd=root, text=True).strip()
+    if tree != pin.get('subtree_tree_id') or subprocess.check_output(['git', 'cat-file', '-t', tree], cwd=root, text=True).strip() != 'tree':
+        raise ValueError('Vendored subtree tree identity differs')
+    imported_mapping = subprocess.check_output(['git', 'show', revision + ':' + prefix + '/spec/hyperfide-source-control/repository-layout.json'], cwd=root)
+    if imported_mapping != (root / 'spec/hyperfide-source-control/repository-layout.json').read_bytes():
+        raise ValueError('Frozen mapping differs from the imported mapping')
+    return {'baseline_revision': revision, 'layout_revision': revision, 'vendored': True,
+            'subtree_prefix': prefix, 'subtree_tree_id': tree,
+            'baseline_manifest': {'path': str(path.relative_to(root)), 'sha256': digest(path)}}
+
+
+def project_inventory(root, mapping, revision, prefix=None):
+    """Adapt the inventory producer's Git access to a real project tree."""
+    root = Path(root).resolve()
+    spec = importlib.util.spec_from_file_location('layout_project_inventory', root / 'tools/repository/layout-inventory.py')
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    if prefix is None:
+        prefix = subprocess.check_output(['git', 'rev-parse', '--show-prefix'], cwd=root, text=True).strip().rstrip('/')
+    tree = subprocess.check_output(['git', 'rev-parse', '--verify', revision + ':' + prefix if prefix else revision + '^{tree}'], cwd=root, text=True).strip()
+    original_git = module._git
+
+    def project_git(repo, *args):
+        if args[:2] == ('rev-parse', '--verify') and args[-1] == revision + '^{commit}':
+            return (tree + '\n').encode()
+        if args and args[0] == 'diff':
+            args = tuple(revision if arg == tree else arg for arg in args)
+            return original_git(repo, args[0], '--relative', *args[1:])
+        return original_git(repo, *args)
+
+    module._git = project_git
+    inventory = module.generate_inventory(root, mapping, revision)
+    inventory.update(revision=revision, source_tree_id=tree)
+    return inventory, module
+
+
+def recreate_vendored_baseline(history, root=ROOT):
+    """Capture the pinned imported inventory without claiming historical runtime evidence."""
+    out = root / 'build/layout/0.3'
+    implementation_sha256 = digest(Path(__file__))
+    recorded = out / 'import-recapture.json'
+    if recorded.is_file():
+        record = document(recorded)
+        log = root / record['log']
+        if not log.resolve().is_relative_to(root.resolve()) or log.is_symlink() or record.get('revision') != history['baseline_revision'] or record.get('source_tree_id') != history['subtree_tree_id'] or digest(log) != record.get('log_sha256'):
+            raise ValueError('Imported baseline recapture binding changed')
+        if record.get('capture_implementation_sha256') == implementation_sha256:
+            if record.get('exit_code') != 0:
+                raise ValueError('Recorded imported inventory capture failure; see build/layout/0.3/import-recapture.json')
+            for name in ['receipt', 'inventory']:
+                path = out / (name + '.json')
+                if path.is_symlink() or digest(path) != record.get(name + '_sha256'):
+                    raise ValueError('Imported baseline ' + name + ' missing or changed after recorded recapture')
+            return
+        shutil.copyfile(recorded, out / ('import-recapture-' + digest(recorded) + '.json'))
+    out.mkdir(parents=True, exist_ok=True)
+    host = subprocess.check_output(['git', 'rev-parse', '--show-toplevel'], cwd=root, text=True).strip()
+    objects = subprocess.check_output(['git', 'rev-parse', '--path-format=absolute', '--git-path', 'objects'], cwd=host, text=True).strip()
+    command = ['git', 'archive', history['subtree_tree_id']]
+    log = out / ('import-recapture-' + implementation_sha256 + '.log')
+    record = {'revision': history['baseline_revision'], 'source_tree_id': history['subtree_tree_id'],
+              'command': command, 'exit_code': 1,
+              'capture_implementation_sha256': implementation_sha256,
+              'log': str(log.relative_to(root))}
+    try:
+        with tempfile.TemporaryDirectory(prefix='layout-import-') as temporary:
+            checkout = Path(temporary)
+            with log.open('w') as output:
+                with subprocess.Popen(command, cwd=host, stdout=subprocess.PIPE, stderr=output) as process:
+                    with tarfile.open(fileobj=process.stdout, mode='r|') as archive:
+                        archive.extractall(checkout, filter='data')
+                    if process.wait() != 0:
+                        raise ValueError('Cannot export the pinned import subtree')
+            mapping_path = checkout / 'spec/hyperfide-source-control/repository-layout.json'
+            if mapping_path.read_bytes() != (root / 'spec/hyperfide-source-control/repository-layout.json').read_bytes():
+                raise ValueError('Exported frozen mapping differs')
+            mapping = document(mapping_path)
+            subprocess.run(['git', 'init', '-q', str(checkout)], check=True, capture_output=True)
+            (checkout / '.git/objects/info/alternates').write_text(objects + '\n')
+            subprocess.run(['git', 'read-tree', history['subtree_tree_id']], cwd=checkout, check=True, capture_output=True)
+            producer_path = checkout / 'tools/repository/layout-inventory.py'
+            spec = importlib.util.spec_from_file_location('layout_import_inventory', producer_path)
+            module = importlib.util.module_from_spec(spec)
+            sys.modules[spec.name] = module
+            spec.loader.exec_module(module)
+            original_git = module._git
+
+            def pinned_git(repo, *args):
+                if args[0] == 'rev-parse' and args[-1] == history['baseline_revision'] + '^{commit}':
+                    return (history['subtree_tree_id'] + '\n').encode()
+                return original_git(repo, *args)
+
+            module._git = pinned_git
+            inventory = module.generate_inventory(checkout, mapping, history['baseline_revision'])
+            inventory.update(revision=history['baseline_revision'], source_tree_id=history['subtree_tree_id'])
+            tracked = module._tracked(checkout, history['subtree_tree_id'])
+            files = inventory['files']
+            inverse = [item['source'] for move in inventory['inverse_plan'] for item in move['inputs']]
+            assertions = {
+                'inventory.exact-tracked-coverage': {item['source'] for item in files} == {item['source'] for item in tracked},
+                'inventory.content-type-mode': all(item.get('object_id') and item.get('mode') and (item['object_type'] != 'blob' or item.get('blob_id') and isinstance(item.get('size'), int)) for item in files),
+                'inventory.no-runtime-drift': not inventory['worktree_drift'],
+                'inventory.valid': inventory['valid'],
+                'inverse.retains-every-original': len(inverse) == len(files) and set(inverse) == {item['source'] for item in files},
+            }
+            archive_path = 'build/layout/0.3-preserved-original/manifest.json'
+            if (checkout / archive_path).exists():
+                raise ValueError('Historical archive is present; unavailable verification cannot be recorded')
+            inventory_path = out / 'inventory.json'
+            inventory_path.write_text(json.dumps(inventory, indent=2) + '\n')
+            receipt = {'schema_version': 1, 'task': '0.3', 'case': 'SCM-025',
+                       'scope': 'Pinned vendored inventory capture; historical runtime verification unavailable',
+                       'status': 'PASS' if all(assertions.values()) else 'FAIL', 'case_qualification': 'UNRUN',
+                       'revision': history['baseline_revision'], 'source_tree_id': history['subtree_tree_id'],
+                       'mapping_sha256': digest(mapping_path), 'vendored_baseline': history,
+                       'inventory': 'build/layout/0.3/inventory.json', 'inventory_sha256': digest(inventory_path),
+                       'assertions': assertions,
+                       'historical_verification': {'status': 'UNAVAILABLE', 'code': 'HISTORICAL_FILE_MISSING', 'archive': archive_path}}
+            receipt_path = out / 'receipt.json'
+            receipt_path.write_text(json.dumps(receipt, indent=2) + '\n')
+            with log.open('a') as output:
+                output.write(json.dumps({'producer': 'tools/repository/layout-inventory.py',
+                                         'producer_sha256': digest(producer_path), 'assertions': assertions,
+                                         'historical_verification': receipt['historical_verification']}) + '\n')
+            record.update(exit_code=0 if receipt['status'] == 'PASS' else 1,
+                          inventory_sha256=digest(inventory_path), receipt_sha256=digest(receipt_path),
+                          producer_sha256=digest(producer_path), mapping_sha256=receipt['mapping_sha256'])
+            if record['exit_code']:
+                raise ValueError('Imported inventory assertions failed')
+    except (OSError, ValueError, KeyError, TypeError, subprocess.SubprocessError, tarfile.TarError) as error:
+        with log.open('a') as output:
+            output.write(str(error) + '\n')
+        raise
+    finally:
+        record['log_sha256'] = digest(log)
+        recorded.write_text(json.dumps(record, indent=2) + '\n')
+
+
+def validate_upstream_history():
+    spec = importlib.util.spec_from_file_location('layout_historical_verification', Path(__file__).with_name('0_3_history.py'))
+    history = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(history)
+    return history.validate_verification()
+
+
+def project_changes(revision, prefixes, root=ROOT):
+    raw = subprocess.check_output(['git', 'diff-tree', '--root', '-r', '--raw', '--no-renames', '-z', '--no-commit-id', revision], cwd=root).split(b'\0')
+    changes = []
+    for index in range(0, len(raw) - 1, 2):
+        metadata = raw[index].decode().split()
+        if len(metadata) != 5 or not metadata[0].startswith(':'):
+            raise ValueError('Unsupported follow-on Git change framing')
+        host_path = raw[index + 1].decode()
+        for prefix in sorted(prefixes, key=len, reverse=True):
+            if not prefix or host_path.startswith(prefix + '/'):
+                name = host_path[len(prefix) + 1:] if prefix else host_path
+                changes.append({'path': name, 'host_path': host_path,
+                                'before_mode': metadata[0][1:], 'after_mode': metadata[1],
+                                'before_blob': metadata[2], 'after_blob': metadata[3], 'status': metadata[4]})
+                break
+    return changes
+
+
+def check_followon_authorization(inputs, input_path, layout_revision, source_revision, prefixes, report, root=ROOT):
+    commits = subprocess.check_output(['git', 'rev-list', '--reverse', layout_revision + '..' + source_revision,
+                                       '--', *[':(top)' + prefix + '/' if prefix else ':(top)' for prefix in prefixes]],
+                                      cwd=root, text=True).splitlines()
+    allowed = inputs.get('authorized_followon_revisions', [])
+    if not isinstance(allowed, list) or any(not isinstance(value, str) or not re.fullmatch(r'[0-9a-f]{40}(?:[0-9a-f]{24})?', value) for value in allowed) or len(set(allowed)) != len(allowed):
+        raise ValueError('Authorized follow-on revisions must be an explicit unique full-commit allowlist')
+    self_authorized = None
+    if inputs:
+        input_path = input_path.resolve()
+        name = str(input_path.relative_to(root.resolve()))
+        self_authorized = subprocess.check_output(['git', 'log', '-n', '1', '--format=%H', source_revision,
+                                                   '--', name], cwd=root, text=True).strip()
+        if not self_authorized:
+            raise ValueError('Tracked aggregation input required for follow-on authorization')
+        report['self_authorized_revision'] = self_authorized
+        report['aggregation_input'] = {'path': name, 'sha256': digest(input_path)}
+    followon = []
+    for revision in commits:
+        changes = project_changes(revision, prefixes, root)
+        authorized = revision == self_authorized or revision in allowed
+        followon.append({'revision': revision, 'authorized': authorized, 'changes': changes})
+        if not authorized:
+            report['missing_evidence'].append({'kind': 'follow-on-authorization', 'revision': revision, 'changed_paths': len(changes)})
+    if set(allowed) - set(commits):
+        report['regressions'].append('Follow-on authorization contains a revision outside the actual layout-to-candidate ancestry')
+    return followon
+
+
 def reference(path):
     return {'path': str(path.relative_to(ROOT)), 'sha256': digest(path)}
+
+
+def check_final_revision_clean(bindings, root=ROOT):
+    status = subprocess.check_output(['git', 'status', '--porcelain=v1', '-z', '--untracked-files=no', '--', '.'], cwd=root)
+    host = subprocess.check_output(['git', 'rev-parse', '--show-toplevel'], cwd=root, text=True).strip()
+    prefix = subprocess.check_output(['git', 'rev-parse', '--show-prefix'], cwd=root, text=True).strip()
+    tracked = subprocess.check_output(['git', 'status', '--porcelain=v1', '-z', '--untracked-files=no'], cwd=host)
+    entries = iter(tracked.split(b'\0'))
+    outside = set()
+    for entry in entries:
+        if not entry:
+            continue
+        names = [entry[3:]]
+        if b'R' in entry[:2] or b'C' in entry[:2]:
+            names.append(next(entries))
+        for name in names:
+            path = os.fsdecode(name)
+            if prefix and not path.startswith(prefix):
+                outside.add(path)
+    untracked = subprocess.check_output(['git', 'ls-files', '--others', '--exclude-standard', '-z'], cwd=host)
+    paths = [os.fsdecode(name) for name in untracked.split(b'\0') if name]
+    bindings.update(worktree_status_sha256=hashlib.sha256(status).hexdigest(),
+                    untracked_paths=paths, untracked_paths_count=len(paths),
+                    outside_root_paths=sorted(outside), outside_root_paths_count=len(outside))
+    return {'id': 'source.final-revision-clean', 'status': 'PASS' if not status else 'FAIL',
+            'evidence': {'source_revision': bindings['source_revision'],
+                         'worktree_status_sha256': bindings['worktree_status_sha256']}}
 
 
 def evidence_documents(value):
@@ -192,7 +557,7 @@ def task_receipt(task, path, bindings):
         raise ValueError('Exact qualifying source revision required')
     if subprocess.run(['git', 'merge-base', '--is-ancestor', revision, bindings['source_revision']], cwd=ROOT, capture_output=True).returncode:
         raise ValueError('Qualifying revision is not an ancestor of the current candidate')
-    tree = subprocess.check_output(['git', 'rev-parse', revision + '^{tree}'], cwd=ROOT, text=True).strip()
+    tree = source_tree_id(revision, ROOT)
     if receipt.get('source_tree_id') != tree or receipt.get('source_snapshot') != bindings['source_snapshot'] or canonical_digest(receipt['source_snapshot']) != receipt['source_snapshot_sha256']:
         raise ValueError('Qualifying runtime input snapshot changed')
     commands, observed = validate_execution(receipt, REQUIRED[task])
@@ -223,65 +588,55 @@ def main():
         mapping = document(PACK / 'repository-layout.json')
         bindings = capture_bindings()
         source_revision = bindings['source_revision']
-        status = subprocess.check_output(['git', 'status', '--porcelain=v1', '-z', '--untracked-files=all'], cwd=ROOT)
-        report['bindings'] = {'baseline_revision': mapping['implementation_baseline'], **bindings, 'worktree_status_sha256': hashlib.sha256(status).hexdigest()}
-        check('source.final-revision-clean', not status, {'source_revision': source_revision, 'worktree_status_sha256': report['bindings']['worktree_status_sha256']})
+        inputs = document(args.inputs) if args.inputs.is_file() else {}
+        layout_revision = inputs.get('layout_revision', LAYOUT_REVISION)
+        history = resolve_history(mapping, layout_revision)
+        resolved_layout_revision = history['layout_revision']
+        report['bindings'] = {'baseline_revision': history['baseline_revision'], **bindings, 'history': history}
+        report['checks'].append(check_final_revision_clean(report['bindings']))
+        if subprocess.run(['git', 'merge-base', '--is-ancestor', resolved_layout_revision, source_revision], cwd=ROOT, capture_output=True).returncode:
+            raise ValueError('Resolved layout revision must be an ancestor of the current candidate')
+        if subprocess.run(['git', 'merge-base', '--is-ancestor', history['baseline_revision'], resolved_layout_revision], cwd=ROOT, capture_output=True).returncode:
+            raise ValueError('Layout revision does not descend from the frozen implementation baseline')
+        if history['vendored']:
+            recreate_vendored_baseline(history)
         baseline_path = ROOT / 'build/layout/0.3/receipt.json'
         baseline_receipt = document(baseline_path)
         baseline_inventory_path = local(baseline_receipt['inventory'])
         baseline = document(baseline_inventory_path)
-        valid_baseline = baseline_receipt.get('status') == 'PASS' and baseline_receipt.get('revision') == mapping['implementation_baseline'] and baseline_receipt.get('mapping_sha256') == report['bindings']['mapping_sha256'] and baseline_receipt.get('inventory_sha256') == digest(baseline_inventory_path) and baseline.get('revision') == mapping['implementation_baseline']
+        valid_baseline = baseline_receipt.get('status') == 'PASS' and baseline_receipt.get('revision') == history['baseline_revision'] and baseline_receipt.get('mapping_sha256') == report['bindings']['mapping_sha256'] and baseline_receipt.get('inventory_sha256') == digest(baseline_inventory_path) and baseline.get('revision') == history['baseline_revision']
+        if history['vendored']:
+            valid_baseline = valid_baseline and baseline_receipt.get('source_tree_id') == history['subtree_tree_id'] and baseline_receipt.get('vendored_baseline') == history and baseline_receipt.get('historical_verification') == {'status': 'UNAVAILABLE', 'code': 'HISTORICAL_FILE_MISSING', 'archive': 'build/layout/0.3-preserved-original/manifest.json'} and bool(baseline_receipt.get('assertions')) and all(value is True for value in baseline_receipt['assertions'].values())
         check('source.frozen-baseline', valid_baseline, reference(baseline_path))
         if not valid_baseline:
             raise ValueError('Frozen baseline receipt is missing or changed')
-        history_spec = importlib.util.spec_from_file_location('layout_historical_verification', Path(__file__).with_name('0_3_history.py'))
-        history = importlib.util.module_from_spec(history_spec)
-        history_spec.loader.exec_module(history)
-        check('source.historical-baseline-verified', True, history.validate_verification())
-        spec = importlib.util.spec_from_file_location('layout_final_inventory', ROOT / 'tools/repository/layout-inventory.py')
-        module = importlib.util.module_from_spec(spec)
-        sys.modules[spec.name] = module
-        spec.loader.exec_module(module)
-        current = module.generate_inventory(ROOT, mapping, source_revision)
+        if history['vendored']:
+            expected, _ = project_inventory(ROOT, mapping, history['baseline_revision'], history['subtree_prefix'])
+            drift_fields = {'valid', 'errors', 'worktree_drift'}
+            valid = baseline.get('source_tree_id') == history['subtree_tree_id'] and baseline['valid'] and not baseline['worktree_drift'] and not baseline['errors'] and {key: value for key, value in baseline.items() if key not in drift_fields} == {key: value for key, value in expected.items() if key not in drift_fields}
+            check('source.vendored-baseline-verified', valid, {'history': history, 'historical_verification': baseline_receipt['historical_verification']})
+            if not valid:
+                raise ValueError('Frozen imported inventory differs from its pinned subtree')
+        else:
+            check('source.historical-baseline-verified', True, validate_upstream_history())
+        current, module = project_inventory(ROOT, mapping, source_revision)
         inventory_path = OUT / 'inventory.json'
         inventory_path.write_text(json.dumps(current, indent=2) + '\n')
         report['bindings']['source_inventory_sha256'] = digest(inventory_path)
         check('source.current-inventory', current['valid'], reference(inventory_path))
         obsolete = [name for name in ['platform', 'services', 'src', 'scripts', 'kvx', 'editors'] if (ROOT / name).exists()]
         check('source.no-old-containers', not obsolete, obsolete)
-        inputs = document(args.inputs) if args.inputs.is_file() else {}
         if not inputs:
             report['missing_evidence'].append({'kind': 'aggregation-input', 'path': str(args.inputs.relative_to(ROOT)), 'required_fields': ['schema_version', 'layout_revision', 'authorized_followon_revisions', 'task_receipts', 'rewrite_dispositions']})
         elif inputs.get('schema_version') != 1 or not isinstance(inputs.get('task_receipts'), dict):
             raise ValueError('Versioned aggregation input and task_receipts map required')
-        layout_revision = inputs.get('layout_revision', LAYOUT_REVISION)
-        if not isinstance(layout_revision, str) or not re.fullmatch(r'[0-9a-f]{40}(?:[0-9a-f]{24})?', layout_revision) or subprocess.run(['git', 'merge-base', '--is-ancestor', layout_revision, source_revision], cwd=ROOT, capture_output=True).returncode:
-            raise ValueError('Exact original layout revision must be an ancestor of the current candidate')
-        if subprocess.run(['git', 'merge-base', '--is-ancestor', mapping['implementation_baseline'], layout_revision], cwd=ROOT, capture_output=True).returncode:
-            raise ValueError('Layout revision does not descend from the frozen implementation baseline')
-        layout = module.generate_inventory(ROOT, mapping, layout_revision)
+        layout, _ = project_inventory(ROOT, mapping, resolved_layout_revision, history.get('subtree_prefix'))
         layout_inventory_path = OUT / 'layout-inventory.json'
         layout_inventory_path.write_text(json.dumps(layout, indent=2) + '\n')
-        report['bindings']['layout_revision'] = layout_revision
+        report['bindings']['layout_revision'] = resolved_layout_revision
         report['bindings']['layout_inventory_sha256'] = digest(layout_inventory_path)
-        commits = subprocess.check_output(['git', 'rev-list', '--reverse', layout_revision + '..' + source_revision], cwd=ROOT, text=True).splitlines()
-        allowed_followon = inputs.get('authorized_followon_revisions', [])
-        if not isinstance(allowed_followon, list) or len(set(allowed_followon)) != len(allowed_followon) or any(not isinstance(value, str) or not re.fullmatch(r'[0-9a-f]{40}(?:[0-9a-f]{24})?', value) for value in allowed_followon):
-            raise ValueError('Authorized follow-on revisions must be an explicit unique full-commit allowlist')
-        followon = []
-        for revision in commits:
-            raw = subprocess.check_output(['git', 'diff-tree', '--root', '-r', '--raw', '--no-renames', '-z', '--no-commit-id', revision], cwd=ROOT).split(b'\0')
-            changes = []
-            for index in range(0, len(raw) - 1, 2):
-                metadata = raw[index].decode().split()
-                if len(metadata) != 5 or not metadata[0].startswith(':'):
-                    raise ValueError('Unsupported follow-on Git change framing')
-                changes.append({'path': raw[index + 1].decode(), 'before_mode': metadata[0][1:], 'after_mode': metadata[1], 'before_blob': metadata[2], 'after_blob': metadata[3], 'status': metadata[4]})
-            followon.append({'revision': revision, 'authorized': revision in allowed_followon, 'changes': changes})
-            if revision not in allowed_followon:
-                report['missing_evidence'].append({'kind': 'follow-on-authorization', 'revision': revision, 'changed_paths': len(changes)})
-        if set(allowed_followon) - set(commits):
-            report['regressions'].append('Follow-on authorization contains a revision outside the actual layout-to-candidate ancestry')
+        prefixes = sorted({bindings['source_prefix'].rstrip('/'), history.get('subtree_prefix', bindings['source_prefix'].rstrip('/'))})
+        followon = check_followon_authorization(inputs, args.inputs, resolved_layout_revision, source_revision, prefixes, report)
         followon_path = OUT / 'follow-on-inventory.json'
         followon_path.write_text(json.dumps(followon, indent=2) + '\n')
         report['follow_on_inventory'] = reference(followon_path)
@@ -397,16 +752,12 @@ def main():
                 report['missing_evidence'].append({'kind': 'forward-repair-owner-receipt', 'source': source, 'task': item['evidence_task']})
         (OUT / 'rewrite-inventory.json').write_text(json.dumps(changes, indent=2) + '\n')
         report['summary'] = {'baseline_files': len(baseline['files']), 'layout_files': len(layout['files']), 'current_files': len(current['files']), 'changed_mapped_blobs': len(changes), 'approved_rewrites': len(approved), 'packages': len(current['packages']), 'runtime_receipts': len(report['task_receipts']), 'follow_on_commits': len(followon), 'forward_repairs': len(repairs)}
-        report['rollback'] = {'baseline_revision': mapping['implementation_baseline'], 'mapping': reference(PACK / 'repository-layout.json'), 'inverse_inventory': reference(baseline_inventory_path), 'policy': 'Preserve subsequent work; selecting the original tree is not an authorized destructive rollback.'}
-    except (OSError, ValueError, KeyError, TypeError, subprocess.SubprocessError) as error:
+        report['rollback'] = {'baseline_revision': history['baseline_revision'], 'mapping': reference(PACK / 'repository-layout.json'), 'inverse_inventory': reference(baseline_inventory_path), 'policy': 'Preserve subsequent work; selecting the original tree is not an authorized destructive rollback.'}
+    except (OSError, ValueError, KeyError, TypeError, subprocess.SubprocessError, tarfile.TarError) as error:
         report['missing_evidence'].append({'kind': 'driver-input', 'detail': str(error)})
-    failed_checks = [item['id'] for item in report['checks'] if item['status'] != 'PASS']
-    report['status'] = 'FAIL' if report['regressions'] else 'BLOCKED' if report['missing_evidence'] or failed_checks else 'PASS'
-    if report['status'] == 'PASS':
-        report['case_qualification'] = 'PASS'
-    (OUT / 'receipt.json').write_text(json.dumps(report, indent=2) + '\n')
-    print(json.dumps({'task': '0.9', 'status': report['status'], 'checks': len(report['checks']), 'missing_evidence': len(report['missing_evidence']), 'regressions': len(report['regressions']), 'receipt': 'build/layout/0.9/receipt.json'}))
-    return 0 if report['status'] == 'PASS' else 2 if report['status'] == 'BLOCKED' else 1
+    result = emit_report(report, OUT / 'receipt.json')
+    print(json.dumps({'task': '0.9', 'status': report['status'], 'checks': len(report['checks']), 'missing_evidence': len(report['missing_evidence']), 'missing_evidence_kinds': [item['kind'] for item in report['missing_evidence']], 'regressions': len(report['regressions']), 'receipt': 'build/layout/0.9/receipt.json'}))
+    return result
 
 
 if __name__ == '__main__':

@@ -5,6 +5,8 @@ import json
 import os
 from pathlib import Path
 import socket
+import re
+import uuid
 import subprocess
 from urllib.parse import urlparse
 import sys
@@ -15,11 +17,70 @@ IDS = [
  'assignment-workspace-binding', 'durable-checkpoint-lineage',
  'checkpoint-and-submission-distinct', 'unknown-submission-reconciles-once',
  'replacement-keeps-prior-history', 'independent-qualification-before-task-release',
- 'dependent-consumes-accepted-source', 'forged-qualified-dependency-refused', 'plain-sql-qualification-snapshot', 'queue-preserves-qualified-dependencies', 'replacement-reaches-qualified-acceptance', 'signed-cli-revision-read',
+ 'dependent-consumes-accepted-source', 'forged-qualified-dependency-refused', 'plain-sql-qualification-snapshot', 'queue-preserves-qualified-dependencies', 'replacement-reaches-qualified-acceptance', 'sparse-edit-materializes-only-scope', 'source-diff-matches-checkpoint', 'signed-cli-revision-read',
  'signed-cli-history-without-checkout', 'ui-shows-exact-fleet-accepted-source',
  'ui-conflict-resolution-preserves-source', 'ui-desktop-tablet-mobile', 'ui-publication-has-explicit-durable-status',
  'independent-git-readback-matches-native', 'genuine-native-source-capture',
 ]
+
+def verify_journey_steps(value, expected):
+    steps, snapshots = value.get('steps'), value.get('snapshots')
+    if not isinstance(steps, list) or [row.get('id') for row in steps] != expected:
+        raise RuntimeError('Every asserted journey step needs an ordered source snapshot and provider')
+    names = ['baseline', 'checkpoint_one', 'checkpoint_two', 'selected_submission', 'accepted', 'sparse_checkpoint']
+    if not isinstance(snapshots, dict) or set(snapshots) != set(names):
+        raise RuntimeError('Complete journey source snapshot inventory required')
+    for snapshot in snapshots.values():
+        if not isinstance(snapshot, dict) or set(snapshot) != {'revision_id', 'root_tree_id'} or any(
+                not isinstance(item, str) or re.fullmatch(r'sha256:[0-9a-f]{64}', item) is None
+                for item in snapshot.values()):
+            raise RuntimeError('Exact native revision/root identity required for each journey snapshot')
+    source = value['source']
+    if snapshots['accepted'] != {key: source[key] for key in ('revision_id', 'root_tree_id')}:
+        raise RuntimeError('Accepted journey source differs from its snapshot')
+    providers = {}
+    for index, step in enumerate(steps):
+        name = IDS[index]
+        snapshot = 'accepted'
+        assignment = value['replacement']['submission']['assignment_id']
+        if index <= IDS.index('independent-qualification-before-task-release'):
+            snapshot = 'baseline' if index == 0 else 'checkpoint_two'
+            assignment = value['assignment']
+        elif name == 'dependent-consumes-accepted-source':
+            snapshot, assignment = 'selected_submission', value['selected_assignment']
+        elif name in ('sparse-edit-materializes-only-scope', 'source-diff-matches-checkpoint'):
+            snapshot = 'sparse_checkpoint'
+        if step.get('source') != {'scope': source['scope'], **snapshots[snapshot]} or step.get('assignment_id') != assignment:
+            raise RuntimeError('Journey step source or assignment differs: ' + name)
+        provider = step.get('provider')
+        fields = {'provider', 'pool_id', 'profile_id', 'account_key', 'environment_key', 'region', 'sandbox_id', 'boot_generation'}
+        if not isinstance(provider, dict) or set(provider) != fields or any(
+                not isinstance(item, str) or not item.strip() for item in provider.values()):
+            raise RuntimeError('Complete actual provider identity required: ' + name)
+        for field in ('pool_id', 'profile_id', 'sandbox_id'):
+            if str(uuid.UUID(provider[field])) != provider[field]:
+                raise RuntimeError('Canonical provider identity required: ' + name)
+        if re.fullmatch(r'[1-9][0-9]*', provider['boot_generation']) is None:
+            raise RuntimeError('Positive provider boot generation required: ' + name)
+        if assignment in providers and providers[assignment] != provider:
+            raise RuntimeError('Provider identity changed within one assignment')
+        providers[assignment] = provider
+    diff = value.get('source_diff', {})
+    checkpoint = value.get('sparse_checkpoint', {})
+    if (diff.get('before') != snapshots['accepted'] or diff.get('after') != snapshots['sparse_checkpoint']
+            or checkpoint.get('revision_id') != snapshots['sparse_checkpoint']['revision_id']
+            or checkpoint.get('workspace', {}).get('root_tree_id') != snapshots['sparse_checkpoint']['root_tree_id']
+            or diff.get('workspace_id') != checkpoint.get('workspace', {}).get('workspace_id')):
+        raise RuntimeError('Source diff does not identify the exact sparse checkpoint')
+    api, cli = diff.get('api', {}), diff.get('cli', {})
+    if (not api or api.get('entries') != cli.get('entries') or len(api.get('entries', [])) != 1
+            or api['entries'][0].get('path') != 'main.txt' or api['entries'][0].get('kind') != 'MODIFIED'):
+        raise RuntimeError('API and CLI must observe the one scoped checkpoint edit')
+    for observed in (api, cli):
+        if (observed.get('coverage', {}).get('state') != 'COMPLETE' or observed.get('next_cursor') is not None
+                or observed.get('before_revision_id') != snapshots['accepted']['revision_id']
+                or observed.get('after_revision_id') != snapshots['sparse_checkpoint']['revision_id']):
+            raise RuntimeError('Source diff coverage or pinned revision differs')
 
 def main():
     output = ROOT / 'build/source-control/full-case/SCM-023'
@@ -43,6 +104,7 @@ def main():
     assertions = value.get('assertions', [])
     if [row.get('id') for row in assertions] != expected or any(row.get('expected') is not True or row.get('actual') is not True for row in assertions):
         raise RuntimeError('Integrated assertion inventory differs')
+    verify_journey_steps(value, expected)
     spec = importlib.util.spec_from_file_location('source_qualifier', ROOT/'tests/hyperfide/qualify.py')
     qualifier = importlib.util.module_from_spec(spec); spec.loader.exec_module(qualifier)
     qualifier.native_capture(ROOT, value['native_capture'], expected)

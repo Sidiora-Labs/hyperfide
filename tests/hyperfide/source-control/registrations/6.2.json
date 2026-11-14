@@ -4,11 +4,7 @@
   "variant": "task:hyperfide-source-control/6.2",
   "task": "6.2",
   "scope": "task-component",
-  "cases": [
-    "SCM-020",
-    "SCM-021",
-    "SCM-022"
-  ],
+  "cases": ["SCM-020", "SCM-021", "SCM-022"],
   "assertion_ids": [
     "source-workload.api-corpus-checkpoints",
     "source-workload.replay-accounting",
@@ -18,12 +14,17 @@
     "source-workload.deployed-credentials",
     "source-workload.partial-workspace-cleanup",
     "source-workload.hardware-identity",
-    "source-workload.resume-ledger"
+    "source-workload.resume-ledger",
+    "source-workload.imported-revisions-negative",
+    "source-workload.revision-inflation-negative",
+    "source-workload.latency-samples-negative",
+    "source-workload.cache-state-negative",
+    "source-workload.logical-opens-negative",
+    "source-workload.blocked-outcomes",
+    "source-workload.reachable-objects",
+    "source-workload.storage-accounting"
   ],
-  "argv": [
-    "python3",
-    "tests/hyperfide/cases/source_control/6_2.py"
-  ],
+  "argv": ["python3", "tests/hyperfide/cases/source_control/6_2.py"],
   "source_files": [
     "tests/hyperfide/cases/source_control/6_2.py",
     "tests/hyperfide/source-control/workloads/campaign.mjs",
@@ -34,7 +35,8 @@
     "tests/hyperfide/source-control/workloads/signed_client.mjs",
     "tests/hyperfide/source-control/workloads/hardware.mjs",
     "tests/hyperfide/source-control/workloads/hardware.test.mjs",
-    "tests/hyperfide/source-control/workloads/ledger_recovery.test.mjs"
+    "tests/hyperfide/source-control/workloads/ledger_recovery.test.mjs",
+    "tests/hyperfide/source-control/workloads/storage_observer.mjs"
   ],
   "source_roots": [
     "tests/hyperfide/source-control/workloads",

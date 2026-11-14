@@ -1,0 +1,163 @@
+{
+  "schema_version": 1,
+  "kind": "hyperfide.source-full-case-inputs",
+  "feature": "hyperfide-source-control",
+  "case_id": "SCM-023",
+  "variant": "api-cli-ui",
+  "registered_variant": "case:hyperfide-source-control/SCM-023/api-cli-ui",
+  "registry": {
+    "path": "tests/hyperfide/source-control/registry.json",
+    "sha256": "5379f8bfbf1bfd71546fc127263da683819d91dba66234aa028b695170b58874"
+  },
+  "claims": {
+    "path": "tests/hyperfide/source-control/claims.json",
+    "sha256": "c305a628a204c85f9deeafb6a768032d60535e469a887bf95a5c833436ec65e6"
+  },
+  "registration": {
+    "path": "tests/hyperfide/source-control/registrations/full-SCM-023-api-cli-ui.json",
+    "sha256": "5bacecc08efae831bb23b75dbea72433d0d418715d1e77ccd8d9b1b2a67eaa06"
+  },
+  "inputs": [
+    {
+      "path": "tests/hyperfide/source-control/full_case/scm_023_live_full.py",
+      "sha256": "80306293b4fb1e316752572b24229aee79acfe35fa617676746df3d87932859a",
+      "size": 268
+    },
+    {
+      "path": "tests/hyperfide/source-control/full_case/scm_023_live.py",
+      "sha256": "a4129fe5c494e6c7f4b9e29cc12466c45d6c25c74393e7216e7964d59efa1aa0",
+      "size": 1063
+    },
+    {
+      "path": "tests/hyperfide/source-control/full_case/scm_023_live.mjs",
+      "sha256": "76b3a33e75f631b16867c22da12dcaf404ef1e702db9a4504eeec25eaf3275e4",
+      "size": 10771
+    },
+    {
+      "path": "tests/hyperfide/source-control/full_case/scm_023_live_fleet.mjs",
+      "sha256": "25cbd62d9257861b9d2cf75706a39df2584b7871356954be3967337136fc5deb",
+      "size": 13580
+    },
+    {
+      "path": "tests/hyperfide/source-control/full_case/native_capture.mjs",
+      "sha256": "dfff00e578123b0a885022a4ec5292e16117197b93516545d17943ec1af22cfd",
+      "size": 5701
+    },
+    {
+      "path": "tests/hyperfide/support/native_source_live_submission.mjs",
+      "sha256": "3238bfd3fbbdb565892b0b0750545896c98ad04a30a78efd6773e6925a15e08b",
+      "size": 3827
+    },
+    {
+      "path": "tests/hyperfide/support/native_source_product_browser.mjs",
+      "sha256": "cae689e848d99ec2c1ceb86ece0f1821381959ec9ba641eb27261db46d0f7f3d",
+      "size": 29074
+    },
+    {
+      "path": "package.json",
+      "sha256": "c8568f9668ba77e0f9121ac284af44f9f423e2d570ac7297ee8fa4acb1c0a6ed",
+      "size": 7001
+    },
+    {
+      "path": "pnpm-lock.yaml",
+      "sha256": "3a2765093c398a466f0bf695bb226672b2f8930a05573a4bf8ba8f14341595b3",
+      "size": 1146172
+    },
+    {
+      "path": "plugins/hyperfide-source-control/README.md",
+      "sha256": "4ee510319f7b31fd5bd5777334221cea5a743cc366350cc2fc6c28bc68b945cb",
+      "size": 4656
+    },
+    {
+      "path": "plugins/hyperfide-source-control/app.tsx",
+      "sha256": "cada7e01fe530735fd8abf0a36e2d6cadb9641a514b644853b8180002a4462c9",
+      "size": 12069
+    },
+    {
+      "path": "plugins/hyperfide-source-control/contract.ts",
+      "sha256": "42e1d85647537d158af318e79b9b32cb6a4cb2a100a192fa11b777cd355eacc7",
+      "size": 7168
+    },
+    {
+      "path": "plugins/hyperfide-source-control/package.json",
+      "sha256": "94376d620adc78f285e81752369bb65712ea024842e6ed56d45ebaecf9df7e3f",
+      "size": 942
+    },
+    {
+      "path": "plugins/hyperfide-source-control/runtime.ts",
+      "sha256": "ab0e0103013865b846801617ccf41a3c777b32e04cd4d95f1f09a9dc29b4822f",
+      "size": 12292
+    },
+    {
+      "path": "plugins/hyperfide-source-control/server.ts",
+      "sha256": "745e0865cab02d57780e527dc97310bbe13c9467d27e712c6ae92657823e90c6",
+      "size": 9855
+    },
+    {
+      "path": "plugins/hyperfide-source-control/tsconfig.json",
+      "sha256": "e2bd26d7dff9f883627f3d9096e85b01808ed126270c3715ef6288aa3a55fa59",
+      "size": 396
+    },
+    {
+      "path": "plugins/environment-slices/contract.ts",
+      "sha256": "9b375417f782352a8d438bb669aea150fd579011f756a77f23f4ee2871a9ee9e",
+      "size": 4129
+    },
+    {
+      "path": "plugins/environment-slices/host.ts",
+      "sha256": "b4ae605b52317671464cfde228f86ebf2756ad2d2a4bd811e90c1eeb4efe6de9",
+      "size": 4223
+    },
+    {
+      "path": "plugins/environment-slices/native-provider.ts",
+      "sha256": "73ce8ce1c873d4c8d6b8eb46ba2c667c4d888cf0c1efd340c49a333b93a4329a",
+      "size": 164
+    },
+    {
+      "path": "plugins/environment-slices/package.json",
+      "sha256": "d1907147026572ad9d28bc4f2ba0120fa1646adb10d2cacb451dcef8d70c0030",
+      "size": 724
+    },
+    {
+      "path": "plugins/environment-slices/prepare.mjs",
+      "sha256": "58adc20d850d91251a91f6ff53c5f2f69c4e0f764abd8dce751749c935b91549",
+      "size": 589
+    },
+    {
+      "path": "plugins/environment-slices/provider.test.ts",
+      "sha256": "e4f9ba8d4597885ea528d1f075c2180bc95c886251548b45137ad15ac9440deb",
+      "size": 9731
+    },
+    {
+      "path": "plugins/environment-slices/provider.ts",
+      "sha256": "901b0099133880a37fa14562559ffda5e7e13036f688d2a10faf3beff9202a9f",
+      "size": 7865
+    },
+    {
+      "path": "plugins/environment-slices/server.ts",
+      "sha256": "07c61c3fba867aee1755d1cf9c1ea546067025afee17cad10e5914367b97d58e",
+      "size": 8234
+    },
+    {
+      "path": "plugins/environment-slices/tsconfig.json",
+      "sha256": "12c12ab1a26df38688b5d0ac74fdea07ac8d7dec21522a65793f858331edceb9",
+      "size": 365
+    }
+  ],
+  "seed": 23,
+  "policy": {
+    "source_variant": "api-cli-ui",
+    "execution_profile": "deployed-signed-real-fleet-api-cli-ui"
+  },
+  "approval": {
+    "approved": true,
+    "allowed_actions": [
+      "signed-live-source-api",
+      "read-live-postgres",
+      "invoke-built-source-cli",
+      "launch-chromium",
+      "publish-configured-github-ref",
+      "read-github"
+    ]
+  }
+}

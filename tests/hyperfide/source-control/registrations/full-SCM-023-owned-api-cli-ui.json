@@ -5,9 +5,7 @@
   "task": "6.3",
   "case_variant": "owned-api-cli-ui",
   "scope": "full-case",
-  "cases": [
-    "SCM-023"
-  ],
+  "cases": ["SCM-023"],
   "assertion_ids": [
     "SCM-023.assignment-workspace-binding",
     "SCM-023.durable-checkpoint-lineage",
@@ -20,6 +18,8 @@
     "SCM-023.plain-sql-qualification-snapshot",
     "SCM-023.queue-preserves-qualified-dependencies",
     "SCM-023.replacement-reaches-qualified-acceptance",
+    "SCM-023.sparse-edit-materializes-only-scope",
+    "SCM-023.source-diff-matches-checkpoint",
     "SCM-023.signed-cli-revision-read",
     "SCM-023.signed-cli-history-without-checkout",
     "SCM-023.ui-shows-exact-fleet-accepted-source",
@@ -29,10 +29,7 @@
     "SCM-023.independent-git-readback-matches-native",
     "SCM-023.genuine-native-source-capture"
   ],
-  "argv": [
-    "python3",
-    "tests/hyperfide/source-control/full_case/scm_023.py"
-  ],
+  "argv": ["python3", "tests/hyperfide/source-control/full_case/scm_023.py"],
   "source_files": [
     "tests/hyperfide/source-control/full_case/scm_023.py",
     "tests/hyperfide/support/native_source_full_journey.mjs",
@@ -74,9 +71,7 @@
     "launch-chromium"
   ],
   "resources": [],
-  "required_env": [
-    "HYPERFIDE_PG_BIN"
-  ],
+  "required_env": ["HYPERFIDE_PG_BIN"],
   "timeout_seconds": 1000,
   "required_artifacts": [
     "build/source-control/full-case/SCM-023/journey.json",

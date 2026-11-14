@@ -10,6 +10,7 @@ import {
   type SourceEntry,
   type WorkspaceDescriptor,
   workspaceError,
+  type SourceScope,
 } from "./client.js";
 import { SourceWorkspaceJournal } from "./journal.js";
 
@@ -163,6 +164,110 @@ function decimal(value: unknown): number {
       "Canonical bounded decimal length required",
     );
   return Number(value);
+}
+export interface HostNameSemantics {
+  case_folding: boolean;
+  unicode_normalization: boolean;
+}
+export async function probeHostNames(
+  root: string,
+  names: readonly string[] = [],
+): Promise<HostNameSemantics> {
+  const handle = await fs.open(
+    root,
+    constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW,
+  );
+  let probe: string | undefined;
+  try {
+    probe = await fs.mkdtemp(
+      `/proc/self/fd/${handle.fd}/.hyperfide-name-probe-`,
+    );
+    const aliases = async (
+      name: string,
+      alternate: string,
+    ): Promise<boolean> => {
+      const file = await fs.open(path.join(probe!, name), "wx", 0o600);
+      try {
+        const original = await file.stat();
+        try {
+          const other = await fs.stat(path.join(probe!, alternate));
+          return original.dev === other.dev && original.ino === other.ino;
+        } catch (error) {
+          if ((error as NodeJS.ErrnoException).code === "ENOENT") return false;
+          throw error;
+        }
+      } finally {
+        await file.close();
+      }
+    };
+    const inventory = path.join(probe, "entries");
+    await fs.mkdir(inventory);
+    const seen = new Set<string>();
+    for (const filename of names) {
+      const parts = repositoryPath(filename).split("/");
+      for (let length = 1; length <= parts.length; length++) {
+        const exact = parts.slice(0, length).join("/");
+        if (seen.has(exact)) continue;
+        try {
+          await fs.mkdir(path.join(inventory, exact));
+        } catch (error) {
+          if ((error as NodeJS.ErrnoException).code === "EEXIST")
+            workspaceError(
+              "HOST_NAME_INCOMPATIBLE",
+              "Repository names alias on the host filesystem",
+            );
+          throw error;
+        }
+        seen.add(exact);
+      }
+    }
+    return {
+      case_folding: await aliases("CaseProbe", "caseprobe"),
+      unicode_normalization: await aliases("\u00e9", "e\u0301"),
+    };
+  } finally {
+    if (probe) await fs.rm(probe, { recursive: true, force: true });
+    await handle.close();
+  }
+}
+export function assertHostNamesCompatible(
+  names: readonly string[],
+  semantics: HostNameSemantics,
+): void {
+  const seen = new Map<string, string>();
+  for (const filename of names) {
+    repositoryPath(filename);
+    const parts = filename.split("/");
+    for (let length = 1; length <= parts.length; length++) {
+      const exact = parts.slice(0, length).join("/");
+      let key = semantics.unicode_normalization
+        ? exact.normalize("NFC")
+        : exact;
+      if (semantics.case_folding) key = key.toLowerCase();
+      const previous = seen.get(key);
+      if (previous !== undefined && previous !== exact)
+        workspaceError(
+          "HOST_NAME_INCOMPATIBLE",
+          "Repository names collide under the host name semantics",
+        );
+      seen.set(key, exact);
+    }
+  }
+}
+export interface WorkspaceReadinessReceipt {
+  schema_version: 1;
+  kind: "WORKSPACE_READINESS";
+  scope: SourceScope;
+  workspace_id: string;
+  workspace_generation: string;
+  scope_generation: string;
+  authority_epoch: string;
+  base_revision_id: string;
+  selected_paths: string[];
+  installed_entry_digest: string;
+  closure_manifest_digest: string;
+  closure_state: "INCOMPLETE";
+  receipt_digest: string;
 }
 export class SparseSourceMaterializer {
   constructor(
@@ -427,30 +532,111 @@ export class SparseSourceMaterializer {
     descriptor: WorkspaceDescriptor,
     selected: string[],
     signal?: AbortSignal,
+    nameRequirements?: HostNameSemantics,
   ): Promise<{
     state: "READY";
     files: number;
     bytes: number;
     physically_materialized: boolean;
+    receipt: WorkspaceReadinessReceipt;
   }> {
-    if (descriptor.mode === "API_ONLY") {
-      if (selected.length)
-        workspaceError(
-          "WORKSPACE_MODE",
-          "API-only workspaces do not materialize paths",
-        );
-      return {
-        state: "READY",
-        files: 0,
-        bytes: 0,
-        physically_materialized: false,
+    signal?.throwIfAborted();
+    const selectedPaths = [...new Set(selected)].sort();
+    for (const filename of selectedPaths)
+      if (filename !== "") repositoryPath(filename);
+    const current = await this.client.detail(descriptor.workspace_id, signal);
+    if (
+      (
+        ["organisation_id", "repository_id", "security_domain_id"] as const
+      ).some((key) => current.scope[key] !== descriptor.scope[key]) ||
+      current.workspace_generation !== descriptor.workspace_generation ||
+      current.scope_generation !== descriptor.scope_generation ||
+      current.base_revision_id !== descriptor.base_revision_id ||
+      current.authority_epoch !== descriptor.authority_epoch
+    )
+      workspaceError(
+        "WORKSPACE_STALE",
+        "Workspace authority or generation changed",
+      );
+    if (descriptor.mode === "API_ONLY" && selectedPaths.length)
+      workspaceError(
+        "WORKSPACE_MODE",
+        "API-only workspaces do not materialize paths",
+      );
+    const plan = new Map<string, SourceEntry>();
+    if (descriptor.mode !== "API_ONLY") {
+      await fs.mkdir(this.root, { recursive: true, mode: 0o700 });
+      const host = await probeHostNames(this.root);
+      const semantics = {
+        case_folding:
+          host.case_folding || nameRequirements?.case_folding === true,
+        unicode_normalization:
+          host.unicode_normalization ||
+          nameRequirements?.unicode_normalization === true,
       };
+      const enumerate = async (tree: string, parent: string): Promise<void> => {
+        let cursor: string | undefined;
+        const cursors = new Set<string>();
+        do {
+          signal?.throwIfAborted();
+          const page = await this.client.entries(tree, cursor, signal);
+          for (const child of page.entries) {
+            repositoryPath(child.name);
+            if (child.name.includes("/"))
+              workspaceError("TREE_ENTRY", "Tree entry must be one exact name");
+            await visit(parent ? parent + "/" + child.name : child.name, child);
+          }
+          cursor = page.next_cursor ?? undefined;
+          if (cursor && cursors.has(cursor))
+            workspaceError("TREE_PAGINATION", "Tree cursor did not advance");
+          if (cursor) cursors.add(cursor);
+        } while (cursor);
+      };
+      const visit = async (
+        filename: string,
+        entry: SourceEntry,
+      ): Promise<void> => {
+        repositoryPath(filename);
+        if (plan.has(filename)) return;
+        await this.client.assertAccess(descriptor, filename, false, signal);
+        plan.set(filename, entry);
+        if (entry.kind === "directory")
+          await enumerate(entry.object_id, filename);
+      };
+      for (const filename of selectedPaths) {
+        if (filename === "") {
+          if (!current.read_paths.includes(""))
+            workspaceError(
+              "SOURCE_ACCESS_DENIED",
+              "Whole-root materialization requires explicit root scope",
+            );
+          await enumerate(descriptor.root_tree_id, "");
+        } else {
+          await this.client.assertAccess(descriptor, filename, false, signal);
+          const entry = await this.client.lookup(
+            descriptor.root_tree_id,
+            filename,
+            signal,
+          );
+          if (!entry)
+            workspaceError(
+              "SOURCE_PATH_ABSENT",
+              "Requested pinned source path does not exist",
+            );
+          await visit(filename, entry);
+        }
+      }
+      const names = [
+        ...(await this.journal.snapshot()).installed.map((entry) => entry.path),
+        ...plan.keys(),
+      ];
+      assertHostNamesCompatible(names, semantics);
+      await probeHostNames(this.root, names);
     }
-    await fs.mkdir(this.root, { recursive: true, mode: 0o700 });
     const installed = new Map(
-      (await this.journal.snapshot()).installed.map((e) => [
-        e.path,
-        e.size_bytes,
+      (await this.journal.snapshot()).installed.map((entry) => [
+        entry.path,
+        entry.size_bytes,
       ]),
     );
     let installedBytes = [...installed.values()].reduce(
@@ -459,17 +645,10 @@ export class SparseSourceMaterializer {
     );
     let files = 0,
       bytes = 0;
-    const visited = new Set<string>();
-    const visit = async (
-      filename: string,
-      entry: SourceEntry,
-    ): Promise<void> => {
+    for (const [filename, entry] of plan) {
       signal?.throwIfAborted();
-      repositoryPath(filename);
-      if (visited.has(filename)) return;
-      visited.add(filename);
+      await this.client.assertAccess(descriptor, filename, false, signal);
       if (entry.kind === "directory") {
-        await this.client.assertAccess(descriptor, filename, false, signal);
         await withWorkspaceParent(
           this.root,
           filename,
@@ -489,28 +668,6 @@ export class SparseSourceMaterializer {
             await handle.close();
           },
         );
-        let cursor: string | undefined;
-        const cursors = new Set<string>();
-        do {
-          const page = await this.client.entries(
-            entry.object_id,
-            cursor,
-            signal,
-          );
-          for (const child of page.entries) {
-            repositoryPath(child.name);
-            if (child.name.includes("/"))
-              workspaceError("TREE_ENTRY", "Tree entry must be one exact name");
-            await visit(
-              filename ? filename + "/" + child.name : child.name,
-              child,
-            );
-          }
-          cursor = page.next_cursor ?? undefined;
-          if (cursor && cursors.has(cursor))
-            workspaceError("TREE_PAGINATION", "Tree cursor did not advance");
-          if (cursor) cursors.add(cursor);
-        } while (cursor);
       } else {
         const content = await this.readEntry(
           descriptor,
@@ -532,53 +689,73 @@ export class SparseSourceMaterializer {
         files++;
         bytes += content.length;
       }
-    };
-    for (const filename of selected) {
-      if (filename === "") {
-        if (!descriptor.read_paths.includes(""))
-          workspaceError(
-            "SOURCE_ACCESS_DENIED",
-            "Whole-root materialization requires explicit root scope",
-          );
-        let cursor: string | undefined;
-        const cursors = new Set<string>();
-        do {
-          const page = await this.client.entries(
-            descriptor.root_tree_id,
-            cursor,
-            signal,
-          );
-          for (const child of page.entries) await visit(child.name, child);
-          cursor = page.next_cursor ?? undefined;
-          if (cursor && cursors.has(cursor))
-            workspaceError(
-              "TREE_PAGINATION",
-              "Root tree cursor did not advance",
-            );
-          if (cursor) cursors.add(cursor);
-        } while (cursor);
-      } else {
-        await this.client.assertAccess(
-          descriptor,
-          repositoryPath(filename),
-          false,
-          signal,
-        );
-        const entry = await this.client.lookup(
-          descriptor.root_tree_id,
-          filename,
-          signal,
-        );
-        if (!entry)
-          workspaceError(
-            "SOURCE_PATH_ABSENT",
-            "Requested pinned source path does not exist",
-          );
-        await visit(filename, entry);
-      }
     }
-    await this.journal.materialized(selected);
-    return { state: "READY", files, bytes, physically_materialized: true };
+    for (const filename of selectedPaths)
+      if (filename !== "")
+        await this.client.assertAccess(descriptor, filename, false, signal);
+    const finalDescriptor = await this.client.detail(
+      descriptor.workspace_id,
+      signal,
+    );
+    if (
+      finalDescriptor.workspace_generation !== current.workspace_generation ||
+      finalDescriptor.scope_generation !== current.scope_generation ||
+      finalDescriptor.authority_epoch !== current.authority_epoch ||
+      finalDescriptor.base_revision_id !== current.base_revision_id
+    )
+      workspaceError("WORKSPACE_STALE", "Workspace changed before readiness");
+    signal?.throwIfAborted();
+    await this.journal.materialized(selectedPaths);
+    const entries = (await this.journal.snapshot()).installed
+      .filter((entry) => plan.has(entry.path))
+      .sort((a, b) => Buffer.compare(Buffer.from(a.path), Buffer.from(b.path)));
+    const closure = current.dependency_closure_manifest;
+    const bound = {
+      schema_version: 1 as const,
+      kind: "WORKSPACE_READINESS" as const,
+      scope: { ...current.scope },
+      workspace_id: current.workspace_id,
+      workspace_generation: current.workspace_generation,
+      scope_generation: current.scope_generation,
+      authority_epoch: current.authority_epoch,
+      base_revision_id: current.base_revision_id,
+      selected_paths: selectedPaths,
+      installed_entry_digest: rawDigest(
+        Buffer.from(
+          JSON.stringify(
+            entries.map((e) => [
+              e.path,
+              e.kind,
+              e.mode,
+              e.object_id,
+              e.payload_digest,
+              e.size_bytes,
+            ]),
+          ),
+        ),
+      ),
+      closure_manifest_digest: rawDigest(
+        Buffer.from(
+          JSON.stringify([
+            closure.schema_version,
+            closure.state,
+            closure.dependencies,
+            closure.reason,
+          ]),
+        ),
+      ),
+      closure_state: closure.state,
+    };
+    return {
+      state: "READY",
+      files,
+      bytes,
+      physically_materialized: descriptor.mode !== "API_ONLY",
+      receipt: {
+        ...bound,
+        receipt_digest: rawDigest(Buffer.from(JSON.stringify(bound))),
+      },
+    };
   }
   async reconcile(descriptor: WorkspaceDescriptor): Promise<void> {
     const snapshot = await this.journal.snapshot();

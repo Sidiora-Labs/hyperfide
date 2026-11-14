@@ -1,13 +1,16 @@
 package sample
+
 import (
-    "fmt"
-    j "encoding/json"
+	j "encoding/json"
+	"fmt"
 )
-type Runner interface { Run(int) int }
-type Worker struct { n int }
+
+type Runner interface{ Run(int) int }
+type Worker struct{ n int }
+
 func (w Worker) Run(value int) int { return helper(value) }
-func helper(value int) int { fmt.Println(value); return value + 1 }
+func helper(value int) int         { fmt.Println(value); return value + 1 }
 func invoke(cb func(int) int) int {
-    selected := helper
-    return cb(selected(2))
+	selected := helper
+	return cb(selected(2))
 }

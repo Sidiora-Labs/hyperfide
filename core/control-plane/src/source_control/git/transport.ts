@@ -212,7 +212,7 @@ async function* pack(
   }
   yield digest.digest();
 }
-function pushStatus(bytes: Buffer, targetRef:string): GitPushResult {
+function pushStatus(bytes: Buffer, targetRef: string): GitPushResult {
   const messages = packets(bytes).map((line) => line.toString("utf8").trim());
   if (
     messages.some(
@@ -223,7 +223,7 @@ function pushStatus(bytes: Buffer, targetRef:string): GitPushResult {
     return { outcome: "REJECTED", code: "REMOTE_REJECTED" };
   if (
     messages.includes("unpack ok") &&
-    messages.includes("ok "+gitRef(targetRef))
+    messages.includes("ok " + gitRef(targetRef))
   )
     return { outcome: "ACCEPTED", code: "REMOTE_ACCEPTED" };
   return { outcome: "UNKNOWN", code: "INCOMPLETE_REMOTE_STATUS" };
@@ -455,7 +455,7 @@ export function createLocalGitDestination(input: {
           },
           MAX_STATUS,
         );
-        return pushStatus(rest,request.target_ref);
+        return pushStatus(rest, request.target_ref);
       } catch {
         return { outcome: "UNKNOWN", code: "TRANSPORT_INTERRUPTED" };
       } finally {
@@ -490,6 +490,7 @@ export function createLocalGitDestination(input: {
 export function createHttpsGitTransport(input: {
   remote_url: string;
   credentials: () => Promise<SourceGitCredential>;
+  cleanupCredential?: SourceGitTransport["cleanupCredential"];
   fetch?: typeof globalThis.fetch;
 }): SourceGitTransport {
   const url = new URL(input.remote_url);
@@ -544,9 +545,12 @@ export function createHttpsGitTransport(input: {
   };
   return {
     authorize: credential,
-    async observe(ref, signal) {
+    ...(input.cleanupCredential
+      ? { cleanupCredential: input.cleanupCredential }
+      : {}),
+    async observe(ref, signal, authorized) {
       return advertisement(
-        await advert(await credential(), signal),
+        await advert(authorized ?? (await credential()), signal),
         gitRef(ref),
       ).oid;
     },
@@ -588,10 +592,61 @@ export function createHttpsGitTransport(input: {
         } as RequestInit & { duplex: "half" });
         if (!response.ok || !response.body)
           return { outcome: "UNKNOWN", code: "REMOTE_HTTP_FAILURE" };
-        return pushStatus(await readAll(response.body, MAX_STATUS),request.target_ref);
+        return pushStatus(
+          await readAll(response.body, MAX_STATUS),
+          request.target_ref,
+        );
       } catch {
         return { outcome: "UNKNOWN", code: "TRANSPORT_INTERRUPTED" };
       }
     },
   };
+}
+
+export async function readGitProviderJSON(
+  url: string,
+  credential: SourceGitCredential,
+  signal?: AbortSignal,
+  transport: typeof globalThis.fetch = globalThis.fetch,
+): Promise<unknown | null> {
+  if (
+    new URL(url).protocol !== "https:" ||
+    !credential.authorization_header ||
+    /[\r\n]/.test(credential.authorization_header) ||
+    !Number.isFinite(Date.parse(credential.expires_at)) ||
+    Date.parse(credential.expires_at) <= Date.now()
+  )
+    throw new SourceControlError(
+      "PROTECTION_UNSATISFIED",
+      "A current publication credential is required for protection observation",
+    );
+  try {
+    const response = await transport(url, {
+      headers: {
+        authorization: credential.authorization_header,
+        accept: "application/json",
+      },
+      redirect: "error",
+      signal: AbortSignal.any([
+        AbortSignal.timeout(30000),
+        ...(signal ? [signal] : []),
+      ]),
+    });
+    if (response.status === 404) {
+      await response.body?.cancel();
+      return null;
+    }
+    if (!response.ok || !response.body) {
+      await response.body?.cancel();
+      throw new Error("Provider protection unavailable");
+    }
+    return JSON.parse(
+      (await readAll(response.body, 1024 * 1024)).toString("utf8"),
+    );
+  } catch {
+    throw new SourceControlError(
+      "PROTECTION_UNSATISFIED",
+      "Provider identity and protection could not be verified",
+    );
+  }
 }

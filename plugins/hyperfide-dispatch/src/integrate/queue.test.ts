@@ -75,6 +75,8 @@ function fixture(
   };
   const queue = new IntegrationQueue(repo, "integration", deps);
   const job: FinishedJob = {
+    backend: "legacy",
+    compatibility: "git-tip-bundle-v1",
     id: "job-1",
     feature: "fixture",
     task: "1",
@@ -238,3 +240,116 @@ test("an Ask raised during reconciliation holds the merge", async () => {
   expect((await f.queue.enqueue(f.job)).status).toBe("held");
   expect(f.git("rev-parse", "integration")).toBe(f.base);
 });
+
+async function native_queue_outage_never_executes_git() {
+  const { SourceControlClient } = await import("@hyperfide/source-control");
+  const { randomUUID } = await import("node:crypto");
+  const { createServer } = await import("node:net");
+  const { chmodSync, readFileSync } = await import("node:fs");
+  const root = mkdtempSync(join(tmpdir(), "hyperfide-native-queue-"));
+  roots.push(root);
+  const log = join(root, "git-calls");
+  writeFileSync(log, "");
+  writeFileSync(
+    join(root, "git"),
+    "#!/bin/sh\nprintf '%s\\n' invoked >> '" + log + "'\nexit 97\n",
+  );
+  chmodSync(join(root, "git"), 0o700);
+  const listener = createServer();
+  await new Promise<void>((resolve) =>
+    listener.listen(0, "127.0.0.1", resolve),
+  );
+  const address = listener.address();
+  if (!address || typeof address === "string")
+    throw new Error("TCP fixture address missing");
+  await new Promise<void>((resolve, reject) =>
+    listener.close((error) => (error ? reject(error) : resolve())),
+  );
+  const scope = {
+    organisation_id: randomUUID(),
+    repository_id: randomUUID(),
+    security_domain_id: randomUUID(),
+  };
+  const digest = "sha256:" + "a".repeat(64);
+  const assignment: import("../dispatcher/contracts").NativeAssignmentDescriptor =
+    {
+      schema_version: 1,
+      backend: "native",
+      scope,
+      revision_id: digest,
+      root_tree_id: digest,
+      closure_id: digest,
+      environment_id: digest,
+      task_id: "native-task",
+      task_generation: "1",
+      attempt_id: randomUUID(),
+      attempt_generation: "1",
+      workspace_id: randomUUID(),
+      workspace_generation: "2",
+      assignment_id: randomUUID(),
+      assignment_generation: "1",
+      authority: {
+        authority_epoch: "1",
+        generation: "1",
+        policy_version: "native-v1",
+      },
+    };
+  const job: import("./queue").NativeFinishedJob = {
+    id: randomUUID(),
+    task: assignment.task_id,
+    feature: "native",
+    backend: "native",
+    assignment,
+    candidate: {
+      candidate_id: randomUUID(),
+      domain_id: randomUUID(),
+      expected_generation: "1",
+      expected_revision_id: digest,
+      revision_id: digest,
+      contributors: [],
+      dependencies: [],
+      transformation_version: "native-v1",
+      inputs: {
+        source: digest,
+        dependency: digest,
+        toolchain: digest,
+        configuration: digest,
+        graph: digest,
+        contract: digest,
+      },
+    },
+    operations: {
+      create: randomUUID(),
+      qualify: randomUUID(),
+      accept: randomUUID(),
+    },
+  };
+  const previousPath = process.env.PATH;
+  process.env.PATH = root + ":" + previousPath;
+  try {
+    const queue = new IntegrationQueue(join(root, "no-checkout"), "unused", {
+      source: new SourceControlClient({
+        endpoint: `http://127.0.0.1:${address.port}/api/v1/source-control`,
+        scope,
+        token: "unreachable-source",
+        timeout_ms: 1000,
+      }),
+      asks: async () => [],
+      evidence: async () => {
+        throw new Error("Evidence cannot precede candidate creation");
+      },
+    });
+    const result = await queue.enqueue(job);
+    expect(result.status).toBe("failed");
+    expect(result.reason).toContain("Source request lost its response");
+    expect(result.acceptance).toBeUndefined();
+    expect(readFileSync(log, "utf8")).toBe("");
+    expect(queue.list()).toEqual([result]);
+  } finally {
+    process.env.PATH = previousPath;
+  }
+}
+test(
+  native_queue_outage_never_executes_git.name,
+  native_queue_outage_never_executes_git,
+);

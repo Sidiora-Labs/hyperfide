@@ -7,7 +7,7 @@ registries, workspaces and worker sessions are trusted fixture preconditions wri
 the fixture's PostgreSQL superuser connection, never through a service handler.
 """
 from __future__ import annotations
-import base64,copy,hashlib,importlib.util,json,os,shutil,subprocess,tempfile,uuid
+import base64,copy,hashlib,importlib.util,json,os,shutil,subprocess,sys,tempfile,uuid
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[3]
 
@@ -88,7 +88,7 @@ class SubmissionStack:
             "HF_ARTIFACT_S3_BUCKET":objects.BUCKET,"HF_ARTIFACT_S3_ACCESS_KEY_ID":objects.KEY,"HF_ARTIFACT_S3_SECRET_ACCESS_KEY":objects.SECRET,
             "HF_ARTIFACT_S3_SESSION_TOKEN":objects.TOKEN,"HF_ARTIFACT_ORGANISATION_ID":scope["organisation_id"],
             "HF_ARTIFACT_ALLOWED_RUN_IDS":json.dumps([scope["run_id"]]),"HF_QUALIFICATION_REPOSITORIES":json.dumps({i["repository"]:str(self.repository)})})
-        executable=str(Path("/usr/bin/python3").resolve())
+        executable=str(Path(sys.executable).resolve())
         check={"id":"unit","argv":[executable,"-c","raise SystemExit(0)"],"executable_digest":sha(Path(executable).read_bytes()),
             "timeout_ms":60000,"required_artifacts":["report.json"],"input_keys":["source"]}
         rubric=sha(b"submission-rubric")

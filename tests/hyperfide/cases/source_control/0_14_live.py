@@ -13,6 +13,7 @@ import hashlib
 import json
 import os
 import signal
+import shutil
 import subprocess
 import sys
 import time
@@ -20,7 +21,8 @@ import uuid
 
 ROOT = Path(__file__).resolve().parents[4]
 AREA = ROOT / 'build/fleet/integration/private'
-NODE = Path('/root/.nvm/versions/node/v24.22.0/bin/node')
+NODE_COMMAND = os.environ.get('HYPERFIDE_FLEET_NODE') or shutil.which('node')
+NODE = Path(NODE_COMMAND).resolve() if NODE_COMMAND else None
 BRIDGE = AREA / '0_14-api.mjs'
 CHUNK = 240 * 1024
 
@@ -66,7 +68,14 @@ def write(path, value):
         os.fsync(f.fileno())
     temporary.replace(p)
 
+def require_node():
+    if NODE is None or not NODE.is_file() or not os.access(NODE, os.X_OK):
+        raise Blocked('NODE_BINARY_REQUIRED: set HYPERFIDE_FLEET_NODE or provide node on PATH')
+    return NODE
+
+
 def environment(config):
+    require_node()
     # Dotenv parsing stays in Node. Captured values never enter command arguments/logs.
     script = "console.log(JSON.stringify(process.env))"
     result = subprocess.run([str(NODE), '--env-file=' + str(ROOT / '.env'), '--import',
@@ -718,20 +727,55 @@ const socket=tls.connect({host:origin.hostname,port:Number(origin.port||443),ser
         return {'status':'AUTH_STATUS_OBSERVED','inference_qualified':False,
                 'connector_capabilities_qualified':False}
 
+    def evidence_index(self, task='0.13'):
+        sys.path.insert(0, str(ROOT / 'tests/hyperfide/support'))
+        from fleet_live_qualification import TASK_CASES, captured_case, private_json, require, Refused
+        try:
+            # Captures stay beside the pinned index; copying an archive cannot manufacture a live result.
+            if task not in ('0.13', '0.14'):
+                raise Blocked('SOURCE_CONTROL_TASK_REQUIRED')
+            prefix = task.replace('.', '_')
+            index = private_json(AREA / (prefix + '-index-input.json'))
+            target = private_json(AREA / (prefix + '-target-input.json'))
+            require(index.get('schema_version') == 1 and index.get('kind') == 'hyperfide.fleet-live-evidence'
+                    and index.get('target_digest') == digest(target), 'EVIDENCE_TARGET_MISMATCH')
+            require(target.get('organisation_id') == self.bindings['organisation_id']
+                    and target.get('run_id') == self.bindings['run_id']
+                    and target.get('origin') == self.config['origin'], 'EVIDENCE_CAMPAIGN_SCOPE_MISMATCH')
+            cases = index.get('cases', {})
+            require(isinstance(cases, dict) and all(name in cases for name in TASK_CASES[task]), 'REQUIRED_LIVE_CASES_MISSING')
+            for name in TASK_CASES[task]:
+                try:
+                    captured_case(name, cases[name], target, AREA)
+                except Refused as error:
+                    raise Blocked(str(error) + ':' + name) from error
+            write(AREA / (prefix + '-target.json'), target)
+            write(AREA / (prefix + '-index.json'), index)
+            return {'status': 'PINNED_UNQUALIFIED', 'target_digest': digest(target),
+                    'evidence_digest': digest(index), 'cases': list(TASK_CASES[task]),
+                    'task': task, 'target_file': str(AREA / (prefix + '-target.json')),
+                    'index_file': str(AREA / (prefix + '-index.json')),
+                    'live_verification': 'UNRUN'}
+        except Refused as error:
+            raise Blocked(str(error)) from error
+
     def inspect(self):
         return {'status':'OBSERVATION_ONLY','steps':{k:v['state'] for k,v in self.journal['steps'].items()},
                 'production_success_claimed':False,'future_provider_assertions':FUTURE_PROVIDER_ASSERTIONS}
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('phase',choices=['capacity-renew','renew-operator','environment-register','capacity-prepare','capacity-attest','provider-progress','provisioner-setup','model-cycle','native-qualification','native-credential','native-auth','trust','readiness-artifact','activate-run','sessions','artifacts','registration','profile','enrollment','qualification','run','cleanup','inspect'])
+    parser.add_argument('phase',choices=['evidence-index','capacity-renew','renew-operator','environment-register','capacity-prepare','capacity-attest','provider-progress','provisioner-setup','model-cycle','native-qualification','native-credential','native-auth','trust','readiness-artifact','activate-run','sessions','artifacts','registration','profile','enrollment','qualification','run','cleanup','inspect'])
     parser.add_argument('--config',default=str(AREA / '0_14-live-config.json'))
+    parser.add_argument('--task', choices=['0.13', '0.14'], default='0.13',
+                        help='Carried source-control evidence task; use 0.14 for final prerequisite handoff')
     args = parser.parse_args()
-    receipt = {'schema_version':1,'phase':args.phase,'status':'BLOCKED','proof_scope':'actual production APIs only',
+    receipt = {'schema_version':1,'task':args.task,'phase':args.phase,'status':'BLOCKED','proof_scope':'actual production APIs only',
                'future_provider_assertions':FUTURE_PROVIDER_ASSERTIONS}
     try:
+        require_node()
         journey = Journey(args.config)
-        method = {'capacity-renew':journey.capacity_renew,'renew-operator':journey.renew_operator,'environment-register':journey.environment_register,'capacity-prepare':journey.capacity_prepare,'capacity-attest':journey.capacity_attest,'provider-progress':journey.provider_progress,'provisioner-setup':journey.provisioner_setup,'model-cycle':journey.model_cycle,'native-qualification':journey.native_qualification,'native-credential':journey.native_credential,'native-auth':journey.native_auth,'trust':journey.trust,'readiness-artifact':journey.readiness_artifact,'activate-run':journey.activate_run,'sessions':journey.sessions,'profile':journey.profile,
+        method = {'evidence-index':lambda: journey.evidence_index(args.task),'capacity-renew':journey.capacity_renew,'renew-operator':journey.renew_operator,'environment-register':journey.environment_register,'capacity-prepare':journey.capacity_prepare,'capacity-attest':journey.capacity_attest,'provider-progress':journey.provider_progress,'provisioner-setup':journey.provisioner_setup,'model-cycle':journey.model_cycle,'native-qualification':journey.native_qualification,'native-credential':journey.native_credential,'native-auth':journey.native_auth,'trust':journey.trust,'readiness-artifact':journey.readiness_artifact,'activate-run':journey.activate_run,'sessions':journey.sessions,'profile':journey.profile,
                   'artifacts':journey.artifacts,'registration':journey.registration,'run':journey.run,
                   'cleanup':journey.cleanup,'inspect':journey.inspect}.get(args.phase)
         result = method() if method else journey.steps(args.phase)
@@ -740,6 +784,10 @@ def main():
     except (Blocked,KeyError,FileNotFoundError,subprocess.SubprocessError) as error:
         receipt['blocker'] = str(error)[:1200]
         code = 2
+    if args.task == '0.14':
+        sys.path.insert(0, str(ROOT / 'tests/hyperfide/support'))
+        from fleet_live_qualification import assertion_inventory
+        receipt['assertion_inventory'] = assertion_inventory(args.task, reason='PHASE_RECEIPT_IS_NOT_LIVE_QUALIFICATION')
     write(AREA / ('0_14-' + args.phase + '-receipt.json'),receipt)
     print(json.dumps({'phase':args.phase,'status':receipt['status'],'blocker':receipt.get('blocker')}))
     return code

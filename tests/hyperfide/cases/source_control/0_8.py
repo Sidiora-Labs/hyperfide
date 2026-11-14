@@ -16,6 +16,7 @@ import shutil
 import subprocess
 import sys
 import tarfile
+import tempfile
 import time
 
 ROOT = Path(__file__).resolve().parents[4]
@@ -78,49 +79,45 @@ def workflow_paths(text, event):
     return patterns
 
 
-def source_references():
+def reference_exceptions(root):
+    manifest = document(root / 'spec/hyperfide-source-control/layout-reference-exceptions.json')
+    if manifest.get('schema_version') != 1 or not isinstance(manifest.get('exceptions'), list):
+        raise ValueError('Versioned historical reference exception manifest required')
+    exceptions = {}
+    classifications = {'revision-bound-source-reference', 'historical-evaluation-reference', 'historical-measurement-reference'}
+    for item in manifest['exceptions']:
+        if not isinstance(item, dict):
+            raise ValueError('Historical reference exception must be an object')
+        name, span = item.get('file'), item.get('line_range')
+        if (not isinstance(name, str) or not name.startswith('docs/')
+                or any(part in {'', '.', '..'} for part in name.split('/'))
+                or not isinstance(span, list) or len(span) != 2
+                or any(type(value) is not int for value in span) or not 1 <= span[0] <= span[1]
+                or item.get('revision') != 'a2a367f9'
+                or not isinstance(item.get('reason'), str) or not item['reason'].strip()
+                or item.get('classification') not in classifications
+                or not isinstance(item.get('section_sha256'), str)
+                or not re.fullmatch(r'[0-9a-f]{64}', item['section_sha256'])
+                or 'reference' in item and (not isinstance(item['reference'], str) or not item['reference'])):
+            raise ValueError('Exact file, line range, historical revision, section digest and reason required')
+        existing = exceptions.setdefault(name, [])
+        if any(span[0] <= other['line_range'][1] and other['line_range'][0] <= span[1] for other in existing):
+            raise ValueError('Overlapping historical reference exceptions')
+        existing.append(item)
+    return exceptions
+
+
+def source_references(root=None):
+    root = ROOT if root is None else Path(root).resolve()
     pattern = re.compile(r'(?<![A-Za-z0-9_./-])(?:platform|services)/[A-Za-z0-9_@.+%~*/{}$-]*(?:/[A-Za-z0-9_@.+%~*/{}$-]*)*')
     installed = re.compile(r'^services/(?:dist|components|migrations|proof|runtime|node_modules|package\.json|package-lock\.json)(?:/|$)')
-    proof_path = ROOT / 'build/layout/0.9/docs-forward-verification/receipt.json'
-    verified_history = {}
-    try:
-        proof = document(proof_path)
-        passed = {item['id'] for item in proof.get('assertions', []) if item.get('status') == 'PASS'}
-        command = next(item for item in proof.get('commands', []) if item.get('id') == 'docs-reference-ownership')
-        valid_log = command.get('exit_code') == 0 and digest(local(command['log'])) == command.get('log_sha256')
-        pins = command.get('inputs', {})
-        archived = ['docs/SOURCE-REFERENCE.md', 'docs/reference/editors-vscode.md', 'docs/reference/services-artifacts-and-storage.md', 'docs/reference/services-graph-and-spec.md', 'docs/reference/services-identity-and-policy.md', 'docs/reference/services-integration-and-review.md', 'docs/reference/services-providers-and-preparation.md', 'docs/reference/services-runtime.md']
-        if proof.get('status') == 'PASS' and valid_log:
-            for name in archived:
-                if {'historical-attribution:' + name, 'historical-declarations:' + name} <= passed and pins.get(name) == digest(ROOT / name):
-                    verified_history[name] = 'INDEX_A2A367F9'
-            for name, assertion in [('docs/hyperfide/console-evaluation.md', 'dated-evaluation-preserved'), ('docs/hyperfide/operations.md', 'historical-measurement-scope')]:
-                if assertion in passed and pins.get(name) == digest(ROOT / name):
-                    verified_history[name] = assertion
-    except (OSError, ValueError, KeyError, StopIteration, TypeError):
-        pass
-    try:
-        history = document(ROOT / 'build/layout/0.9/operations-history-current/receipt.json')
-        command = next(item for item in history.get('commands', []) if item.get('id') == 'operations-history-source-check')
-        assertions = {item['id'] for item in history.get('assertions', [])
-                      if item.get('status') == 'PASS' and item.get('command_id') == command['id']}
-        required = {'historical-measurement-scope', 'historical-measurement-original-git-body'}
-        pins = command.get('inputs', {})
-        if (history.get('schema_version') == 1 and history.get('kind') == 'LAYOUT_HISTORICAL_DOCUMENT_SCOPE_V1'
-                and history.get('status') == 'PASS' and required <= assertions
-                and command.get('exit_code') == 0
-                and digest(local(command['log'])) == command.get('log_sha256')
-                and 'docs/hyperfide/operations.md' in pins
-                and all(digest(local(name)) == expected for name, expected in pins.items())):
-            verified_history['docs/hyperfide/operations.md'] = 'historical-measurement-scope'
-    except (OSError, ValueError, KeyError, StopIteration, TypeError):
-        pass
-    files = subprocess.check_output(['git', 'ls-files', '--cached', '--others', '--exclude-standard', '-z'], cwd=ROOT).decode().split('\0')
+    exceptions = reference_exceptions(root)
+    files = subprocess.check_output(['git', 'ls-files', '--cached', '--others', '--exclude-standard', '-z'], cwd=root).decode().split('\0')
     rows = []
     for name in sorted(set(files) - {''}):
         if not name.startswith(('tools/', 'deploy/', '.github/', '.agents/', 'docs/')):
             continue
-        path = ROOT / name
+        path = root / name
         if path.is_symlink() or not path.is_file():
             continue
         try:
@@ -128,22 +125,23 @@ def source_references():
         except UnicodeError:
             continue
         lines = text.splitlines()
-        archive_end = next((index for index, line in enumerate(lines, 1) if line.startswith('Historical source paths and declaration locations above remain pinned')), 0)
-        archive_verified = verified_history.get(name) == 'INDEX_A2A367F9' and archive_end > 0 and 'a2a367f9388e9686deb52194ca45b05d008e84a3' in lines[archive_end - 1] and 'revision `a2a367f9`' in text
-        measurement_start = next((index for index, line in enumerate(lines, 1) if line.startswith('Measurements on 2026-10-23')), 0)
-        measurement_end = next((index for index, line in enumerate(lines, 1) if index > measurement_start and line.startswith('## ')), len(lines) + 1)
+        historical = []
+        for item in exceptions.get(name, []):
+            first, last = item['line_range']
+            section = '\n'.join(lines[first - 1:last]) + '\n'
+            if last <= len(lines) and hashlib.sha256(section.encode()).hexdigest() == item['section_sha256']:
+                historical.append(item)
         for number, line in enumerate(lines, 1):
             for match in pattern.finditer(line):
                 reference = match[0].rstrip('.')
                 kind, reason = 'unresolved-current-reference', 'Current tooling or documentation needs an exact source/artifact disposition'
                 if name.startswith('docs/history/') or name == 'docs/hyperfide/source-engine-evaluation.md' or re.search(r'/validation-\d{4}-\d{2}-\d{2}\.json$', name):
                     kind, reason = 'historical-evidence', 'Historical source identities remain attached to their original evaluation'
-                elif archive_verified and number < archive_end:
-                    kind, reason = 'revision-bound-source-reference', 'Exact verified historical index section retains original a2a367f9 paths/declarations and immutable source links; current category mapping is separate'
-                elif verified_history.get(name) == 'dated-evaluation-preserved' and 'Review date 2026-10-22' in text:
-                    kind, reason = 'historical-evaluation-reference', 'Exact original dated evaluation blob was restored and independently source-verified'
-                elif verified_history.get(name) == 'historical-measurement-scope' and measurement_start <= number < measurement_end and reference == 'platform/apps/server/':
-                    kind, reason = 'historical-measurement-reference', 'Verified 2026-10-23 measurement retains its original platform/apps/server input scope; current command guidance remains separate'
+                elif any(item['line_range'][0] <= number <= item['line_range'][1]
+                         and ('reference' not in item or item['reference'] == reference) for item in historical):
+                    item = next(item for item in historical if item['line_range'][0] <= number <= item['line_range'][1]
+                                and ('reference' not in item or item['reference'] == reference))
+                    kind, reason = item['classification'], item['reason']
                 elif installed.match(reference):
                     kind, reason = 'installed-artifact', 'Packaged services layout is distinct from checkout source categories'
                 elif name == 'tools/repository/layout-inventory.py':
@@ -163,6 +161,49 @@ def reference_inputs():
             and (ROOT / name).is_file() and not (ROOT / name).is_symlink()]
 
 
+def installed_control_observation(archive):
+    archive = archive.resolve()
+    archive_sha256 = digest(archive)
+    with tempfile.TemporaryDirectory(prefix='layout-installed-control-') as temporary:
+        root = Path(temporary)
+        service = root / 'core/control-plane'
+        service.mkdir(parents=True)
+        with tarfile.open(archive) as package:
+            package.extractall(service, filter='data')
+        node = os.environ.get('HYPERFIDE_LAYOUT_NODE24') or os.environ.get('HYPERFIDE_LAYOUT_NODE') or shutil.which('node')
+        if not node:
+            raise ValueError('Node required for installed control startup')
+        preflight = """import assert from 'node:assert/strict';import fs from 'node:fs';import {pathToFileURL} from 'node:url';
+const [source,installed,stampModule]=process.argv.slice(1);
+const {checkStamp,distDigest}=await import(pathToFileURL(stampModule));
+assert.equal(checkStamp(source).fresh,true);
+const original=JSON.parse(fs.readFileSync(source+'/dist/.source-digest.json','utf8'));
+const packaged=JSON.parse(fs.readFileSync(installed+'/dist/.source-digest.json','utf8'));
+assert.deepEqual(packaged,original);
+assert.equal(distDigest(installed).dist_digest,packaged.dist_digest);
+assert.equal(distDigest(installed).dist_files,packaged.dist_files);
+console.log(JSON.stringify({source_stamp_preflight:'PASS'}));"""
+        subprocess.run([node, '--input-type=module', '-e', preflight, str(ROOT / 'core/control-plane'),
+                        str(service), str(ROOT / 'deploy/hyperfide/dist-stamp.mjs')], check=True)
+        fixture_path = root / 'tests/hyperfide/support/identity_fixture.py'
+        fixture_path.parent.mkdir(parents=True)
+        shutil.copyfile(ROOT / 'tests/hyperfide/support/identity_fixture.py', fixture_path)
+        spec = importlib.util.spec_from_file_location('layout_installed_identity', fixture_path)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        fixture = module.IdentityFixture(extra_components=['4.1'])
+        try:
+            status, response = fixture.invoke('identity.describe', {}, component='14.1')
+            if status != 200 or response.get('ok') is not True:
+                raise ValueError('Actual installed control component bootstrap failed')
+        finally:
+            fixture.close()
+        if digest(archive) != archive_sha256:
+            raise ValueError('Service archive changed during startup')
+        print(json.dumps({'archive_sha256': archive_sha256, 'component_bootstrap': 'PASS',
+                          'source_stamp_preflight': 'PASS'}))
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--inputs', type=Path, default=OUT / 'inputs.json')
@@ -177,8 +218,8 @@ def main():
               'checked_at': datetime.now(timezone.utc).isoformat(), 'required_assertions': REQUIRED,
               'commands': [], 'assertions': [], 'checks': [], 'artifacts': [], 'missing_evidence': [],
               'regressions': [], **bindings.capture_bindings()}
-    node = os.environ.get('HYPERFIDE_LAYOUT_NODE') or shutil.which('node')
-    implementation = [Path(__file__), Path(__file__).with_name('0_9.py'), ROOT / 'tests/hyperfide/support/layout_tooling_stamp.mjs', PACK / 'repository-layout.json']
+    node = os.environ.get('HYPERFIDE_LAYOUT_NODE24') or os.environ.get('HYPERFIDE_LAYOUT_NODE') or shutil.which('node')
+    implementation = [Path(__file__), Path(__file__).with_name('0_9.py'), PACK / 'layout-reference-exceptions.json', ROOT / 'tests/hyperfide/support/layout_tooling_stamp.mjs', PACK / 'repository-layout.json']
 
     def check(ident, passed, detail):
         report['checks'].append({'id': ident, 'status': 'PASS' if passed else 'FAIL', 'evidence': detail})
@@ -213,7 +254,7 @@ def main():
         revision = value.get('source_revision')
         if not isinstance(revision, str) or not re.fullmatch(r'[0-9a-f]{40}(?:[0-9a-f]{24})?', revision) or subprocess.run(['git', 'merge-base', '--is-ancestor', revision, report['source_revision']], cwd=ROOT, capture_output=True).returncode:
             raise ValueError('Retained command must bind an actual ancestor revision')
-        if value.get('source_tree_id') != subprocess.check_output(['git', 'rev-parse', revision + '^{tree}'], cwd=ROOT, text=True).strip() or value.get('source_snapshot') != report['source_snapshot']:
+        if value.get('source_tree_id') != bindings.source_tree_id(revision, ROOT) or value.get('source_snapshot') != report['source_snapshot']:
             raise ValueError('Retained command runtime source inventory changed')
         record = value['command']
         if not isinstance(record, dict) or record.get('exit_code') != 0 or not isinstance(record.get('command'), list) or not record['command'] or not isinstance(record.get('duration_ms'), int) or record['duration_ms'] < 0:
@@ -281,8 +322,10 @@ def main():
             retained['command'] = record
             (OUT / 'release-command.json').write_text(json.dumps(retained, indent=2) + '\n')
             if record['exit_code'] == 0:
+                inputs['schema_version'] = 1
                 inputs['release_command'] = 'build/layout/0.8/release-command.json'
                 inputs['release_directory'] = 'build/layout/0.8/release'
+                args.inputs.write_text(json.dumps(inputs, indent=2) + '\n')
             else:
                 check('release.actual-nonpublishing-assembly', False, {'command_id': record['id'], 'exit_code': record['exit_code']})
         if inputs.get('release_directory') and inputs.get('release_command'):
@@ -332,8 +375,30 @@ def main():
                 if not inputs.get('installed_platform_command'):
                     retained = {key: report[key] for key in ['source_revision', 'source_tree_id', 'mapping_sha256', 'layout_generation', 'source_snapshot', 'source_snapshot_sha256']}
                     (OUT / 'installed-platform-command.json').write_text(json.dumps({**retained, 'command': smoke}, indent=2) + '\n')
+                    if args.assemble_release:
+                        inputs['installed_platform_command'] = 'build/layout/0.8/installed-platform-command.json'
+                        args.inputs.write_text(json.dumps(inputs, indent=2) + '\n')
+                if args.assemble_release and not inputs.get('installed_control_command'):
+                    archive = release / 'hyperfide-service-2.2.0.tar.gz'
+                    control, output = command('installed-control-startup', [sys.executable,
+                        str(ROOT / 'tests/hyperfide/support/withpg.py'), '--', sys.executable,
+                        str(Path(__file__)), '--installed-control-observation', str(archive)],
+                        [archive, sums, ROOT / 'tests/hyperfide/support/withpg.py',
+                         ROOT / 'tests/hyperfide/support/identity_fixture.py', ROOT / 'deploy/hyperfide/dist-stamp.mjs'], timeout=180)
+                    if control['exit_code'] == 0:
+                        observed = json.loads(output.splitlines()[-1])
+                        if (observed.get('archive_sha256') != digest(archive)
+                                or observed.get('component_bootstrap') != 'PASS'
+                                or observed.get('source_stamp_preflight') != 'PASS'):
+                            raise ValueError('Installed control observation lacks archive-bound bootstrap/preflight evidence')
+                        retained = {key: report[key] for key in ['source_revision', 'source_tree_id', 'mapping_sha256', 'layout_generation', 'source_snapshot', 'source_snapshot_sha256']}
+                        (OUT / 'installed-control-command.json').write_text(json.dumps({**retained, **observed, 'command': control}, indent=2) + '\n')
+                        inputs['installed_control_command'] = 'build/layout/0.8/installed-control-command.json'
+                        args.inputs.write_text(json.dumps(inputs, indent=2) + '\n')
+                    else:
+                        check('release.actual-installed-control-startup', False, {'command_id': control['id'], 'exit_code': control['exit_code']})
                 if inputs.get('installed_control_command'):
-                    control = retained_command(local(inputs['installed_control_command']))
+                    control = next((item for item in report['commands'] if item['id'] == 'installed-control-startup'), None) or retained_command(local(inputs['installed_control_command']))
                     control_evidence = document(local(inputs['installed_control_command']))
                     if control_evidence.get('archive_sha256') != digest(release / 'hyperfide-service-2.2.0.tar.gz') or control_evidence.get('component_bootstrap') != 'PASS' or control_evidence.get('source_stamp_preflight') != 'PASS':
                         raise ValueError('Actual packaged control startup must bind the verified service archive')
@@ -375,7 +440,9 @@ def main():
 
 
 if __name__ == '__main__':
-    if sys.argv[1:] == ['--entrypoint-observation']:
+    if len(sys.argv) == 3 and sys.argv[1] == '--installed-control-observation':
+        installed_control_observation(Path(sys.argv[2]))
+    elif sys.argv[1:] == ['--entrypoint-observation']:
         result = subprocess.run(['bash', str(ROOT / 'tools/repository/platform-ci.sh'), '--layout-invalid-argument'], cwd=OUT, text=True, capture_output=True)
         assert result.returncode == 2 and 'usage: tools/repository/platform-ci.sh' in result.stderr
         print(json.dumps({'status': 'PASS', 'actual_exit': result.returncode, 'working_directory': 'build/layout/0.8', 'scope': 'Real relocated CI entrypoint argument preflight'}))
@@ -397,4 +464,7 @@ if __name__ == '__main__':
         assert result.returncode in {0, 1} and set(result.stdout.splitlines()) == set(private)
         print(json.dumps({'status': 'PASS', 'private_paths': len(private), 'public_examples': len(public)}))
     else:
-        raise SystemExit(main())
+        spec = importlib.util.spec_from_file_location('layout_driver_runner', Path(__file__).with_name('0_9.py'))
+        contract = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(contract)
+        raise SystemExit(contract.run_driver('0.8', main))

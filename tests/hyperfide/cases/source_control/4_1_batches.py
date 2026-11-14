@@ -13,5 +13,6 @@ if __name__ == '__main__':
         '0736-source-control-storage.sql', '0737-source-control-metadata.sql',
         '0738-source-control-capabilities.sql', '0739-source-control-workspaces.sql',
         '0740-source-control-transformations.sql', '0741-source-control-acceptance.sql',
-        '0743-source-control-assurance.sql', '0757-source-control-candidate-queue.sql',
+        '0743-source-control-assurance.sql', '0746-source-control-retention.sql',
+        '0757-source-control-candidate-queue.sql',
     ], timeout=300))

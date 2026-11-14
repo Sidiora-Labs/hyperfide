@@ -47,8 +47,23 @@ def main():
     env={key:value for key,value in os.environ.items() if key!='DATABASE_URL'}
     scope={key:str(uuid.uuid4()) for key in ['organisation_id','repository_id','security_domain_id']}
     journal=root/'journal';journal.mkdir(mode=0o700)
-    base={'module_root':str(target),'migrations':str(ROOT/'core/control-plane/migrations'),'scope':scope,'principal':str(uuid.uuid4()),'deployment_id':str(uuid.uuid4()),'journal_dir':str(journal),'pg_bin':str(binary),'source_epoch':'1','sdk_root':str(sdk),'remote_git':str(root/'recovery-remote.git')}
+    base={'module_root':str(target),'migrations':str(ROOT/'core/control-plane/migrations'),'scope':scope,'principal':str(uuid.uuid4()),'deployment_id':str(uuid.uuid4()),'journal_dir':str(journal),'pg_bin':str(binary),'source_epoch':'1','sdk_root':str(sdk),'remote_git':str(root/'recovery-remote.git'),'stale_acceptance_file':str(root/'prior-acceptance.json')}
     live='--component' not in sys.argv
+    revision=subprocess.run(['git','rev-parse','HEAD'],cwd=ROOT,text=True,capture_output=True,check=True).stdout.strip()
+    live_command='cd tools/hyperfide && corepack enable && python3 tests/hyperfide/cases/source_control/6_1.py'
+    failure_domains={domain:'UNRUN' for domain in ['PROCESS_LOSS','PRIMARY_INSTANCE_LOSS','FAILURE_DOMAIN_LOSS']}
+    deterministic_faults=[]
+    real_infrastructure=[{'kind':'LIVE_S3','status':'UNRUN','command':live_command,'reason':'Live object-store credentials and an isolated bucket are required; component mode uses the signed HTTP fixture.'}]
+    real_infrastructure.append({'kind':'FAILURE_DOMAIN_LOSS','status':'UNRUN','reason':'No independent host or region topology is available in this drill.'})
+    unresolved_debt=[{'kind':'FAILURE_DOMAIN_LOSS','status':'UNRUN','reason':'Both PostgreSQL instances run on the same host; an independently fenced cross-domain topology has not been exercised.'}]
+    if not live:
+        unresolved_debt.append({'kind':'LIVE_S3','status':'UNRUN','command':live_command,'qualification_record':'spec/hyperfide-source-control/qualification.kvx','reason':'Live qualification is outside the component gate; record this command in the owner qualification ledger when credentials are supplied.'})
+    state.update(status='FAIL',revision=revision,mode='live' if live else 'component',failure_domains=failure_domains,deterministic_faults=deterministic_faults,real_infrastructure=real_infrastructure,unresolved_debt=unresolved_debt,checks=checks,source_hashes=source_hashes,fault_schedule=timeline)
+    def save_receipt():
+        state['elapsed_seconds']=round(time.monotonic()-started,3)
+        (output/'receipt.json').write_text(json.dumps(state,indent=2)+'\n')
+    def fault(name):
+        deterministic_faults.append({'kind':name,'status':'PASS'})
     if not live:
         backend=subprocess.Popen([node,'--input-type=module','-e',"import {createSourceS3Fixture} from './tests/hyperfide/cases/source_control/fixtures/objects/backend.mjs';const f=await createSourceS3Fixture();console.log(JSON.stringify(f.config));process.once('SIGTERM',async()=>{await f.close();process.exit(0)});"],cwd=ROOT,stdout=subprocess.PIPE,text=True)
         if not select.select([backend.stdout],[],[],15)[0]:raise RuntimeError('Object backend did not start')
@@ -74,7 +89,9 @@ def main():
         cluster=PostgresCluster(root/'database',bin_dir=binary)
         base['database_url']=cluster.url();base['synchronous']=False
         initial=invoke('setup');cluster.replicate();cluster.synchronous(True);base['synchronous']=True
+        if live:real_infrastructure[0]={'kind':'LIVE_S3','status':'FAIL','command':live_command,'reason':'Live drill did not finish.'}
         probe=invoke('probe')
+        state.update(backend={'identity':probe['backend'],'version':probe['backend_version'],'kind':'LIVE_S3' if live else 'SIGNED_HTTP_FIXTURE','fixture_version':None if live else 'sha256:'+hashlib.sha256((ROOT/'tests/hyperfide/cases/source_control/fixtures/objects/backend.mjs').read_bytes()).hexdigest(),'provider_version':{'status':'UNRUN','reason':'The S3 object API does not report the provider server version.'}},postgres_version=probe['postgres_version'],migrations=probe['migrations'])
         profile={'schema_version':1,'profile_id':'owned-pg18-s3-v1','metadata':{'failure_domain':'owned-host','evidence_digest':probe['metadata_evidence'],'acknowledgment':'SYNC_REPLICA','replica_failure_domains':['owned-host'],'supported_failures':['PROCESS_LOSS','PRIMARY_INSTANCE_LOSS']},'placements':[{'backend_id':probe['backend'],'region':probe['region'],'failure_domain':'selected-object-backend','capabilities':{'conditional_create':True,'conditional_delete':True,'strong_read_after_write':True},'evidence_digest':probe['evidence_digest']}],'backup':{'retention_seconds':3600,'maximum_age_seconds':3600,'external_journal_id':base['deployment_id']},'objectives':{'rpo_seconds':0,'rto_seconds':120}}
         invoke('profile',profile=profile)
         cluster.synchronous(False)
@@ -91,6 +108,7 @@ def main():
         try:invoke('profile',profile=rejected);raise AssertionError('Unsupported failure domain accepted')
         except RuntimeError as error:assert 'Failure-domain loss requires a qualified external topology verifier' in str(error)
         checks.append('explicit measured profile rejects unsupported failure-domain claims')
+        failure_domains['PROCESS_LOSS']='FAIL'
         stage('before-verification',operation_id=str(uuid.uuid4()),text='unverified crash')
         stage('after-upload',operation_id=str(uuid.uuid4()),text='uploaded before verification crash')
         stage('after-verification',operation_id=str(uuid.uuid4()),text='verified crash')
@@ -101,8 +119,11 @@ def main():
         acknowledged=[replay['revision_id']]
         for index in range(2):acknowledged.append(invoke('write',operation_id=str(uuid.uuid4()),change_id=str(uuid.uuid4()),text='acknowledged '+str(index))['revision_id'])
         checks.append('real worker process death before verification, after verification and after commit preserves exact replay identity')
+        failure_domains['PROCESS_LOSS']='PASS'
+        real_infrastructure.append({'kind':'PROCESS_LOSS','status':'PASS','method':'SIGKILL of actual source worker processes with exact committed-operation replay'})
         multipart=invoke('multipart-stage') if live else None
         publication=invoke('publication-stage');acknowledged.extend(publication['revisions'])
+        fault('LOST_GIT_PUSH_ACKNOWLEDGMENT_AND_READBACK')
         invoke('pending-delete',operation_id=str(uuid.uuid4()))
         backup_id=str(uuid.uuid4());backup=invoke('backup',backup={'backup_id':backup_id,'profile':profile,'expires_at':time.strftime('%Y-%m-%dT%H:%M:%S',time.gmtime(time.time()+1800))+'.000Z','max_revisions':1000,'max_objects':10000,'max_bytes':16777216})
         assert invoke('epoch-race')['blocked'];checks.append('active source transaction holds the external epoch fence against concurrent revocation')
@@ -126,10 +147,14 @@ def main():
         try:invoke('verify',backup_id=old_id);raise AssertionError('Overage backup accepted')
         except RuntimeError as error:assert 'Backup exceeds the declared recovery age' in str(error)
         checks.append('stale backup credentials and overage snapshots fail before verification')
+        fault('STALE_BACKUP_CREDENTIAL_AND_OVERAGE_SNAPSHOT')
         physical=cluster.backup();old_primary=cluster.primary;old_socket=cluster.socket
+        failure_domains['PRIMARY_INSTANCE_LOSS']='FAIL'
         crash=time.monotonic();cluster.stop(old_primary);cluster.promote();base['database_url']=cluster.url(replica=True);base['synchronous']=False
         assert set(acknowledged)<=set(row['revision_id'] for row in invoke('inventory'))
         checks.append('physical synchronous PostgreSQL failover preserves every acknowledged native revision')
+        failure_domains['PRIMARY_INSTANCE_LOSS']='PASS'
+        real_infrastructure.append({'kind':'PRIMARY_INSTANCE_LOSS','status':'PASS','method':'Stop actual PostgreSQL primary and promote its physical synchronous standby on the same host'})
         cluster.stop(cluster.standby);old_standby=cluster.standby;old_replica_socket=cluster.replica_socket
         restored=root/'database'/'restored';shutil.copytree(physical,restored)
         uid=pwd.getpwnam('postgres');restored_socket=root/'database'/'restored-socket';restored_socket.mkdir();os.chown(restored_socket,uid.pw_uid,uid.pw_gid)
@@ -155,11 +180,14 @@ def main():
         except RuntimeError as error:assert 'Source mutation is fenced' in str(error)
         assert invoke('object-gate')['code']=='RECOVERY_NOT_READY'
         checks.append('fresh restore rechecks actual object bytes and refuses mutation readiness when a referenced object is missing')
+        fault('MISSING_RETAINED_EVIDENCE_OBJECT')
         invoke('restore-object',backup_id=backup_id,object_copy=str(copied),object_id=publication['evidence_object_id']);assert invoke('verify',backup_id=backup_id)['state']=='READY'
         try:invoke('activate',request=restoration['request']);raise AssertionError('Unreconciled effects admitted')
         except RuntimeError as error:assert 'Captured source effects require reconciliation' in str(error)
         uncertain=invoke('reconcile',request={'backup_id':backup_id,'operation_id':activation_id,'limit':128},hide_remote=True,hide_abort=True);assert uncertain['remaining_effects']>0
         if live:assert uncertain['remaining_effects']>=2 and any(row['kind']=='UPLOAD' and row['status']=='UNKNOWN' for row in uncertain['outcomes'])
+        fault('UNAVAILABLE_GIT_OBSERVATION')
+        if live:fault('LOST_MULTIPART_ABORT_ACKNOWLEDGMENT')
         before_replay=invoke('backup-read',backup_id=backup_id);invoke('prepare',request=restoration['request']);after_replay=invoke('backup-read',backup_id=backup_id);assert before_replay['pending_effects']==after_replay['pending_effects'] and before_replay['effect_count']==after_replay['effect_count']
         checks.append('preparation replay preserves already resolved effects and the remaining recovery debt')
         try:invoke('activate',request=restoration['request']);raise AssertionError('Unknown issued export admitted')
@@ -173,24 +201,57 @@ def main():
         activation=invoke('activate',request=restoration['request']);assert activation['source_epoch']=='2'
         effects=invoke('effect-inventory',publication=publication);assert effects['publication']['status']=='PUBLISHED' and effects['publication']['git_oid']==publication['git_oid']==effects['remote'] and effects['acceptance_digest']==publication['acceptance_digest']
         checks.append('independent accepted-source receipt and actual Git head survive restore and reconcile without another push')
+        real_infrastructure.append({'kind':'PHYSICAL_BACKUP_RESTORE','status':'PASS','method':'Fresh PostgreSQL physical restore, external epoch activation and actual Git/object readback'})
+        stale_acceptance=invoke('stale-acceptance')
+        assert stale_acceptance=={'code':'SCOPE_DENIED','prior_epoch':'1','current_epoch':'2','acceptances_unchanged':True}
+        checks.append('signed prior-epoch credential receives typed SCOPE_DENIED from source.acceptance.accept after restore activation without changing acceptance inventory')
+        state['stale_acceptance']=stale_acceptance
+        fault('PRIOR_EPOCH_ACCEPTANCE')
         recovery_seconds=round(time.monotonic()-crash,3);assert recovery_seconds<=profile['objectives']['rto_seconds']
         try:invoke('write',operation_id=str(uuid.uuid4()),change_id=str(uuid.uuid4()),text='stale writer',root_tree_id=backup['manifest']['revisions'][0]['root_tree_id']);raise AssertionError('Old source authority admitted')
         except RuntimeError as error:assert 'Old source writer is fenced' in str(error)
         checks.append('existing external authority journal fences stopped prior writers and source activation rejects old authority')
         base['source_epoch']='2';assert set(acknowledged)<=set(row['revision_id'] for row in invoke('inventory'))
-        assert invoke('routing')['old_writer_refused'];checks.append('live partition owner movement preserves reads and fences old upload completion')
+        routing=invoke('routing')
+        assert routing['old_writer_refused'] and routing['obsolete_owner_code']=='STALE_ROUTE'
+        assert routing['failed_reads']==routing['failed_commits']==routing['lost_acknowledged_commits']==0
+        assert routing['during_move']['reads']>=2 and routing['during_move']['commits']>=2
+        assert len(routing['acknowledged_revisions'])>=6
+        acknowledged.extend(routing['acknowledged_revisions'])
+        assert set(acknowledged)<=set(row['revision_id'] for row in invoke('inventory'))
+        state['routing']=routing
+        checks.append('concurrent partition movement preserves continuous reads and every acknowledged revision commit and refuses obsolete owner with STALE_ROUTE')
+        fault('CONCURRENT_PARTITION_MOVE')
         assert invoke('delayed-delete')['preserved'];checks.append('delayed old deletion preserves the fresh incarnation in the selected object backend')
+        fault('DELAYED_OLD_INCARNATION_DELETE')
         cleanup=invoke('cleanup');assert cleanup['unresolved']==[]
-        receipt={'status':'PASS','scope':'owned PostgreSQL18 physical failover and restore; '+('configured live S3 backend' if live else 'signed HTTP S3 fixture'),'checks':checks,'acknowledged_revisions':acknowledged,'backup_manifest_digest':backup['manifest_digest'],'source_epoch':activation['source_epoch'],'external_epoch':activation['external_epoch'],'elapsed_seconds':round(time.monotonic()-started,3),'failover_restore_seconds':recovery_seconds,'profile':profile,'postgres_version':probe['postgres_version'],'migrations':probe['migrations'],'source_hashes':source_hashes,'fault_schedule':timeline,'object_cleanup':cleanup}
-        (output/'receipt.json').write_text(json.dumps(receipt,indent=2)+'\n');print(json.dumps(receipt))
+        if live:real_infrastructure[0]={'kind':'LIVE_S3','status':'PASS','command':live_command,'backend':probe['backend'],'version':probe['backend_version']}
+        assert failure_domains=={'PROCESS_LOSS':'PASS','PRIMARY_INSTANCE_LOSS':'PASS','FAILURE_DOMAIN_LOSS':'UNRUN'}
+        receipt={**state,'status':'PASS','scope':'owned PostgreSQL18 physical failover and restore; '+('configured live S3 backend' if live else 'signed HTTP S3 fixture'),'checks':checks,'acknowledged_revisions':acknowledged,'backup_manifest_digest':backup['manifest_digest'],'source_epoch':activation['source_epoch'],'external_epoch':activation['external_epoch'],'elapsed_seconds':round(time.monotonic()-started,3),'failover_restore_seconds':recovery_seconds,'profile':profile,'postgres_version':probe['postgres_version'],'migrations':probe['migrations'],'source_hashes':source_hashes,'fault_schedule':timeline,'object_cleanup':cleanup}
+        state.update(receipt);save_receipt();print(json.dumps(state))
         return 0
+    except Exception as error:
+        state.update(status='FAIL',error=str(error))
+        for domain,outcome in failure_domains.items():
+            if outcome=='FAIL':real_infrastructure.append({'kind':domain,'status':'FAIL','reason':str(error)})
+        save_receipt()
+        raise
     finally:
         if cluster:
             if live:
-                try:invoke('cleanup')
-                except Exception as error:(output/'cleanup-debt.json').write_text(json.dumps({'status':'UNKNOWN','message':str(error)},indent=2)+'\n')
+                try:
+                    final_cleanup=invoke('cleanup')
+                    assert final_cleanup['unresolved']==[], 'Live object cleanup remains unresolved: '+str(final_cleanup['unresolved'])
+                except Exception as error:
+                    debt={'kind':'OBJECT_CLEANUP','status':'UNKNOWN','message':str(error)}
+                    unresolved_debt.append(debt);state['status']='FAIL';save_receipt()
+                    (output/'cleanup-debt.json').write_text(json.dumps(debt,indent=2)+'\n')
+                    raise
             clean=cluster.close()
-            if not clean:raise RuntimeError('Owned PostgreSQL cleanup remains incomplete')
+            if not clean:
+                unresolved_debt.append({'kind':'POSTGRES_CLEANUP','status':'UNKNOWN'})
+                state['status']='FAIL';save_receipt()
+                raise RuntimeError('Owned PostgreSQL cleanup remains incomplete')
         if backend:
             backend.terminate()
             try:backend.wait(timeout=10)

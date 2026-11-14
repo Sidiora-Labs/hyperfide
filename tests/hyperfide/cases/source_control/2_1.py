@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Exercise the authenticated source API and SDK with real PostgreSQL and S3 wire I/O."""
+"""Exercise indexed queries, isolated admission and subscriptions over the real source API."""
 import importlib.util
 from pathlib import Path
 

@@ -19,6 +19,11 @@ export type {
   UnmanagedBranchSpec,
   WorkspaceArgs,
 } from "@hyperfide/server-contract";
+export type {
+  Decision,
+  TaskAssignment,
+  InterfaceSelection,
+} from "../../../contracts/fleet/index.mjs";
 
 export type * from "./realtime.js";
 export type * from "./areas/environments.js";

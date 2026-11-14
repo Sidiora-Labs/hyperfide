@@ -20,6 +20,10 @@ import {
   SparseSourceMaterializer,
 } from "./materializer.js";
 
+export interface WorkspaceCheckpointResult extends CheckpointResult {
+  uploaded_objects: number;
+  skipped_uploads: number;
+}
 export class NativeWorkspaceCheckpoint {
   private active = false;
   constructor(
@@ -33,7 +37,8 @@ export class NativeWorkspaceCheckpoint {
     result: CheckpointResult,
     captured: Map<string, CapturedFile>,
     descriptor: WorkspaceDescriptor,
-  ): Promise<CheckpointResult> {
+    uploads = { uploaded_objects: 0, skipped_uploads: 0 },
+  ): Promise<WorkspaceCheckpointResult> {
     const receipt = result?.receipt as {
       schema_version?: number;
       scope?: WorkspaceDescriptor["scope"];
@@ -123,13 +128,13 @@ export class NativeWorkspaceCheckpoint {
       }
     }
     await this.journal.acknowledge(pending.request.operation_id);
-    return result;
+    return { ...result, ...uploads };
   }
   async checkpoint(
     descriptor: WorkspaceDescriptor,
     operationId = randomUUID(),
     signal?: AbortSignal,
-  ): Promise<CheckpointResult> {
+  ): Promise<WorkspaceCheckpointResult> {
     if (this.active)
       workspaceError(
         "CHECKPOINT_BUSY",
@@ -179,6 +184,25 @@ export class NativeWorkspaceCheckpoint {
         );
       const captured = new Map<string, CapturedFile>(),
         changes: WorkspaceChange[] = [];
+      const uploads = { uploaded_objects: 0, skipped_uploads: 0 };
+      const put = async (
+        kind: "blob" | "chunk" | "file",
+        payload: Buffer,
+      ): Promise<string> => {
+        const id = nativeObjectId(kind, payload);
+        if (await this.client.inspectObject(id, kind, signal)) {
+          uploads.skipped_uploads++;
+          return id;
+        }
+        const uploaded = await this.client.putObject(
+          kind,
+          payload,
+          undefined,
+          signal,
+        );
+        uploads.uploaded_objects++;
+        return uploaded;
+      };
       let dirtyBytes = 0;
       for (const entry of state.entries) {
         signal?.throwIfAborted();
@@ -212,13 +236,8 @@ export class NativeWorkspaceCheckpoint {
         captured.set(entry.path, actual);
         const objectId =
           actual.kind === "symlink"
-            ? await this.client.putObject(
-                "blob",
-                actual.bytes,
-                undefined,
-                signal,
-              )
-            : await this.client.putFile(actual.bytes, signal);
+            ? await put("blob", actual.bytes)
+            : await this.client.putFile(actual.bytes, signal, put);
         changes.push({
           path: entry.path,
           operation: "put",
@@ -267,6 +286,7 @@ export class NativeWorkspaceCheckpoint {
         await this.client.checkpoint(pending.request, signal),
         captured,
         descriptor,
+        uploads,
       );
     } finally {
       this.active = false;

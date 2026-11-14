@@ -18,7 +18,7 @@ closure = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(closure)
 
 def self_test():
-    checks = []
+    checks, refusal_probes = [], []
     with tempfile.TemporaryDirectory(prefix='hf-source-closure-') as temporary:
         root = Path(temporary)
         registry = {'schema_version': 2, 'cases': {'SCM-024': {'reqs': ['14.4'], 'full_assertion_ids': ['SCM-024.full']}}}
@@ -79,8 +79,65 @@ def self_test():
         if result['status'] != 'PASS' or len(result['checked_evidence']) != 1:
             raise AssertionError(result)
         checks.append('actual-qualifier-and-independent-checker')
+        # Each attack starts with evidence emitted by the real qualifier above.
+        # The closure CLI must return a nonzero BLOCKED report naming the gap.
+        originals = {path: path.read_bytes() for path in
+                     [actual_receipt, actual/'packet.json', actual/'claims.json', actual/'src/probe.py']}
 
-    return {'schema_version':1,'status':'PASS','scope':'closure refusal boundaries; full product evidence is required separately','checks':checks}
+        def blocked_probe(name, change, obligation):
+            try:
+                change()
+                command = [sys.executable, str(MODULE), '--packet', str(actual/'packet.json'),
+                           '--registry', str(actual/'registry.json'), '--claims', str(actual/'claims.json')]
+                result = subprocess.run(command, capture_output=True, text=True, timeout=60)
+                report = json.loads(result.stdout.splitlines()[-1])
+                diagnostics = '; '.join(report.get('diagnostics', []))
+                if result.returncode == 0 or report.get('status') != 'BLOCKED' or obligation not in diagnostics:
+                    raise AssertionError((name, result.returncode, report, obligation))
+                refusal_probes.append({'name': name, 'command': command, 'exit_code': result.returncode,
+                                       'status': report['status'], 'unmet_obligation': diagnostics})
+            finally:
+                for path, data in originals.items():
+                    path.write_bytes(data)
+
+        def alter_receipt(change):
+            value = json.loads(originals[actual_receipt])
+            change(value)
+            actual_receipt.write_bytes(closure.canonical(value))
+            packet = copy.deepcopy(actual_packet)
+            packet['evidence'][0]['receipt_sha256'] = closure.digest(actual_receipt)
+            (actual/'packet.json').write_bytes(closure.canonical(packet))
+
+        blocked_probe('empty-case-selection',
+                      lambda: alter_receipt(lambda value: value.update(selected_case_ids=[])), 'case selection')
+        blocked_probe('missing-driver', lambda: (actual/'src/probe.py').unlink(), 'registered driver/source input is missing')
+        blocked_probe('zero-assertions', lambda: alter_receipt(lambda value: value.update(assertions=[])), 'nonzero observed assertion inventory')
+        blocked_probe('fake-exit-code',
+                      lambda: alter_receipt(lambda value: value['command'].update(exit_code='0')), 'observed command exit status')
+        blocked_probe('missing-native-input-identity',
+                      lambda: alter_receipt(lambda value: value['source']['native'].pop('root_tree_id')), 'native input identity')
+        blocked_probe('duplicate-assertion-fill',
+                      lambda: alter_receipt(lambda value: value['assertions'].append(copy.deepcopy(value['assertions'][0]))),
+                      'duplicate assertions cannot fill gaps')
+
+        def omit_live_variant():
+            value = copy.deepcopy(actual_claims)
+            value['cases']['SCM-024']['required_variants'].append('real-s3')
+            (actual/'claims.json').write_bytes(closure.canonical(value))
+            packet = copy.deepcopy(actual_packet)
+            packet['claims_sha256'] = closure.digest(actual/'claims.json')
+            (actual/'packet.json').write_bytes(closure.canonical(packet))
+
+        blocked_probe('omitted-live-variant', omit_live_variant, 'SCM-024/real-s3')
+        blocked_probe('incomplete-cleanup',
+                      lambda: alter_receipt(lambda value: value['cleanup'].update(complete=False)), 'complete cleanup')
+        if {probe['name'] for probe in refusal_probes} != {
+                'empty-case-selection', 'missing-driver', 'zero-assertions', 'fake-exit-code',
+                'missing-native-input-identity', 'duplicate-assertion-fill', 'omitted-live-variant', 'incomplete-cleanup'}:
+            raise AssertionError('Complete closure refusal probe inventory required')
+
+
+    return {'schema_version':1,'status':'PASS','scope':'closure refusal boundaries; full product evidence is required separately','checks':checks,'refusal_probes':refusal_probes}
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
@@ -102,7 +159,7 @@ def main():
             (directory/'receipt.json').write_text(json.dumps(report,indent=2)+'\n')
         print(json.dumps(report,sort_keys=True))
         return 0
-    except (closure.ClosureError,OSError,ValueError,KeyError,TypeError) as error:
+    except (closure.ClosureError,OSError,ValueError,KeyError,TypeError,subprocess.SubprocessError) as error:
         print(json.dumps({'schema_version':1,'status':'BLOCKED','diagnostics':[str(error)]}))
         return 2
 

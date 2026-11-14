@@ -1,18 +1,43 @@
+import {
+  SourceControlClient,
+  type SourceCandidateRecord,
+  type SourceCreateCandidateRequest,
+  type SourceAcceptanceReceipt,
+} from "@hyperfide/source-control";
+import type { NativeAssignmentDescriptor } from "../dispatcher/contracts";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { mkdtemp, readFile, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, dirname, join } from "node:path";
 import { assertUniqueTaskHeaders } from "../../../hyperfide-spec/src/duplicate-headers";
 import type { SandboxMachineOps } from "../machine-ops";
 
 const exec = promisify(execFile);
-export interface FinishedJob {
+export interface LegacyFinishedJob {
+  backend: "legacy";
+  compatibility: "git-tip-bundle-v1";
   id: string;
   feature: string;
   task: string;
   bundle: string;
   ref: string;
+}
+export interface NativeFinishedJob {
+  id: string;
+  feature: string;
+  task: string;
+  backend: "native";
+  assignment: NativeAssignmentDescriptor;
+  candidate: SourceCreateCandidateRequest;
+  operations: { create: string; qualify: string; accept: string };
+}
+export type FinishedJob = NativeFinishedJob | LegacyFinishedJob;
+export interface NativeIntegrationDependencies {
+  source: SourceControlClient;
+  evidence(candidate: SourceCandidateRecord): Promise<string[]>;
+  asks(job: FinishedJob): Promise<{ blocking: boolean; answered: boolean }[]>;
+  publish?(state: MergeState): void;
 }
 export interface MergeState {
   id: string;
@@ -21,6 +46,9 @@ export interface MergeState {
   branch?: string;
   commit?: string;
   threadId?: string;
+  candidateId?: string;
+  qualificationId?: string;
+  acceptance?: SourceAcceptanceReceipt;
 }
 export interface IntegrationDependencies {
   machines: SandboxMachineOps;
@@ -46,7 +74,7 @@ export class IntegrationQueue {
   constructor(
     private repository: string,
     private integrationBranch: string,
-    private deps: IntegrationDependencies,
+    private deps: IntegrationDependencies | NativeIntegrationDependencies,
   ) {}
   list(): MergeState[] {
     return [...this.states.values()].map((s) => ({ ...s }));
@@ -67,10 +95,90 @@ export class IntegrationQueue {
       await exec("git", args, { cwd, maxBuffer: 16 * 1024 * 1024 })
     ).stdout.trimEnd();
   }
+  private async integrateNative(
+    job: NativeFinishedJob,
+    state: MergeState,
+  ): Promise<MergeState> {
+    try {
+      if (!("source" in this.deps))
+        throw new Error("Native source SDK dependencies are required");
+      const { source, evidence } = this.deps;
+      const assignment = job.assignment;
+      if (
+        assignment.schema_version !== 1 ||
+        assignment.backend !== "native" ||
+        assignment.task_id !== job.task ||
+        assignment.revision_id !== job.candidate.revision_id ||
+        Object.entries(source.scope).some(
+          ([key, value]) =>
+            assignment.scope[key as keyof typeof assignment.scope] !== value,
+        )
+      )
+        throw new Error("Native candidate assignment mismatch");
+      if (
+        (await this.deps.asks(job)).some((ask) => ask.blocking && !ask.answered)
+      ) {
+        state.status = "held";
+        state.reason = "Unanswered blocking Ask holds integration";
+        return { ...state };
+      }
+      state.status = "merging";
+      this.set(state);
+      const option = (operation_id: string) => ({
+        operation_id,
+        idempotency_key: operation_id,
+      });
+      const candidate = await source.createCandidate(
+        job.candidate,
+        option(job.operations.create),
+      );
+      if (candidate.root_tree_id !== assignment.root_tree_id)
+        throw new Error("Native candidate root mismatch");
+      state.candidateId = candidate.candidate_id;
+      const qualification = await source.qualifyCandidate(
+        {
+          candidate_id: candidate.candidate_id,
+          evidence_ids: await evidence(candidate),
+        },
+        option(job.operations.qualify),
+      );
+      state.qualificationId = qualification.qualification_id;
+      if (
+        (await this.deps.asks(job)).some((ask) => ask.blocking && !ask.answered)
+      ) {
+        state.status = "held";
+        state.reason = "Unanswered blocking Ask holds acceptance";
+        return { ...state };
+      }
+      state.acceptance = await source.acceptCandidate(
+        {
+          candidate_id: candidate.candidate_id,
+          qualification_id: qualification.qualification_id,
+        },
+        option(job.operations.accept),
+      );
+      state.status = "merged";
+    } catch (error) {
+      state.status = "failed";
+      state.reason = error instanceof Error ? error.message : String(error);
+    } finally {
+      this.set(state);
+    }
+    return { ...state };
+  }
   private async integrate(
     job: FinishedJob,
     state: MergeState,
   ): Promise<MergeState> {
+    if (job.backend === "native") return this.integrateNative(job, state);
+    const deps = this.deps;
+    if (job.compatibility !== "git-tip-bundle-v1" || "source" in deps) {
+      state.status = "failed";
+      state.reason =
+        "Explicit legacy Git compatibility dependencies are required";
+      this.set(state);
+      return state;
+    }
     let temporary: string | undefined;
     let worktree: string | undefined;
     try {
@@ -109,7 +217,7 @@ export class IntegrationQueue {
         .filter(Boolean);
       if (
         files.some((f) => /(^|\/)ASK\.md$/.test(f)) ||
-        (await this.deps.asks(job)).some((a) => a.blocking && !a.answered)
+        (await deps.asks(job)).some((a) => a.blocking && !a.answered)
       ) {
         state.status = "held";
         state.reason = "ASK.md or unanswered blocking Ask holds integration";
@@ -140,10 +248,10 @@ export class IntegrationQueue {
           .filter(Boolean);
         if (!conflicts.length) throw error;
       }
-      if (conflicts.some((f) => f !== "pnpm-lock.yaml")) {
+      if (conflicts.some((f) => basename(f) !== "pnpm-lock.yaml")) {
         state.reason = `Merge conflict: ${conflicts.join(", ")}`;
         state.threadId = (
-          await this.deps.spawnConflictThread({
+          await deps.spawnConflictThread({
             role: "feature-manager",
             job,
             branch,
@@ -170,18 +278,10 @@ export class IntegrationQueue {
         if (!conflicts.length) throw error;
       }
       if (conflicts.length) {
-        await this.git(
-          worktree,
-          "checkout",
-          "--ours",
-          "--",
-          "pnpm-lock.yaml",
-        );
-        const machine = await this.deps.machines.create({});
+        await this.git(worktree, "checkout", "--ours", "--", ...conflicts);
+        const machine = await deps.machines.create({});
         try {
-          const inputs = (
-            await this.git(worktree, "ls-files", "-z", "--", ".")
-          )
+          const inputs = (await this.git(worktree, "ls-files", "-z", "--", "."))
             .split("\0")
             .filter((f) =>
               /(^|\/)(package\.json|pnpm-workspace\.yaml|pnpm-lock\.yaml|\.npmrc)$/.test(
@@ -193,17 +293,25 @@ export class IntegrationQueue {
               `/workspace/${file}`,
               await readFile(join(worktree, file)),
             );
-          const result = await machine.exec(
-            "pnpm install --lockfile-only --no-frozen-lockfile --ignore-scripts",
-            { cwd: "/workspace" },
-          );
-          if (result.exitCode !== 0 || result.timedOut)
-            throw new Error(`Lockfile regeneration failed: ${result.stderr}`);
-          await writeFile(
-            join(worktree, "pnpm-lock.yaml"),
-            await machine.readFile("/workspace/pnpm-lock.yaml"),
-          );
-          await this.git(worktree, "add", "--", "pnpm-lock.yaml");
+          for (const lockfile of conflicts) {
+            const directory = dirname(lockfile);
+            const quotedDirectory = /^[a-zA-Z0-9_./-]+$/.test(directory)
+              ? directory
+              : `'${directory.replaceAll("'", "'\\''")}'`;
+            const prefix =
+              directory === "." ? "pnpm" : `pnpm -C ${quotedDirectory}`;
+            const result = await machine.exec(
+              `${prefix} install --lockfile-only --no-frozen-lockfile --ignore-scripts`,
+              { cwd: "/workspace" },
+            );
+            if (result.exitCode !== 0 || result.timedOut)
+              throw new Error(`Lockfile regeneration failed: ${result.stderr}`);
+            await writeFile(
+              join(worktree, lockfile),
+              await machine.readFile(`/workspace/${lockfile}`),
+            );
+          }
+          await this.git(worktree, "add", "--", ...conflicts);
         } finally {
           await machine.destroy();
         }
@@ -232,7 +340,7 @@ export class IntegrationQueue {
         );
       };
       await validate();
-      const reconciled = await this.deps.command(
+      const reconciled = await deps.command(
         "hyperfide",
         ["spec", "reconcile"],
         worktree,
@@ -252,7 +360,7 @@ export class IntegrationQueue {
       ).split("\0");
       if (
         resultFiles.some((f) => /(^|\/)ASK\.md$/.test(f)) ||
-        (await this.deps.asks(job)).some((a) => a.blocking && !a.answered)
+        (await deps.asks(job)).some((a) => a.blocking && !a.answered)
       ) {
         state.status = "held";
         state.reason = "ASK.md or unanswered blocking Ask holds integration";

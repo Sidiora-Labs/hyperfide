@@ -1,4 +1,4 @@
-import { openDispatchStorage } from '../storage';
+import { openDispatchStorage } from "../storage";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { mkdtemp, rm, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -14,7 +14,7 @@ afterEach(async () => {
     directories.splice(0).map((p) => rm(p, { recursive: true, force: true })),
   );
 });
-async function fixture() {
+async function fixture(planning?: DispatcherOptions["planning"]) {
   const directory = await mkdtemp(join(tmpdir(), "hyperfide-dispatch-"));
   directories.push(directory);
   const controls = await openDispatchStorage(directory);
@@ -36,6 +36,7 @@ async function fixture() {
   let now = 0;
   const options: DispatcherOptions = {
     directory,
+    planning,
     machines,
     runner,
     cap: 2,
@@ -79,8 +80,32 @@ async function fixture() {
   };
 }
 describe("dispatcher", () => {
-  it("honors fleet pause and cap controls from the shared persistent store", async () => {
+  it("waits for authenticated manager authority by default without launching legacy jobs", async () => {
     const f = await fixture();
+    const storage = await openDispatchStorage(f.options.directory);
+    f.options.storage = storage;
+    const tasks = vi.spyOn(f.options.spec, "tasks");
+    const d = new Dispatcher(f.options);
+    try {
+      await d.start();
+      await Promise.all([d.tick(), d.tick()]);
+      await d.drain();
+      expect(await storage.get("fleet.planning")).toEqual({
+        mode: "manager",
+        state: "WAITING_FOR_MANAGER",
+        authority: "CONTROL_PLANE",
+      });
+      expect(tasks).not.toHaveBeenCalled();
+      expect(d.jobs.size).toBe(0);
+      expect(f.claimed.size).toBe(0);
+      expect(f.runner.calls).toHaveLength(0);
+      expect(f.machines.execLog).toHaveLength(0);
+    } finally {
+      d.close();
+    }
+  });
+  it("honors fleet pause and cap controls from the shared persistent store", async () => {
+    const f = await fixture("legacy-nonadaptive");
     const storage = await openDispatchStorage(f.options.directory);
     f.options.storage = storage;
     const d = new Dispatcher(f.options);
@@ -93,26 +118,36 @@ describe("dispatcher", () => {
       await d.tick();
       await d.drain();
       expect(d.jobs.size).toBe(1);
-    } finally { d.close(); }
+    } finally {
+      d.close();
+    }
   });
   it("does not retry a running job cancelled through the shared store", async () => {
-    const f = await fixture();
+    const f = await fixture("legacy-nonadaptive");
     f.tasks.splice(1);
     const storage = await openDispatchStorage(f.options.directory);
     f.options.storage = storage;
     const d = new Dispatcher(f.options);
-    f.options.runner = { run: async () => {
-      const job = [...d.jobs.values()][0];
-      await storage.put("job:" + job.id, { ...job, cancelled: true });
-      return { exitCode: 0, commits: [] };
-    } };
+    f.options.runner = {
+      run: async () => {
+        const job = [...d.jobs.values()][0];
+        await storage.put("job:" + job.id, { ...job, cancelled: true });
+        return { exitCode: 0, commits: [] };
+      },
+    };
     try {
       await d.start();
       await d.tick();
       await d.drain();
-      expect([...d.jobs.values()][0]).toMatchObject({ state: "failed", attempt: 1, cancelled: true });
+      expect([...d.jobs.values()][0]).toMatchObject({
+        state: "failed",
+        attempt: 1,
+        cancelled: true,
+      });
       expect(f.claimed.size).toBe(0);
-    } finally { d.close(); }
+    } finally {
+      d.close();
+    }
   });
   it("does not claim without an available gateway key", async () => {
     const f = await fixture();
@@ -124,7 +159,7 @@ describe("dispatcher", () => {
     expect(f.claimed.size).toBe(0);
   });
   it("detects HTTP 429 in successful runner output and retries after backoff", async () => {
-    const f = await fixture();
+    const f = await fixture("legacy-nonadaptive");
     f.tasks.splice(1);
     const delays: number[] = [];
     f.options.wait = async (ms) => {
@@ -143,7 +178,7 @@ describe("dispatcher", () => {
     expect([...d.jobs.values()][0].state).toBe("succeeded");
   });
   it("uses merged integration membership, not task status; claims before launch", async () => {
-    const f = await fixture();
+    const f = await fixture("legacy-nonadaptive");
     f.tasks[0].requires = ["not-merged"];
     f.tasks[1].requires = ["merged"];
     f.claimed.add("c");
@@ -162,13 +197,13 @@ describe("dispatcher", () => {
     );
     const job = [...d.jobs.values()][0];
     const storage = await openDispatchStorage(f.options.directory);
-    const serialized = JSON.stringify(await storage.get('job:' + job.id));
+    const serialized = JSON.stringify(await storage.get("job:" + job.id));
     storage.close();
     expect(JSON.parse(serialized).commits).toEqual(["echo-commit"]);
     expect(serialized).not.toContain("key-test");
   });
   it("enforces cap and distinct per-key reservations under overlapping ticks", async () => {
-    const f = await fixture();
+    const f = await fixture("legacy-nonadaptive");
     let finish!: () => void;
     const gate = new Promise<void>((resolve) => {
       finish = resolve;
@@ -183,7 +218,9 @@ describe("dispatcher", () => {
     await d.start();
     await Promise.all([d.tick(), d.tick()]);
     // Wait for preparation without completing either runner.
-    await vi.waitFor(() => expect(f.runner.calls).toHaveLength(2), { timeout: 5000 });
+    await vi.waitFor(() => expect(f.runner.calls).toHaveLength(2), {
+      timeout: 5000,
+    });
     expect(d.jobs.size).toBe(2);
     expect(new Set(f.runner.calls.map((c) => c.key)).size).toBe(2);
     finish();
@@ -193,7 +230,7 @@ describe("dispatcher", () => {
     expect(f.runner.calls).toHaveLength(3);
   });
   it.each([0, 1])("obeys injected host/global availability %s", async (cap) => {
-    const f = await fixture();
+    const f = await fixture("legacy-nonadaptive");
     f.options.limits = async () => ({
       global: 2,
       host: 4,
@@ -206,7 +243,7 @@ describe("dispatcher", () => {
     expect(f.runner.calls).toHaveLength(cap);
   });
   it("retries only once on a different machine, then remains terminal", async () => {
-    const f = await fixture();
+    const f = await fixture("legacy-nonadaptive");
     f.tasks.splice(1);
     f.runner.results = [new Error("failure"), new Error("failure again")];
     const d = new Dispatcher(f.options);
@@ -226,7 +263,7 @@ describe("dispatcher", () => {
     );
   });
   it("backs off 60 seconds doubling to a 600 second ceiling, persisting across restart", async () => {
-    const f = await fixture();
+    const f = await fixture("legacy-nonadaptive");
     f.options.cap = 1;
     f.tasks.splice(1);
     const delays: number[] = [];
@@ -266,7 +303,7 @@ describe("dispatcher", () => {
     expect(delays).toContain(600000);
   });
   it("reconciles interrupted ledgers and owned orphans while preserving unrelated machines", async () => {
-    const f = await fixture();
+    const f = await fixture("legacy-nonadaptive");
     const orphan = await f.machines.create({
       name: "hyperfide-dispatch-orphan",
     });
@@ -294,7 +331,7 @@ describe("dispatcher", () => {
     expect(again.jobs.get("interrupted")?.error).toBe("Dispatcher restarted");
   });
   it("cleans up when preparation fails and never invokes runner", async () => {
-    const f = await fixture();
+    const f = await fixture("legacy-nonadaptive");
     f.tasks.splice(1);
     f.machines.scripts.push({
       pattern: /git fetch/,
