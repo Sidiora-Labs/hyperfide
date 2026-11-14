@@ -5,6 +5,8 @@ cd "$(dirname "$0")/../.."
 
 runtime=vendor/tree-sitter
 revision=a467ea8502d95562171f97953a6dc5b2a8622609
+runtime_manifest_sha256=89b4145db975a3555cc9668fac0354dee8e07dd10490c8447eb2cf3bf0a5f12e
+parsers_manifest_sha256=b1c5414436116b414cea294402c9b7b3ab7695a1ceaaad1de8cda7a41188b7c1
 
 # REVISION is provenance metadata, not a content check.  Keep a checked-in
 # sha256 manifest for every vendored input and verify both the exact file set
@@ -29,6 +31,7 @@ verify_manifest() {
     trap - EXIT HUP INT TERM
 }
 
+test "$(sha256sum "$runtime/CONTENTS.sha256" | cut -d' ' -f1)" = "$runtime_manifest_sha256"
 verify_manifest "$runtime" "$runtime/CONTENTS.sha256"
 test "$(cat "$runtime/REVISION")" = "$revision"
 test -s "$runtime/LICENSE"
@@ -72,5 +75,6 @@ if [ -d vendor/parsers ]; then
         }
     done
 fi
+test "$(sha256sum vendor/parsers/CONTENTS.sha256 | cut -d' ' -f1)" = "$parsers_manifest_sha256"
 verify_manifest vendor/parsers vendor/parsers/CONTENTS.sha256
 echo "vendored parser provenance: ok"
