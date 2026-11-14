@@ -40,6 +40,7 @@ export class AuthorityError extends Error {
 export const digest = (bytes: Uint8Array | string): string =>
   "sha256:" + createHash("sha256").update(bytes).digest("hex");
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+const record = (v: unknown): v is Record<string, unknown> => !!v && typeof v === "object" && !Array.isArray(v);
 /** Actions which can be selected by a Primary or delegated Feature Manager. */
 export const FLEET_COORDINATION_ACTIONS = [
   "fleet.install.admit",
@@ -103,7 +104,6 @@ export function parseFleetDecision(value: unknown): FleetDecision {
   return decision as unknown as FleetDecision;
 }
 const limit = 1024 * 1024;
-const record = (v: unknown): v is Record<string, unknown> => !!v && typeof v === "object" && !Array.isArray(v);
 
 /** Undefined URL preserves local operation without opening files or making requests. */
 export function authorityConfiguration(env: NodeJS.ProcessEnv): AuthorityConfiguration | undefined {
