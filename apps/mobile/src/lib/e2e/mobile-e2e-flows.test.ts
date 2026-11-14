@@ -92,5 +92,12 @@ describe("Mobile E2E flow boundaries", () => {
     expect(flowSource("scripts/ci-android-smoke.sh")).toContain(
       "flows/fleet-manager.yaml",
     );
+    const backend = readFileSync(
+      join(e2eRoot, "../../../tests/runtime-integration/mobile-e2e/backend.ts"),
+      "utf8",
+    );
+    expect(backend).toContain(
+      'builtinPlugins: ["hyperfide-spec", "hyperfide-dispatch"]',
+    );
   });
 });
