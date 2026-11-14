@@ -709,8 +709,11 @@ package_url="${server_url%/}/install/hyperfide-app.tgz"
 package_dir=$(mktemp -d "${TMPDIR:-/tmp}/hyperfide-app.XXXXXX")
 package_file="$package_dir/hyperfide-app.tgz"
 access_config="$package_dir/access.curl"
+anonymous_access_config="$package_dir/access-anonymous.curl"
 : > "$access_config"
+: > "$anonymous_access_config"
 chmod 600 "$access_config"
+chmod 600 "$anonymous_access_config"
 if [ -n "$bootstrap_env" ]; then
   HYPERFIDE_ENROLLMENT="$bootstrap_payload" node -e 'for (const [name,value] of Object.entries(JSON.parse(process.env.HYPERFIDE_ENROLLMENT).headers ?? {})) console.log("header = " + JSON.stringify(name + ": " + value))' > "$access_config"
 elif [ "$adopt" = yes ]; then
@@ -719,6 +722,14 @@ fi
 package_headers="$package_dir/headers"
 host_artifact_digest_file="$data_dir/host-artifact.sha256"
 installed_artifact_digest=
+if ! node -e '
+  const url = new URL(process.argv[1]);
+  process.exit(url.protocol === "https:" ? 0 : 1);
+' "$package_url"; then
+  rm -rf "$package_dir"
+  fail_step "The server's hyperfide-app package URL must use HTTPS."
+  exit 1
+fi
 if [ -x "$machine_npm_prefix/bin/hyperfide-app" ] && \
    [ -x "$machine_npm_prefix/bin/hyperfide" ] && \
    [ -f "$machine_npm_prefix/lib/node_modules/hyperfide-app/host-daemon/dist/daemon-bundle.mjs" ]; then
@@ -737,25 +748,68 @@ if [ ! -t 2 ]; then
   curl_output_mode=--silent
 fi
 active_step "Downloading the server's hyperfide-app package (timeout: 5 minutes)"
-if [ -n "$installed_artifact_digest" ]; then
-  package_status=$(curl --config "$access_config" "$curl_output_mode" --show-error --location \
-    --connect-timeout "$CURL_CONNECT_TIMEOUT_SECONDS" \
-    --max-time "$PACKAGE_DOWNLOAD_TIMEOUT_SECONDS" \
-    --retry "$PACKAGE_DOWNLOAD_RETRIES" \
-    --header "If-None-Match: \"sha256-$installed_artifact_digest\"" \
-    --dump-header "$package_headers" \
-    --output "$package_file" \
-    --write-out '%{http_code}' \
-    "$package_url") || package_status=000
-else
-  package_status=$(curl --config "$access_config" "$curl_output_mode" --show-error --location \
-    --connect-timeout "$CURL_CONNECT_TIMEOUT_SECONDS" \
-    --max-time "$PACKAGE_DOWNLOAD_TIMEOUT_SECONDS" \
-    --retry "$PACKAGE_DOWNLOAD_RETRIES" \
-    --dump-header "$package_headers" \
-    --output "$package_file" \
-    --write-out '%{http_code}' \
-    "$package_url") || package_status=000
+package_access_config="$access_config"
+package_redirects=0
+package_redirect_error=
+while :; do
+  if [ -n "$installed_artifact_digest" ]; then
+    package_status=$(curl --config "$package_access_config" "$curl_output_mode" --show-error --max-redirs 0 \
+      --connect-timeout "$CURL_CONNECT_TIMEOUT_SECONDS" \
+      --max-time "$PACKAGE_DOWNLOAD_TIMEOUT_SECONDS" \
+      --retry "$PACKAGE_DOWNLOAD_RETRIES" \
+      --header "If-None-Match: \"sha256-$installed_artifact_digest\"" \
+      --dump-header "$package_headers" \
+      --output "$package_file" \
+      --write-out '%{http_code}' \
+      "$package_url") || package_status=000
+  else
+    package_status=$(curl --config "$package_access_config" "$curl_output_mode" --show-error --max-redirs 0 \
+      --connect-timeout "$CURL_CONNECT_TIMEOUT_SECONDS" \
+      --max-time "$PACKAGE_DOWNLOAD_TIMEOUT_SECONDS" \
+      --retry "$PACKAGE_DOWNLOAD_RETRIES" \
+      --dump-header "$package_headers" \
+      --output "$package_file" \
+      --write-out '%{http_code}' \
+      "$package_url") || package_status=000
+  fi
+  case "$package_status" in
+    301|302|303|307|308)
+      package_redirect_location=$(node -e '
+        const fs = require("node:fs");
+        const text = fs.readFileSync(process.argv[1], "utf8");
+        const matches = [...text.matchAll(/^location:\s*(\S+)\s*$/gimu)];
+        process.stdout.write(matches.at(-1)?.[1] ?? "");
+      ' "$package_headers")
+      if [ -z "$package_redirect_location" ]; then
+        package_redirect_error="The server's hyperfide-app package returned a redirect without a destination."
+        break
+      fi
+      if [ "$package_redirects" -ge 10 ]; then
+        package_redirect_error="The server's hyperfide-app package followed too many redirects."
+        break
+      fi
+      package_redirect_target=$(node -e '
+        const current = new URL(process.argv[1]);
+        const next = new URL(process.argv[2], current);
+        if (next.protocol !== "https:") process.exit(2);
+        process.stdout.write(`${next.href}\n${next.origin === current.origin ? "same" : "cross"}`);
+      ' "$package_url" "$package_redirect_location") || {
+        package_redirect_error="The server's hyperfide-app package redirected to a non-HTTPS URL."
+        break
+      }
+      package_url=$(printf '%s\n' "$package_redirect_target" | sed -n '1p')
+      if [ "$(printf '%s\n' "$package_redirect_target" | sed -n '2p')" = cross ]; then
+        package_access_config="$anonymous_access_config"
+      fi
+      package_redirects=$((package_redirects + 1))
+      ;;
+    *) break ;;
+  esac
+done
+if [ -n "$package_redirect_error" ]; then
+  rm -rf "$package_dir"
+  fail_step "$package_redirect_error"
+  exit 1
 fi
 
 package_digest=$(node -e '
@@ -790,18 +844,21 @@ if [ "$package_status" = 304 ] && [ -n "$installed_artifact_digest" ]; then
   hyperfide_app_npm_prefix=$machine_npm_prefix
   complete_step "The identical server host artifact is already installed"
 elif [ "$package_status" -ge 200 ] && [ "$package_status" -lt 300 ]; then
-  if [ -n "$package_digest" ]; then
-    downloaded_digest=$(node -e '
-      const crypto = require("node:crypto");
-      const fs = require("node:fs");
-      process.stdout.write(crypto.createHash("sha256").update(fs.readFileSync(process.argv[1])).digest("hex"));
-    ' "$package_file")
-    if [ "$downloaded_digest" != "$package_digest" ]; then
-      rm -rf "$package_dir"
-      fail_step "The downloaded hyperfide-platform host artifact failed SHA-256 verification."
-      detail "Expected $package_digest but received $downloaded_digest." >&2
-      exit 1
-    fi
+  if [ -z "$package_digest" ]; then
+    rm -rf "$package_dir"
+    fail_step "The downloaded hyperfide-platform host artifact did not include a valid SHA-256 digest."
+    exit 1
+  fi
+  downloaded_digest=$(node -e '
+    const crypto = require("node:crypto");
+    const fs = require("node:fs");
+    process.stdout.write(crypto.createHash("sha256").update(fs.readFileSync(process.argv[1])).digest("hex"));
+  ' "$package_file")
+  if [ "$downloaded_digest" != "$package_digest" ]; then
+    rm -rf "$package_dir"
+    fail_step "The downloaded hyperfide-platform host artifact failed SHA-256 verification."
+    detail "Expected $package_digest but received $downloaded_digest." >&2
+    exit 1
   fi
   require_npm
   complete_step "Downloaded the server's hyperfide-app package"

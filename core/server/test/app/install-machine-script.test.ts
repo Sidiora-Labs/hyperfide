@@ -177,7 +177,7 @@ process.on("SIGTERM", () => server.close(() => process.exit(0)));
 function writeServerInstallTools(
   fixture: ReturnType<typeof createFixture>,
   artifactStatus: 200 | 404 | 500,
-  artifactDigest = FIXTURE_ARTIFACT_DIGEST,
+  artifactDigest: string | null = FIXTURE_ARTIFACT_DIGEST,
   transientFailures = 0,
   artifactBody = "fixture-tarball",
 ): void {
@@ -214,7 +214,10 @@ case "$*" in
       attempt=$((attempt + 1))
     done
     printf '%s\n' '${artifactStatus}' >>"${curlAttemptsLog}"
-    [ -z "$headers" ] || printf '%s\n' 'HTTP/1.1 ${artifactStatus}' 'x-hyperfide-artifact-sha256: ${artifactDigest}' >"$headers"
+    if [ -n "$headers" ]; then
+      printf '%s\n' 'HTTP/1.1 ${artifactStatus}' >"$headers"
+      ${artifactDigest === null ? ":" : `printf '%s\\n' 'x-hyperfide-artifact-sha256: ${artifactDigest}' >>"$headers"`}
+    fi
     if [ "$unchanged" = yes ] && [ '${artifactStatus}' = 200 ]; then
       printf '%s' 304
     else
@@ -898,7 +901,7 @@ fs.writeFileSync(path.join(process.env.HYPERFIDE_DATA_DIR, "config.json"), JSON.
     }
   });
 
-  it("accepts the daemon's normalized loopback server URL", () => {
+  it("rejects an HTTP package URL before contacting the server", () => {
     const fixture = createFixture();
     const invocationPath = join(fixture.dataDir, "invocation");
     writeCurlArtifactMock(fixture, 404);
@@ -913,22 +916,9 @@ fs.writeFileSync(path.join(process.env.HYPERFIDE_DATA_DIR, "config.json"), JSON.
       HYPERFIDE_INSTALL_SKIP_SERVICE: "1",
     });
 
-    expect(result.status, result.stderr).toBe(0);
-    expect(readFileSync(invocationPath, "utf8").trim().split("\n")).toEqual([
-      "host-daemon",
-      "join",
-      "--auto-update",
-      "--host-daemon-port",
-      readFileSync(join(fixture.dataDir, "host-daemon-port"), "utf8").trim(),
-      "--host-id",
-      "host-test",
-      "--server-url",
-      "http://localhost:20101",
-    ]);
-    const daemonPid = Number(
-      readFileSync(join(fixture.dataDir, "install-daemon.pid"), "utf8"),
-    );
-    process.kill(daemonPid, "SIGTERM");
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("package URL must use HTTPS");
+    expect(existsSync(invocationPath)).toBe(false);
   });
 
   it("installs the server tarball even when a same-version hyperfide-app is on PATH", () => {
@@ -953,6 +943,18 @@ fs.writeFileSync(path.join(process.env.HYPERFIDE_DATA_DIR, "config.json"), JSON.
     process.kill(daemonPid, "SIGTERM");
   });
 
+  it("rejects a server tarball without a SHA-256 digest", () => {
+    const fixture = createFixture();
+    writeServerInstallTools(fixture, 200, null);
+    const result = runScript(BOOTSTRAP_ARGS, fixture, {
+      HYPERFIDE_INSTALL_SKIP_SERVICE: "1",
+    });
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("did not include a valid SHA-256 digest");
+    expect(existsSync(join(fixture.dataDir, "npm.log"))).toBe(false);
+  });
+
   it("prefers the server-matched tarball when hyperfide-app is absent", () => {
     const fixture = createFixture();
     writeServerInstallTools(fixture, 200);
@@ -970,7 +972,7 @@ fs.writeFileSync(path.join(process.env.HYPERFIDE_DATA_DIR, "config.json"), JSON.
     );
     expect(npmInvocation).not.toContain("hyperfide-app\n");
     expect(readFileSync(join(fixture.dataDir, "curl.log"), "utf8")).toContain(
-      "--silent --show-error --location --connect-timeout 10 --max-time 300 --retry 3",
+      "--silent --show-error --max-redirs 0 --connect-timeout 10 --max-time 300 --retry 3",
     );
     expect(result.stdout).toContain(
       "Setting up this machine as host-test for https://machine.hyperfide.example",

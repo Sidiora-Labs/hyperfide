@@ -365,6 +365,59 @@ export function packageRoot(npmPrefix) {
   return join(npmPrefix, "node_modules", "hyperfide-app");
 }
 
+export function packageDownloadUrl(serverUrl) {
+  const url = new URL("/install/hyperfide-app.tgz", serverUrl);
+  if (url.protocol !== "https:") {
+    throw new InstallError(
+      "The server's hyperfide-app package URL must use HTTPS.",
+    );
+  }
+  return url.href;
+}
+
+export function packageRedirectUrl(currentUrl, location) {
+  const current = new URL(currentUrl);
+  const next = new URL(location, current);
+  if (next.protocol !== "https:") {
+    throw new InstallError(
+      "The server's hyperfide-app package redirected to a non-HTTPS URL.",
+    );
+  }
+  return {
+    credentialsAllowed: next.origin === current.origin,
+    url: next.href,
+  };
+}
+
+async function fetchPackage(url, headers) {
+  let currentUrl = url;
+  let currentHeaders = headers;
+  for (let redirects = 0; ; redirects += 1) {
+    const response = await fetch(currentUrl, {
+      headers: currentHeaders,
+      redirect: "manual",
+      signal: AbortSignal.timeout(PACKAGE_DOWNLOAD_TIMEOUT_MS),
+    });
+    if (![301, 302, 303, 307, 308].includes(response.status)) {
+      return response;
+    }
+    if (redirects >= 10) {
+      throw new InstallError(
+        "The server's hyperfide-app package followed too many redirects.",
+      );
+    }
+    const location = response.headers.get("location");
+    if (location === null || location.trim() === "") {
+      throw new InstallError(
+        "The server's hyperfide-app package returned a redirect without a destination.",
+      );
+    }
+    const next = packageRedirectUrl(currentUrl, location);
+    currentUrl = next.url;
+    if (!next.credentialsAllowed) currentHeaders = {};
+  }
+}
+
 async function downloadPackage({ bootstrap, dataDir, npmPrefix }) {
   const root = packageRoot(npmPrefix);
   const digestFile = join(dataDir, "host-artifact.sha256");
@@ -376,18 +429,15 @@ async function downloadPackage({ bootstrap, dataDir, npmPrefix }) {
   const knownDigest = /^[a-f0-9]{64}$/u.test(installedDigest)
     ? installedDigest
     : "";
-  const packageUrl = `${bootstrap.serverUrl}/install/hyperfide-app.tgz`;
+  const packageUrl = packageDownloadUrl(bootstrap.serverUrl);
   step("Downloading the server's hyperfide-app package (timeout: 5 minutes)");
   let response;
   try {
-    response = await fetch(packageUrl, {
-      headers: {
-        ...bootstrap.headers,
-        ...(knownDigest === ""
-          ? {}
-          : { "if-none-match": `"sha256-${knownDigest}"` }),
-      },
-      signal: AbortSignal.timeout(PACKAGE_DOWNLOAD_TIMEOUT_MS),
+    response = await fetchPackage(packageUrl, {
+      ...bootstrap.headers,
+      ...(knownDigest === ""
+        ? {}
+        : { "if-none-match": `"sha256-${knownDigest}"` }),
     });
   } catch (error) {
     throw new InstallError(
@@ -422,12 +472,15 @@ async function downloadPackage({ bootstrap, dataDir, npmPrefix }) {
     );
   }
   const tarball = Buffer.from(await response.arrayBuffer());
-  const expectedDigest = response.headers.get("x-hyperfide-artifact-sha256") ?? "";
+  const expectedDigest =
+    response.headers.get("x-hyperfide-artifact-sha256") ?? "";
   const downloadedDigest = createHash("sha256").update(tarball).digest("hex");
-  if (
-    /^[a-f0-9]{64}$/u.test(expectedDigest) &&
-    expectedDigest !== downloadedDigest
-  ) {
+  if (!/^[a-f0-9]{64}$/u.test(expectedDigest)) {
+    throw new InstallError(
+      "The downloaded hyperfide-platform host artifact did not include a valid SHA-256 digest.",
+    );
+  }
+  if (expectedDigest !== downloadedDigest) {
     throw new InstallError(
       "The downloaded hyperfide-platform host artifact failed SHA-256 verification.",
       [`Expected ${expectedDigest} but received ${downloadedDigest}.`],
@@ -443,9 +496,7 @@ async function downloadPackage({ bootstrap, dataDir, npmPrefix }) {
   } finally {
     rmSync(packageDir, { force: true, recursive: true });
   }
-  if (/^[a-f0-9]{64}$/u.test(expectedDigest)) {
-    writeFileAtomic(digestFile, `${expectedDigest}\n`);
-  }
+  writeFileAtomic(digestFile, `${expectedDigest}\n`);
   done("Installed the server's hyperfide-app build");
 }
 
@@ -713,7 +764,9 @@ function runDaemon(dataDir, service) {
     root: packageRoot(service.npmPrefix),
   });
   if (child.pid === undefined) {
-    throw new InstallError("Could not start the hyperfide-platform host daemon.");
+    throw new InstallError(
+      "Could not start the hyperfide-platform host daemon.",
+    );
   }
   writeFileAtomic(join(dataDir, PID_FILE_NAME), `${child.pid}\n`);
 }
@@ -778,9 +831,10 @@ async function startService(dataDir, service) {
       },
     );
   } catch {
-    throw new InstallError("Could not start the hyperfide-platform host daemon.", [
-      "Windows refused to create the daemon process through WMI.",
-    ]);
+    throw new InstallError(
+      "Could not start the hyperfide-platform host daemon.",
+      ["Windows refused to create the daemon process through WMI."],
+    );
   }
   if (!(await waitForConnection({ ...status, subject: "the host daemon" }))) {
     throw new InstallError(

@@ -1427,6 +1427,8 @@ export class NativeVirtualFilesystem {
           if (from.entry.kind === "directory") fail("EOPNOTSUPP");
           await this.current(target, true, signal);
           const bytes = await this.bytes(from, signal);
+          if (from.entry.kind === "symlink")
+            validateSymlinkTarget(target, bytes);
           let replaced: Node | undefined;
           try {
             replaced = await this.lookup(target, signal);

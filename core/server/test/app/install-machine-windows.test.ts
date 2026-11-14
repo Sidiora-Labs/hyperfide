@@ -20,6 +20,11 @@ interface WindowsInstallerBootstrap {
 }
 
 interface WindowsInstallerModule {
+  packageDownloadUrl(serverUrl: string): string;
+  packageRedirectUrl(
+    currentUrl: string,
+    location: string,
+  ): { credentialsAllowed: boolean; url: string };
   packageRoot(npmPrefix: string): string;
   parseArguments(argv: string[]): WindowsInstallerOptions;
   parseBootstrap(raw: string): WindowsInstallerBootstrap;
@@ -99,6 +104,38 @@ describe("Windows machine installer", () => {
       ),
     ).toThrow("invalid server URL");
     expect(() => parseBootstrap("{")).toThrow("not valid JSON");
+  });
+
+  it("requires HTTPS for the package URL", async () => {
+    const { packageDownloadUrl } = await loadInstaller();
+    expect(packageDownloadUrl("https://hyperfide.example.com")).toBe(
+      "https://hyperfide.example.com/install/hyperfide-app.tgz",
+    );
+    expect(() => packageDownloadUrl("http://hyperfide.example.com")).toThrow(
+      "must use HTTPS",
+    );
+  });
+
+  it("drops enrollment headers when a package redirects to another origin", async () => {
+    const { packageRedirectUrl } = await loadInstaller();
+    expect(
+      packageRedirectUrl(
+        "https://machine.hyperfide.example/install/hyperfide-app.tgz",
+        "https://cdn.hyperfide.example/artifacts/host.tgz",
+      ),
+    ).toEqual({
+      credentialsAllowed: false,
+      url: "https://cdn.hyperfide.example/artifacts/host.tgz",
+    });
+    expect(
+      packageRedirectUrl(
+        "https://machine.hyperfide.example/install/hyperfide-app.tgz",
+        "/install/other.tgz",
+      ),
+    ).toEqual({
+      credentialsAllowed: true,
+      url: "https://machine.hyperfide.example/install/other.tgz",
+    });
   });
 
   it("names the startup entry after the server and machine", async () => {
