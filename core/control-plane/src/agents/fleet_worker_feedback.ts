@@ -6,7 +6,12 @@ export interface FeedbackScope {organisation_id:string;run_id:string;package_id:
 const current=`FROM hyperfide.tasks t JOIN hyperfide.attempts a ON a.organisation_id=t.organisation_id AND a.run_id=t.run_id AND a.id=t.current_attempt_id AND a.generation=t.generation WHERE t.organisation_id=$1 AND t.run_id=$2 AND ($3::uuid IS NULL OR t.feature_package_id=$3)`;
 function page(rows:Record<string,any>[],limit:number,budget:number){
  const items:Record<string,any>[]=[];
- for(const row of rows.slice(0,limit)){if(Buffer.byteLength(canonical([...items,row]))+512>budget)break;items.push(row);}
+ for(const row of rows.slice(0,limit)){if(Buffer.byteLength(canonical([...items,row]))+512>budget){
+   // Keep the cursor moving when one detail row is larger than the page
+   // budget. Consumers can request the referenced detail collection later.
+   if(!items.length)items.push({id:String(row.id),created_at:String(row.created_at),projection:'DETAILS_OMITTED'});
+   break;
+  }items.push(row);}
  const last=items.at(-1);return {items,has_more:rows.length>items.length,next_cursor:rows.length>items.length&&last?{created_at:last.created_at,id:last.id,...(last.sequence===undefined?{}:{sequence:String(last.sequence)})}:null,details_omitted:rows.length>items.length};
 }
 export async function workerFeedback(tx:PrimaryTransaction,s:FeedbackScope,cursor:{created_at:string;id:string}|null=null,limit=8,budget=16384){
@@ -24,8 +29,13 @@ export async function feedbackDetails(tx:PrimaryTransaction,s:FeedbackScope,coll
  const limit=Number(request.limit),cursor=request.cursor as {created_at:string;id:string;sequence?:string}|null;
  if(collection==='worker_feedback')return workerFeedback(tx,s,cursor,limit,49152);
  if(collection==='findings'){
-  const rows=(await tx.query(`SELECT f.id::text,f.created_at::text,f.owner_package_id::text,f.severity,f.state,f.summary,f.repository_id::text,f.source_object_id,(SELECT count(*)::int FROM hyperfide.finding_observations o WHERE o.organisation_id=f.organisation_id AND o.run_id=f.run_id AND o.finding_id=f.id) AS observation_count FROM hyperfide.findings f WHERE f.organisation_id=$1 AND f.run_id=$2 AND ($3::uuid IS NULL OR f.owner_package_id=$3) AND f.state IN('OPEN','ACKNOWLEDGED') AND ($4::timestamptz IS NULL OR (f.created_at,f.id)<($4::timestamptz,$5::uuid)) ORDER BY f.created_at DESC,f.id DESC LIMIT $6`,[s.organisation_id,s.run_id,s.package_id,cursor?.created_at??null,cursor?.id??null,limit+1])).rows;
-  return {...page(rows,limit,49152),provenance:'UNRESOLVED_PACKAGE_FINDINGS',execution_authority:false};
+  const rows=(await tx.query(`SELECT f.id::text,f.created_at::text,f.owner_package_id::text,f.severity,f.state,f.summary,f.repository_id::text,f.source_object_id,f.state_version::text,
+   r.phase,r.first_observed_at::text,r.last_observed_at::text,
+   (SELECT max(o.observed_at)::text FROM hyperfide.finding_observations o WHERE o.organisation_id=f.organisation_id AND o.run_id=f.run_id AND o.finding_id=f.id) AS latest_observed_at,
+   (SELECT count(*)::int FROM hyperfide.finding_observations o WHERE o.organisation_id=f.organisation_id AND o.run_id=f.run_id AND o.finding_id=f.id) AS observation_count
+   FROM hyperfide.findings f LEFT JOIN hyperfide.finding_registry_records r ON r.organisation_id=f.organisation_id AND r.run_id=f.run_id AND r.finding_id=f.id
+   WHERE f.organisation_id=$1 AND f.run_id=$2 AND ($3::uuid IS NULL OR f.owner_package_id=$3) AND ($4::timestamptz IS NULL OR (f.created_at,f.id)<($4::timestamptz,$5::uuid)) ORDER BY f.created_at DESC,f.id DESC LIMIT $6`,[s.organisation_id,s.run_id,s.package_id,cursor?.created_at??null,cursor?.id??null,limit+1])).rows;
+  return {...page(rows,limit,49152),provenance:'PACKAGE_FINDINGS_WITH_RESOLUTION_AND_FRESHNESS',execution_authority:false};
  }
  const attempt=uuid(request.attempt_id);
  const found=await tx.query(`SELECT a.id,a.input_packet_digest ${current} AND a.id=$4`,[s.organisation_id,s.run_id,s.package_id,attempt]);if(!found.rowCount)fleetError('FLEET_WORKER_FEEDBACK_UNAVAILABLE');

@@ -25,9 +25,19 @@ export function parseInterfaces(input: string, options?: {maxBytes?: number; max
 export function scopeContains(scopes: readonly string[], candidate: string): boolean;
 export const INSTALL_STAGES: readonly string[];
 export const DECISION_ACTIONS: readonly string[];
+export const PRIMARY_ACTIONS: readonly string[];
+export const MANAGER_ACTIONS: readonly string[];
 export interface Decision {
  readonly schema_version: 1; readonly kind: 'hyperfide.fleet-decision'; readonly decision_id: string; readonly operation_id: string; readonly run_id: string; readonly actor_id: string; readonly actor_role: 'PRIMARY'|'WAVE_MANAGER'; readonly authority_epoch: string; readonly leader_generation: string; readonly delegation_id: string|null; readonly manager_generation: string|null; readonly source_revision: string; readonly spec_revision: string; readonly context_digest: string; readonly action: string; readonly input: Readonly<Record<string, unknown>>; readonly input_digest: string; readonly expected_version: string; readonly rationale_summary: string;
 }
+export type PrimaryDecision = Omit<Decision, 'actor_role'|'delegation_id'|'manager_generation'|'action'> & {
+ readonly actor_role: 'PRIMARY'; readonly delegation_id: null; readonly manager_generation: null;
+ readonly action: typeof PRIMARY_ACTIONS[number];
+};
+export type WaveManagerDecision = Omit<Decision, 'actor_role'|'delegation_id'|'manager_generation'|'action'> & {
+ readonly actor_role: 'WAVE_MANAGER'; readonly delegation_id: string; readonly manager_generation: string;
+ readonly action: typeof MANAGER_ACTIONS[number];
+};
 export interface TaskAssignmentFields {
  readonly kind: 'hyperfide.task-assignment'; readonly assignment_id: string; readonly operation_id: string; readonly decision_id: string; readonly run_id: string; readonly wave_id: string; readonly delegation_id: string; readonly manager_id: string; readonly manager_generation: string; readonly leader_generation: string; readonly authority_epoch: string; readonly environment_id: string; readonly environment_generation: number; readonly ready_receipt_digest: string; readonly source_revision: string; readonly package_digest: string; readonly source_config_digest: string; readonly worker_id: string; readonly worker_slot: number;
  readonly tasks: readonly {readonly task_id: string; readonly attempt_id: string; readonly attempt_generation: string; readonly read_scope: readonly string[]; readonly write_scope: readonly string[]; readonly required_interfaces: readonly string[]; readonly provided_interfaces: readonly string[]}[];

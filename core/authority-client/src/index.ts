@@ -95,6 +95,10 @@ export function parseFleetDecision(value: unknown): FleetDecision {
     throw new AuthorityError("INVALID_REQUEST", "Fleet decision delegation_id must be a UUID or null");
   if (!(decision.manager_generation === null || nonBlank(decision.manager_generation)))
     throw new AuthorityError("INVALID_REQUEST", "Fleet decision manager_generation must be a string or null");
+  if (decision.actor_role === "PRIMARY" && (decision.delegation_id !== null || decision.manager_generation !== null))
+    throw new AuthorityError("INVALID_REQUEST", "Primary decisions cannot carry manager delegation identity");
+  if (decision.actor_role === "WAVE_MANAGER" && (typeof decision.delegation_id !== "string" || typeof decision.manager_generation !== "string"))
+    throw new AuthorityError("INVALID_REQUEST", "Feature Manager decisions require delegation and manager generation");
   if (!record(decision.input)) throw new AuthorityError("INVALID_REQUEST", "Fleet decision input must be an object");
   return decision as unknown as FleetDecision;
 }

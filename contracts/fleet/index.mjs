@@ -249,6 +249,11 @@ export function parsePackage(input, options = {}) {
   return doc;
 }
 export const DECISION_ACTIONS = Object.freeze(['CONFIGURE_WAVE', 'DELEGATE_WAVE', 'REPLACE_MANAGER', 'SOURCE_OPERATION', 'PROVISION_SANDBOX', 'REUSE_SANDBOX', 'ASSIGN_WORKER', 'STEER_WORKER', 'CANCEL_ASSIGNMENT', 'STOP_SANDBOX', 'DESTROY_SANDBOX', 'REPLAN', 'COORDINATE_DEPENDENCY', 'fleet.install.admit', 'fleet.install.adopt']);
+// Primary owns delegation and source admission.  A Wave Manager owns the
+// delegated execution actions; REPLAN is deliberately shared because it is
+// advisory for both actors and never grants execution authority.
+export const PRIMARY_ACTIONS = Object.freeze(['CONFIGURE_WAVE', 'DELEGATE_WAVE', 'REPLACE_MANAGER', 'SOURCE_OPERATION', 'REPLAN']);
+export const MANAGER_ACTIONS = Object.freeze(DECISION_ACTIONS.filter(action => !['CONFIGURE_WAVE', 'DELEGATE_WAVE', 'REPLACE_MANAGER', 'SOURCE_OPERATION'].includes(action)));
 export function validateDecision(value, options = {}) {
   record(value, ['schema_version', 'kind', 'decision_id', 'operation_id', 'run_id', 'actor_id', 'actor_role', 'authority_epoch', 'leader_generation', 'delegation_id', 'manager_generation', 'source_revision', 'spec_revision', 'context_digest', 'action', 'input', 'input_digest', 'expected_version', 'rationale_summary'], [], 'decision');
   if (value.schema_version !== 1 || value.kind !== 'hyperfide.fleet-decision') fail('UNSUPPORTED_SCHEMA', 'decision', 'fleet decision v1 required');
@@ -257,6 +262,8 @@ export function validateDecision(value, options = {}) {
   if (value.actor_role === 'WAVE_MANAGER') { identity(value.delegation_id, 'decision.delegation_id'); generation(value.manager_generation, 'decision.manager_generation'); }
   else if (value.delegation_id !== null || value.manager_generation !== null) fail('IDENTITY_MISMATCH', 'decision', 'Primary decision cannot claim manager ownership');
   sourceRevision(value.source_revision, 'decision.source_revision'); digestValue(value.context_digest, 'decision.context_digest'); digestValue(value.input_digest, 'decision.input_digest'); member(value.action, options.actions ?? DECISION_ACTIONS, 'decision.action');
+  const allowedForRole = value.actor_role === 'PRIMARY' ? PRIMARY_ACTIONS : MANAGER_ACTIONS;
+  if (!allowedForRole.includes(value.action) && !(value.actor_role === 'PRIMARY' && value.action === 'REPLAN')) fail('ROLE_ACTION_DENIED', 'decision.action', `${value.actor_role} cannot issue ${value.action}`);
   if (!plain(value.input) || Buffer.byteLength(canonical(value.input)) > 256 * 1024) fail('LIMIT_EXCEEDED', 'decision.input', 'bounded typed action object required');
   if (digest(value.input) !== value.input_digest) fail('DIGEST_MISMATCH', 'decision.input_digest', 'input digest differs'); text(value.rationale_summary, 'decision.rationale_summary', 4096);
   validateBindings(value, options.expected, 'decision');

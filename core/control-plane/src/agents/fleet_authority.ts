@@ -10,6 +10,13 @@ import {validateDecision} from '../contracts/fleet/index.mjs';
 export type FleetDecision=ReturnType<typeof validateDecision>;
 export interface FleetActorBinding {actor_id:string;actor_role:'PRIMARY'|'WAVE_MANAGER';authority_epoch:string;leader_generation:string;delegation_id:string|null;manager_generation:string|null}
 export function fleetError(code:string):never{throw new FoundationError(code,'Fleet operation refused: '+code);}
+/** Database fleet identities are UUID columns; reject human-readable aliases at
+ * the authority boundary before they reach a cast or idempotency lookup. */
+export function assertStrictFleetDecisionIds(d:{decision_id:string;operation_id:string;run_id:string;actor_id:string;authority_epoch:string;spec_revision:string}):void {
+ for(const [name,value] of Object.entries(d)) {
+  try { uuid(value); } catch { fleetError('FLEET_DECISION_ID_INVALID'); }
+ }
+}
 function sourceRevisionValid(value: string): boolean {
  return /^(?:git:[0-9a-f]{40}|git:[0-9a-f]{64}|sha256:[0-9a-f]{64})$/.test(value) && !/(?:git|sha256):0+$/.test(value);
 }
@@ -43,7 +50,7 @@ export async function assertFleetActor(tx:PrimaryTransaction,i:InvocationContext
  return {cohort_id:String(row.id),host_id:String(row.host_id),leader_generation:authority.leader_generation,package_id:b.delegation_id,manager_generation:b.manager_generation};
 }
 export async function getFleetDelegation(tx:PrimaryTransaction,i:InvocationContext,d:unknown):Promise<{package_id:string;manager_session_id:string;manager_generation:string;budget:Record<string,unknown>}>{
- const decision=validateDecision(d);await assertFleetActor(tx,i,decision);
+ const decision=validateDecision(d);assertStrictFleetDecisionIds(decision);await assertFleetActor(tx,i,decision);
  if(decision.actor_role!=='WAVE_MANAGER'||!decision.delegation_id)fleetError('FLEET_DELEGATION_REQUIRED');
  const r=(await tx.query('SELECT * FROM hyperfide.fleet_delegations WHERE organisation_id=$1 AND run_id=$2 AND package_id=$3 FOR SHARE',[i.principal.organisation_id,i.principal.run_id,decision.delegation_id])).rows[0];
  if(!r||r.manager_session_id!==decision.actor_id||String(r.manager_generation)!==decision.manager_generation||String(r.leader_generation)!==decision.leader_generation||!object(r.budget)||!Array.isArray(r.budget.allowed_actions)||!r.budget.allowed_actions.includes(decision.action))fleetError('FLEET_DELEGATION_STALE');
@@ -51,7 +58,7 @@ export async function getFleetDelegation(tx:PrimaryTransaction,i:InvocationConte
 }
 export async function withAdmittedDecision(tx:PrimaryTransaction,i:InvocationContext,value:unknown,expectedAction:string,handler:(decision:FleetDecision)=>Promise<Record<string,unknown>>):Promise<Record<string,unknown>>{
  assertPrimaryTransaction(tx);assertInvocation(i);await i.guard(tx);
- const d=validateDecision(value);if(d.action!==expectedAction||d.actor_id!==i.principal.actor_id||d.run_id!==i.principal.run_id)fleetError('FLEET_DECISION_SCOPE');
+ const d=validateDecision(value);assertStrictFleetDecisionIds(d);if(d.action!==expectedAction||d.actor_id!==i.principal.actor_id||d.run_id!==i.principal.run_id)fleetError('FLEET_DECISION_SCOPE');
  const p=[i.principal.organisation_id,i.principal.run_id],digest=hash(d);
  await assertFleetActor(tx,i,d);
  const prior=(await tx.query('SELECT * FROM hyperfide.fleet_effect_receipts WHERE organisation_id=$1 AND run_id=$2 AND operation_id=$3',[...p,d.operation_id])).rows[0];
