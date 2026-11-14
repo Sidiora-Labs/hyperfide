@@ -6,9 +6,9 @@ import { BUILTIN_THEME_IDS, type BuiltInThemeId } from "@hyperfide/domain";
 import { converter, parse, type Color, type Oklab, type Oklch } from "culori";
 
 const MOBILE_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
-const APP_ROOT = join(MOBILE_ROOT, "..", "app");
-const THEME_CSS_PATH = join(APP_ROOT, "src", "components", "ui", "theme.css");
-const PALETTES_DIR = join(APP_ROOT, "src", "lib", "themes");
+const WEB_ROOT = join(MOBILE_ROOT, "..", "web");
+const THEME_CSS_PATH = join(WEB_ROOT, "src", "components", "ui", "theme.css");
+const PALETTES_DIR = join(WEB_ROOT, "src", "lib", "themes");
 export const MOBILE_OVERRIDES_CSS_PATH = join(
   MOBILE_ROOT,
   "src",
@@ -705,9 +705,9 @@ export function renderNativeThemeSource(model: NativeThemeModel): string {
     "/**",
     " * GENERATED FILE — run pnpm --filter @hyperfide/mobile theme:generate",
     " *",
-    " * Source: apps/app/src/components/ui/theme.css, then the mobile-only override",
+    " * Source: apps/web/src/components/ui/theme.css, then the mobile-only override",
     " * layer apps/mobile/src/theme/mobile-overrides.css, then the built-in palettes",
-    " * in apps/app/src/lib/themes/*.ts, replayed through the web cascade per",
+    " * in apps/web/src/lib/themes/*.ts, replayed through the web cascade per",
     " * palette and mode by apps/mobile/scripts/generate-native-theme.ts. The",
     " * mobile layer re-tunes the default palette to the iOS system look; palettes",
     " * cascade after it, so their anchors and literals still win.",

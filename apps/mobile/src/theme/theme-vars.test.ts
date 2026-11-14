@@ -9,7 +9,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const MOBILE_ROOT = join(HERE, "..", "..");
 const GLOBAL_CSS = readFileSync(join(MOBILE_ROOT, "global.css"), "utf8");
 const WEB_THEME_CSS = readFileSync(
-  join(MOBILE_ROOT, "..", "app", "src", "components", "ui", "theme.css"),
+  join(MOBILE_ROOT, "..", "web", "src", "components", "ui", "theme.css"),
   "utf8",
 );
 const MOBILE_OVERRIDES_CSS = readFileSync(
