@@ -2421,7 +2421,7 @@ describe("acp bridge", () => {
       callId: "test-dynamic-tool-call",
       host,
       port,
-      threadId,
+      threadId: "caller-selected-thread",
       token,
       tool: "update_environment_directory",
       toolArguments: { path: "/tmp/next-worktree" },
@@ -2842,6 +2842,37 @@ describe("acp bridge", () => {
 
     await waitForTurnCompleted();
     expect(agentMessageTexts()).toContain("permission:no");
+  });
+
+  it("answers a pending permission with cancellation when the session is stopped", async () => {
+    const { providerThreadId } = await startThread({
+      permissionMode: "accept-edits",
+      permissionEscalation: "ask",
+    });
+    const turnId = sendTurnRequest("turn/start", providerThreadId, {
+      input: [{ type: "text", text: "request-permission", mentions: [] }],
+      options: executionOptions({
+        permissionMode: "accept-edits",
+        permissionEscalation: "ask",
+      }),
+    });
+    await waitForResponse(turnId);
+    await waitFor(
+      () =>
+        output.messages.find(
+          (message) => message.method === "interaction/request",
+        ),
+      "forwarded permission request",
+    );
+
+    await stopThread(providerThreadId);
+    await waitFor(
+      () =>
+        agentMessageTexts().includes("permission:cancelled")
+          ? true
+          : undefined,
+      "cancel answer reaching the agent",
+    );
   });
 
   it("presents an external-directory write permission as a file-change approval", async () => {

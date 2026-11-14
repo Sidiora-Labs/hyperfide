@@ -235,6 +235,7 @@ interface AcpThreadSession {
   deferStartEmit: AcpDeferredStartEmitter | undefined;
   awaitingFirstPrompt: boolean;
   turnOutputCount: number;
+  dynamicToolToken: string | undefined;
 }
 
 type AcpDeferredStartEmitter = (
@@ -523,7 +524,10 @@ function handleDynamicToolBridgeSocket(
       return;
     }
     const request = dynamicToolBridgeRequestSchema.safeParse(parsed);
-    if (!request.success || request.data.token !== bridge.token) {
+    const authenticatedThreadId = request.success
+      ? bridge.sessionThreadsByToken.get(request.data.token)
+      : undefined;
+    if (!request.success || authenticatedThreadId === undefined) {
       socket.end(
         `${JSON.stringify({ ok: false, error: "Invalid dynamic tool request" })}\n`,
       );
@@ -531,12 +535,15 @@ function handleDynamicToolBridgeSocket(
     }
     if (request.data.kind === "initialized") {
       process.stderr.write(
-        `acp bridge: "${ACP_BRIDGE_MCP_SERVER_NAME}" answered initialize for thread "${request.data.threadId}" (${request.data.toolCount} tools)\n`,
+        `acp bridge: "${ACP_BRIDGE_MCP_SERVER_NAME}" answered initialize for thread "${authenticatedThreadId}" (${request.data.toolCount} tools)\n`,
       );
       socket.end(`${JSON.stringify({ ok: true, content: "" })}\n`);
       return;
     }
-    void forwardDynamicToolCall(request.data, controller.signal).then(
+    void forwardDynamicToolCall(
+      { ...request.data, threadId: authenticatedThreadId },
+      controller.signal,
+    ).then(
       (response) => {
         if (controller.signal.aborted) return;
         socket.end(`${JSON.stringify(response)}\n`);
@@ -571,7 +578,7 @@ async function ensureDynamicToolBridge(): Promise<AcpDynamicToolBridge> {
         host,
         port: address.port,
         server,
-        token: randomBytes(32).toString("hex"),
+        sessionThreadsByToken: new Map(),
       });
     });
   });
@@ -581,12 +588,16 @@ async function ensureDynamicToolBridge(): Promise<AcpDynamicToolBridge> {
 
 async function buildSessionMcpServers(
   params: AcpSessionParams,
+  session: AcpThreadSession,
 ): Promise<AcpMcpServerConfig[]> {
   const dynamicTools = params.dynamicTools ?? [];
   if (dynamicTools.length === 0) {
     return [];
   }
   const bridge = await ensureDynamicToolBridge();
+  const sessionToken = randomBytes(32).toString("hex");
+  bridge.sessionThreadsByToken.set(sessionToken, params.threadId);
+  session.dynamicToolToken = sessionToken;
   const config = buildAcpMcpServerConfig({
     bridgeArgs: resolveBridgeProcessArgsForMcpServer(),
     command: process.execPath,
@@ -595,7 +606,7 @@ async function buildSessionMcpServers(
     port: bridge.port,
     runtimeEnv: resolveBridgeProcessEnvForMcpServer(),
     threadId: params.threadId,
-    token: bridge.token,
+    token: sessionToken,
   });
   process.stderr.write(
     `acp bridge: built "${config.name}" session MCP config for thread "${params.threadId}" (${dynamicTools.length} tools)\n`,
@@ -791,7 +802,7 @@ interface AcpDynamicToolBridge {
   host: string;
   port: number;
   server: Server;
-  token: string;
+  sessionThreadsByToken: Map<string, string>;
 }
 
 let cachedModelCatalog: { key: string; catalog: AgentModelCatalog } | null =
@@ -2154,6 +2165,13 @@ function liveSessionForThread(
 }
 
 function removeSession(session: AcpThreadSession): void {
+  if (session.dynamicToolToken !== undefined) {
+    const token = session.dynamicToolToken;
+    session.dynamicToolToken = undefined;
+    void dynamicToolBridgePromise?.then((bridge) => {
+      bridge.sessionThreadsByToken.delete(token);
+    });
+  }
   for (const controller of session.pendingToolCalls) controller.abort();
   if (sessionsByHyperfideThreadId.get(session.hyperfideThreadId) === session) {
     sessionsByHyperfideThreadId.delete(session.hyperfideThreadId);
@@ -2377,6 +2395,7 @@ async function startAgentSession(
     cursorMcpApproval: undefined,
     deferStartEmit: emitStartNotification,
     awaitingFirstPrompt: true,
+    dynamicToolToken: undefined,
   };
   sessionsByHyperfideThreadId.set(hyperfideThreadId, session);
 
@@ -2402,7 +2421,7 @@ async function startAgentSession(
     }
     session.supportsLoadSession =
       supportsLoadSession || capabilities.session.resume;
-    const mcpServers = await buildSessionMcpServers(params);
+    const mcpServers = await buildSessionMcpServers(params, session);
     const mcpServer = mcpServers[0];
     if (mcpServer) {
       session.cursorMcpApproval = await approveCursorSessionMcpServer({

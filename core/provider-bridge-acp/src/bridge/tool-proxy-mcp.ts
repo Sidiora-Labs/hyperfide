@@ -39,7 +39,6 @@ interface BuildAcpMcpServerConfigArgs {
 export const dynamicToolBridgeRequestSchema = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("initialized"),
-    threadId: z.string().min(1),
     token: z.string().min(1),
     toolCount: z.number().int().nonnegative(),
   }),
@@ -47,7 +46,6 @@ export const dynamicToolBridgeRequestSchema = z.discriminatedUnion("kind", [
     kind: z.literal("toolCall"),
     arguments: z.record(z.string(), z.unknown()).default({}),
     callId: z.string().min(1),
-    threadId: z.string().min(1),
     token: z.string().min(1),
     tool: z.string().min(1),
   }),
@@ -57,7 +55,7 @@ type BridgeRequest = z.input<typeof dynamicToolBridgeRequestSchema>;
 
 type BridgeRequestPayload = BridgeRequest extends infer R
   ? R extends unknown
-    ? Omit<R, "threadId" | "token">
+    ? Omit<R, "token">
     : never
   : never;
 
@@ -189,7 +187,6 @@ function callBridge(
     socket.on("connect", () => {
       const payload: BridgeRequest = {
         ...request,
-        threadId: env.threadId,
         token: env.token,
       };
       socket.write(`${JSON.stringify(payload)}\n`);

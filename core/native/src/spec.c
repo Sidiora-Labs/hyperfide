@@ -3795,6 +3795,7 @@ static bool spec_graph_open_opts(Cg *g, bool sync, bool reuse_fresh) {
     if (g->branch_id <= 0) {
         fprintf(stderr, "hyperfide spec: qualification has no registered branch "
                         "scope — refusing an unscoped graph\n");
+        cg_close(g);
         return false;
     }
     return true;
