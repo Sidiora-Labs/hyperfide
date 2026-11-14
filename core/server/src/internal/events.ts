@@ -1292,8 +1292,8 @@ export function registerInternalEventRoutes(app: Hono, deps: AppDeps): void {
 
       await deferEventFollowUpBatch(deps, followUps);
       const response: HostDaemonEventBatchResponse = {
-        acceptedEvents: appendResult.acceptedEvents.map((acceptedEvent) => {
-            const inputIndex = acceptedEvent.inputIndex;
+        acceptedEvents: appendResult.acceptedEvents.map((acceptedEvent, acceptedIndex) => {
+            const inputIndex = appendResult.acceptedInputIndexes[acceptedIndex];
             if (inputIndex === undefined) {
               throw new Error(
                 "Missing inserted event index for accepted daemon event",

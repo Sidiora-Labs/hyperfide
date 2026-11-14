@@ -160,7 +160,6 @@ export interface AppendDaemonEventInput {
 }
 
 export interface AcceptedDaemonEvent {
-  inputIndex: number;
   sequence: number;
   threadId: string;
 }
@@ -875,7 +874,7 @@ export async function appendDaemonEventsInTransaction(
         if (existing.threadId !== input.threadId) {
           throw new Error(`Event id ${input.id} belongs to another thread`);
         }
-        acceptedEvents.push({ inputIndex: index, sequence: existing.sequence, threadId: existing.threadId });
+        acceptedEvents.push({ sequence: existing.sequence, threadId: existing.threadId });
         acceptedInputIndexes.push(index);
         continue;
       }
@@ -946,7 +945,6 @@ export async function appendDaemonEventsInTransaction(
     }
 
     const acceptedEvent: AcceptedDaemonEvent = {
-      inputIndex: index,
       sequence,
       threadId: input.threadId,
     };
