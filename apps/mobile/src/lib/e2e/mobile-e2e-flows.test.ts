@@ -81,4 +81,16 @@ describe("Mobile E2E flow boundaries", () => {
       'queryByRole("button", { name: "Cancel job-1" })',
     );
   });
+
+  it("runs the Fleet manager journey through both native flow runners", () => {
+    const fleetFlow = flowSource("flows/fleet-manager.yaml");
+    expect(fleetFlow).toContain(
+      'LINK: "hyperfide://plugins/hyperfide-dispatch/fleet"',
+    );
+    expect(fleetFlow).toContain("Manager-directed dispatch is read-only");
+    expect(flowSource("scripts/ci-run-flows.sh")).toContain("fleet-manager");
+    expect(flowSource("scripts/ci-android-smoke.sh")).toContain(
+      "flows/fleet-manager.yaml",
+    );
+  });
 });

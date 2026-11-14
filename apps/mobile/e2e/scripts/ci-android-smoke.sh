@@ -44,3 +44,5 @@ adb install -r apps/mobile/build-output/hyperfide-android-local.apk
 adb logcat -c
 maestro test --format junit --output "$artifacts/junit.xml" \
   --test-output-dir "$artifacts/maestro" apps/mobile/e2e/android/smoke.yaml
+maestro test --format junit --output "$artifacts/fleet-manager-junit.xml" \
+  --test-output-dir "$artifacts/fleet-manager" apps/mobile/e2e/flows/fleet-manager.yaml

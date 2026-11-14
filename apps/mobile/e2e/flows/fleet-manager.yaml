@@ -1,0 +1,26 @@
+# Cross-platform Fleet WebView journey. The same flow runs on iOS and Android
+# against the seeded mobile backend, so manager-mode controls are exercised
+# through the native shell rather than only through a desktop component test.
+appId: app.hyperfide.mobile
+env:
+  METRO_URL: "http://127.0.0.1:8082"
+  SERVER_URL: "http://127.0.0.1:41999"
+---
+- runFlow: ../subflows/launch-app.yaml
+- runFlow: ../subflows/pair-direct-server.yaml
+- runFlow:
+    file: ../subflows/open-hyperfide-link.yaml
+    env:
+      LINK: "hyperfide://plugins/hyperfide-dispatch/fleet"
+- extendedWaitUntil:
+    visible: "Fleet"
+    timeout: 60000
+- assertVisible: "Authority"
+- assertVisible: ".*Causal freshness.*"
+- assertVisible: ".*Manager-directed dispatch is read-only.*"
+- assertNotVisible: "Pause dispatch"
+- assertNotVisible: "Resume dispatch"
+- assertNotVisible: "Raise cap"
+- assertNotVisible: "Cancel .*"
+- assertNotVisible: "Destroy .*"
+- takeScreenshot: fleet-manager-read-only
