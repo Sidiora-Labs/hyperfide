@@ -33,6 +33,9 @@ has "$s" "working-directory: deploy/hyperfide"; has "$s" 'node --check "$f"'
 q=$(job hyperfide-qualify)
 has "$q" "image: postgres:"; has "$q" "DATABASE_URL:"; has "$q" "npm run build"
 has "$q" "tests/hyperfide/qualify.py"; has "$q" "python3 - <<'QUALIFY'"
+has "$q" "name: qualify active native source-control"
+has "$q" "tests/hyperfide/cases/source_control/6_3.py --self-test"
+has "$q" "tests/hyperfide/source-control/release_campaign_test.py"
 
 ls "$repo"/deploy/hyperfide/*.mjs >/dev/null 2>&1 || fail "no deploy/hyperfide/*.mjs for CI to check"
 if command -v node >/dev/null 2>&1; then

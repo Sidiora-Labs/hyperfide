@@ -86,6 +86,12 @@ jobs:
       - name: build service
         working-directory: core/control-plane
         run: npm ci && npm run build
+      # The active feature is native source control.  Route its task verify_cmd
+      # through CI so the bounded closure gate cannot silently remain local-only.
+      - name: qualify active native source-control
+        run: |
+          python3 tests/hyperfide/cases/source_control/6_3.py --self-test
+          python3 tests/hyperfide/source-control/release_campaign_test.py
       # Registrations 9.1 to 9.4 require HF_CREDENTIAL_CONFIG_FILE. A fixture store
       # (no sources, no targets) satisfies them; it holds no repository secret.
       - name: materialise fixture credential store

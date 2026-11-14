@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { mkdtemp, readFile, readdir, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { execFileSync } from "node:child_process";
 import { NamedSecretStore } from "../../secrets/src/named-store.js";
 import { BinaryAskBridge, type Ask } from "./inbox-adapter.js";
@@ -94,7 +95,13 @@ describe("Inbox RPC", () => {
   it("answers every kind through the real binary and never records secret values", async () => {
     const directory = await mkdtemp(join(tmpdir(), "hyperfide-inbox-"));
     directories.push(directory);
-    const binary = resolve("../../../platform/cg");
+    // The native CLI is built at the repository root.  Keep this test bound to
+    // the current executable rather than the removed platform/cg compatibility
+    // path; callers may override it when running against a release binary.
+    const binary = process.env.HYPERFIDE_BINARY || resolve(
+      dirname(fileURLToPath(import.meta.url)),
+      "../../../hyperfide",
+    );
     const run = (...args: string[]) =>
       execFileSync(binary, args, {
         cwd: directory,

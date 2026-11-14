@@ -110,7 +110,7 @@ If a launched agent exits without completion, the orchestrator releases its clai
 
 ## Developer entry points
 
-The behavior above is implemented in [src/docs.c](../src/docs.c), [src/spec.c](../src/spec.c), and [src/orchestrate.c](../src/orchestrate.c). `docs_packet` assembles evidence, `docs_check` validates recorded claims, and `docs_close` invokes the guarded completion path. `spec_docs_stage` computes effective lifecycle state; `spec_docs_finish` is the internal completion entry used after checks. MCP routing lives in [src/mcp.c](../src/mcp.c).
+The behavior above is implemented in [core/native/src/docs.c](../core/native/src/docs.c), [core/native/src/spec.c](../core/native/src/spec.c), and [core/native/src/orchestrate.c](../core/native/src/orchestrate.c). `docs_packet` assembles evidence, `docs_check` validates recorded claims, and `docs_close` invokes the guarded completion path. `spec_docs_stage` computes effective lifecycle state; `spec_docs_finish` is the internal completion entry used after checks. MCP routing lives in [core/native/src/mcp.c](../core/native/src/mcp.c).
 
 For changes to this feature, run its real CLI integration coverage against the checkout binary:
 
