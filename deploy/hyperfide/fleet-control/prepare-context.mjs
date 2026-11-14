@@ -4,7 +4,7 @@ import {createHash} from 'node:crypto';
 import {fileURLToPath} from 'node:url';
 const root=fileURLToPath(new URL('../../../',import.meta.url));
 const digest=bytes=>'sha256:'+createHash('sha256').update(bytes).digest('hex');
-const allowed=['core/control-plane/package.json','core/control-plane/package-lock.json','core/control-plane/tsconfig.json','core/control-plane/scripts','core/control-plane/src','core/control-plane/components','core/control-plane/migrations','contracts/fleet','deploy/hyperfide/fleet-control','deploy/hyperfide/fleet-env.mjs','deploy/hyperfide/dist-stamp.mjs'];
+const allowed=['core/control-plane/package.json','core/control-plane/package-lock.json','core/control-plane/tsconfig.json','core/control-plane/scripts','core/control-plane/src','core/control-plane/components','core/control-plane/migrations','contracts/fleet','sdk/source-control/src/contracts.ts','deploy/hyperfide/fleet-control','deploy/hyperfide/fleet-env.mjs','deploy/hyperfide/dist-stamp.mjs'];
 async function main(){
  const args=process.argv.slice(2),input={};if(args.length!==12)throw Error('CONTEXT_ARGUMENTS');for(let i=0;i<args.length;i+=2){if(!['--output','--cli','--cli-sha256','--native','--native-sha256','--runtime-home'].includes(args[i])||Object.hasOwn(input,args[i]))throw Error('CONTEXT_ARGUMENTS');input[args[i]]=args[i+1];}
  const output=path.resolve(input['--output']),base=path.join(root,'build/fleet');if(!output.startsWith(base+'/')||await fs.realpath(path.dirname(output))!==path.dirname(output))throw Error('CONTEXT_OUTPUT_SCOPE');

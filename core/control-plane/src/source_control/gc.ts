@@ -175,14 +175,14 @@ export class SourceCollector {
     return this.database.transaction(async (tx) => {
       const policy = (
         await tx.query(
-          "SELECT *,generation::text FROM hyperfide.source_retention_policies WHERE organisation_id=$1 AND repository_id=$2 AND security_domain_id=$3 FOR SHARE",
+          "SELECT *,generation::text FROM hyperfide.source_retention_policies WHERE organisation_id=$1 AND repository_id=$2 AND security_domain_id=$3 AND backup_until<=clock_timestamp() FOR SHARE",
           retentionScope(scope),
         )
       ).rows[0];
       if (!policy)
         return {
           quarantined: [],
-          blocked: "RETENTION_POLICY_REQUIRED",
+          blocked: "RETENTION_POLICY_OR_BACKUP_HORIZON",
         };
       if (
         policy.backend_identity !== this.backend.identity ||
@@ -272,7 +272,7 @@ export class SourceCollector {
     const work = await this.database.transaction(async (tx) => {
       const policy = (
         await tx.query(
-          "SELECT *,generation::text FROM hyperfide.source_retention_policies WHERE organisation_id=$1 AND repository_id=$2 AND security_domain_id=$3 FOR SHARE",
+          "SELECT *,generation::text FROM hyperfide.source_retention_policies WHERE organisation_id=$1 AND repository_id=$2 AND security_domain_id=$3 AND backup_until<=clock_timestamp() FOR SHARE",
           retentionScope(scope),
         )
       ).rows[0];
