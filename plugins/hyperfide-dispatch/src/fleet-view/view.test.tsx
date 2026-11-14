@@ -4,7 +4,12 @@ import { cleanup, fireEvent, waitFor, within } from "@testing-library/react";
 import { loadPluginApp, renderSlot } from "@hyperfide/plugin-sdk/testing/app";
 import definition from "../../app.js";
 import fixture from "./__fixtures__/ledger.json";
-import { fleetRpcContract, ledgerSchema, stages } from "./contract.js";
+import {
+  fleetRpcContract,
+  ledgerSchema,
+  stages,
+  type FleetLedger,
+} from "./contract.js";
 import { createFleetHandlers, type FleetBackend } from "./rpc.js";
 
 if (!globalThis.ResizeObserver) {
@@ -18,8 +23,9 @@ afterEach(cleanup);
 
 function backend() {
   const ledger = ledgerSchema.parse(structuredClone(fixture));
+  const readLedger = vi.fn(async () => ledger);
   const handlers: FleetBackend = {
-    readLedger: vi.fn(async () => ledger),
+    readLedger,
     cancelJob: vi.fn(async (id) => {
       ledger.jobs.find((job) => job.id === id)!.state = "cancelled";
     }),
@@ -33,7 +39,7 @@ function backend() {
       ledger.budget.cap = cap;
     }),
   };
-  return { ledger, handlers, rpc: createFleetHandlers(handlers) };
+  return { ledger, handlers, readLedger, rpc: createFleetHandlers(handlers) };
 }
 
 async function mount(source = backend()) {
@@ -102,14 +108,15 @@ describe("Fleet ledger dashboard", () => {
   });
 
   it("refreshes the ledger and restores causal freshness after WebView reconnect", async () => {
-    const { slot, handlers } = await mount();
-    handlers.readLedger.mockClear();
+    const source = backend();
+    const { slot } = await mount(source);
+    source.readLedger.mockClear();
     await slot.setRealtimeConnectionState("reconnecting");
     expect(
       slot.getByRole("status", { name: "Fleet freshness" }).textContent,
     ).toContain("unknown until the connection recovers");
     await slot.setRealtimeConnectionState("connected");
-    await waitFor(() => expect(handlers.readLedger).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(source.readLedger).toHaveBeenCalledTimes(1));
     expect(
       slot.getByRole("status", { name: "Fleet freshness" }).textContent,
     ).toContain("Causal freshness as of");
@@ -225,7 +232,7 @@ describe("Fleet RPC boundaries", () => {
       authority: {
         ...source.ledger.authority,
         mode: "manager" as const,
-        capabilities: ["read", "manager-decision"] as const,
+        capabilities: ["read", "manager-decision"] as FleetLedger["authority"]["capabilities"],
       },
       history: [{
         decisionId: "decision-1",
