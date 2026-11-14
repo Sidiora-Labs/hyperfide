@@ -29,6 +29,53 @@ def canonical(value):
 def digest(data):
     return hashlib.sha256(data).hexdigest()
 
+# The application tree moved from services/hyperfide to core/control-plane.
+# Older schema-1 qualification manifests still carry the former paths.  Resolve
+# that one recorded relocation against the checked-out tree while retaining the
+# manifest label (and its hash) in the evidence.  No broad basename/fuzzy lookup
+# is allowed: a legacy pin is usable only when this exact relocation resolves.
+LEGACY_WORKSPACE_RELOCATIONS = (("services/hyperfide", "core/control-plane"),)
+
+
+def _path_candidates(root, label):
+    """Return the exact path followed by explicitly supported legacy aliases."""
+    raw = Path(label)
+    candidates = [raw if raw.is_absolute() else root / raw]
+    text = raw.as_posix()
+    for old, new in LEGACY_WORKSPACE_RELOCATIONS:
+        old_prefix = old.rstrip("/") + "/"
+        if not raw.is_absolute() and raw.is_relative_to(Path(old)):
+            candidates.append(root / new / str(raw.relative_to(Path(old))))
+        marker = "/" + old_prefix
+        if raw.is_absolute() and marker in text:
+            suffix = text.split(marker, 1)[1]
+            candidates.append(root / new / suffix)
+    unique = []
+    for candidate in candidates:
+        candidate = candidate if candidate.is_absolute() else candidate.absolute()
+        if candidate not in unique:
+            unique.append(candidate)
+    return unique
+
+
+def resolve_workspace_path(root, label):
+    """Resolve a manifest path in the current checkout, including one legacy move."""
+    candidates = _path_candidates(root, label)
+    for candidate in candidates:
+        if candidate.is_file():
+            return candidate
+    return candidates[0]
+
+
+def pin_covers_source(root, source, pins):
+    """Whether a current registration source has an exact or relocated pin."""
+    expected = (root / source).resolve()
+    for label in pins:
+        candidate = resolve_workspace_path(root, label)
+        if candidate.is_file() and candidate.resolve() == expected:
+            return True
+    return False
+
 STATUS_CONTRACT_PATH = 'spec/hyperfide-source-control/spec.kvx'
 STATUS_CONTRACT_SNAPSHOT = 'tests/hyperfide/source-control/full_case/contracts/source-control-spec.kvx'
 STATUS_CONTRACT_MODE = 'kvx-existing-status-values-v1'
@@ -640,16 +687,16 @@ def execute(args, root, registry_path, registry, registration, registration_path
                     raise GateError('invalid input hash/size pin')
                 pins[label] = item
             for required_source in registration['source_files']:
-                if required_source not in pins:
+                if not pin_covers_source(root, required_source, pins):
                     raise GateError('reviewed implementation source lacks content pin: ' + required_source)
             for fixture in registration.get("fixtures", []):
                 fixture_path = root / fixture
                 if not fixture_path.is_file():
                     raise GateError("required fixture absent: " + fixture)
-                if fixture not in pins:
+                if not pin_covers_source(root, fixture, pins):
                     raise GateError("required fixture lacks content pin: " + fixture)
             for label, pin in pins.items():
-                path = Path(label) if Path(label).is_absolute() else root / label
+                path = resolve_workspace_path(root, label)
                 record = snapshot(output_dir, path, "inputs", label, root)
                 if record["sha256"] != pin["sha256"] or record["size"] != pin["size"]:
                     raise GateError("input digest/size mismatch: " + label)

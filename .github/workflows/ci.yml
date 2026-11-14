@@ -124,16 +124,19 @@ jobs:
               with open(path) as fh:
                   reg = json.load(fh)
               variant, task = reg.get("variant"), reg.get("task")
+              manifest = manifests.get(variant)
+              # A registration without an immutable manifest is a qualification
+              # configuration error.  Environment-gated probes may SKIP, but an
+              # unpinned registration must never disappear behind that gate.
+              if manifest is None:
+                  print("FAIL %s: no tracked manifest pins this variant" % variant)
+                  counts["FAIL"] += 1
+                  continue
               required = reg.get("required_env", [])
               missing = [name for name in required if not os.environ.get(name)]
-              manifest = manifests.get(variant)
               if missing:
                   why = ["%s (repository secret %s not set)" % (n, secrets[n]) if n in secrets else n for n in missing]
                   print("SKIP %s: required environment absent: %s" % (variant, ", ".join(why)))
-                  counts["SKIP"] += 1
-                  continue
-              if manifest is None:
-                  print("SKIP %s: no tracked manifest pins this variant" % variant)
                   counts["SKIP"] += 1
                   continue
               argv = [sys.executable, "tests/hyperfide/qualify.py", "--manifest", os.path.abspath(manifest),

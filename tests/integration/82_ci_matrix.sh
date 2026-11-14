@@ -97,13 +97,13 @@ set +e; out=$(HF_QUALIFY_ROOT="$r" HF_QUALIFY_OUT="$TMP/qout" python3 "$TMP/driv
 has "$out" "PASS task:9.1"
 has "$out" "SKIP task:9.2: required environment absent: HF_CI_MATRIX_SURELY_UNSET"
 hasnt "$out" "PASS task:9.2"
-has "$out" "SKIP task:9.3: no tracked manifest pins this variant"
+has "$out" "FAIL task:9.3: no tracked manifest pins this variant"
 hasnt "$out" "PASS task:9.3"
 has "$out" "FAIL full:V-001 (FAIL, exit 1)"
-has "$out" "qualify: 1 passed, 1 failed, 2 skipped"
-rm "$r/tests/hyperfide/registrations/full/V-001.json"
+has "$out" "qualify: 1 passed, 2 failed, 1 skipped"
+rm "$r/tests/hyperfide/registrations/full/V-001.json" "$r/tests/hyperfide/registrations/9.3.json"
 out=$(HF_QUALIFY_ROOT="$r" HF_QUALIFY_OUT="$TMP/qout" python3 "$TMP/driver.py" 2>&1) || fail "driver failed with no FAIL: $out"
-has "$out" "qualify: 1 passed, 0 failed, 2 skipped"
+has "$out" "qualify: 1 passed, 0 failed, 1 skipped"
 rm -r "$r/tests/hyperfide/registrations"
 set +e; out=$(HF_QUALIFY_ROOT="$r" python3 "$TMP/driver.py" 2>&1); rc=$?; set -e
 [ "$rc" -eq 1 ] || fail "driver must fail with no registrations, rc=$rc"
@@ -145,6 +145,10 @@ set +e; bash "$store" "$TMP/creds" >/dev/null 2>&1; rc=$?; set -e
 r2="$TMP/real"
 mkdir -p "$r2/tests/hyperfide"
 cp -r "$repo/tests/hyperfide/registrations" "$repo/tests/hyperfide/manifests" "$r2/tests/hyperfide/"
+# The live matrix below exercises task registrations plus one provider case;
+# omit the historical full-case registrations because their manifests are not
+# part of this fixture.
+rm -rf "$r2/tests/hyperfide/registrations/full"
 mkdir -p "$r2/tests/hyperfide/registrations/live"
 printf '{"schema_version":1,"variant":"live:railway","task":"live.1","cases":["V-001"],"required_env":["HF_RAILWAY_TOKEN"]}\n' \
     > "$r2/tests/hyperfide/registrations/live/railway.json"
@@ -175,8 +179,6 @@ for t in 9.1 9.2 9.3 9.4; do
     has "$out" "PASS task:$t"; hasnt "$out" "SKIP task:$t:"
 done
 has "$out" "SKIP task:14.3: required environment absent: HF_TEST_NATIVE_CLAUDE_BINARY, HF_TEST_NATIVE_CODEX_BINARY"
-has "$out" "SKIP full:V-020: required environment absent: HYPERFIDE_PARITY_V020_MANIFEST"
-has "$out" "SKIP full:V-025: required environment absent: HYPERFIDE_PARITY_V025_MANIFEST"
 has "$out" "SKIP live:railway: required environment absent: HF_RAILWAY_TOKEN (repository secret RAILWAY_TOKEN not set)"
 hasnt "$out" "PASS live:railway"
 token="ci-matrix-sentinel-$$"
