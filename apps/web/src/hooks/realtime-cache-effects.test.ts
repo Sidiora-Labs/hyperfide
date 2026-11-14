@@ -328,7 +328,9 @@ describe("resuming released watches", () => {
   ])(
     "refetches the active $label family when its released watch resumes",
     async ({ queryKey, target }) => {
-      const { effects, queryClient } = createRealtimeEffectsTestContext();
+      const { effects, queryClient } = createRealtimeEffectsTestContext(
+        createFakeVisibility(),
+      );
       const queryFn = vi.fn<() => Promise<string>>().mockResolvedValue("fresh");
       const observer = new QueryObserver(queryClient, {
         queryKey,
