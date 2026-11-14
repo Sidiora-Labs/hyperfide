@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { MutationObserver as QueryMutationObserver } from "@tanstack/react-query";
 import { makeHost } from "@hyperfide/test-helpers/domain-fixtures";
 import { HttpError } from "@/lib/api";
 import { createAppQueryClient } from "@/lib/query-client";
@@ -97,7 +98,7 @@ describe("useResolveThreadPendingInteraction", () => {
       approval,
       other,
     ]);
-    const mutation = new MutationObserver(
+    const mutation = new QueryMutationObserver(
       queryClient,
       resolveThreadPendingInteractionMutationOptions(queryClient),
     );
@@ -155,6 +156,7 @@ describe("useResolveThreadPendingInteraction", () => {
         },
       },
       undefined,
+      { client: queryClient, meta: undefined },
     );
     expect(
       queryClient.getQueryState(threadPendingInteractionsQueryKey("thr_1"))
