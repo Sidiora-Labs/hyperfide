@@ -45,7 +45,7 @@ describe("Mobile E2E flow boundaries", () => {
     expect(pairing).toContain('id: "shell-webview"');
   });
 
-  it("covers native reconnect, profile switching, and deep-link entry points", () => {
+  it("covers native reconnect and deep-link entry points", () => {
     const connect = flowSource("android/connect.yaml");
     expect(connect).toContain("- stopApp");
     expect(connect).toContain("- launchApp");
@@ -56,13 +56,6 @@ describe("Mobile E2E flow boundaries", () => {
     expect(deepLink).toContain('LINK: "hyperfide://threads"');
     expect(deepLink).toContain('LINK: "hyperfide://settings/notifications"');
     expect(deepLink).toContain('id: "connect-screen"');
-
-    const profileStore = readFileSync(
-      join(e2eRoot, "../src/lib/profiles/profile-store.test.ts"),
-      "utf8",
-    );
-    expect(profileStore).toContain("setActiveProfile(b.id)");
-    expect(profileStore).toContain("activeProfileId).toBe(b.id)");
   });
 
   it("keeps manager controls read-only in the Fleet WebView journey", () => {

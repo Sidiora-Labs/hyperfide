@@ -71,16 +71,21 @@ describe("profile store", () => {
     const { store, storage } = makeStore();
     const a = await store.addProfile(direct);
     const b = await store.addProfile(connect);
+    const c = await store.addProfile({ ...direct, label: "LAN" });
     let notified = 0;
     store.subscribe(() => notified++);
 
+    await store.setActiveProfile(b.id);
     await store.removeProfile(a.id);
-    expect(store.listProfiles()).toEqual([b]);
+    expect(store.listProfiles()).toEqual([b, c]);
     expect(store.getSnapshot().activeProfileId).toBe(b.id);
     expect(storage.entries.has(profileStorageKey(a.id))).toBe(false);
     expect(notified).toBeGreaterThan(0);
 
     await store.removeProfile(b.id);
+    expect(store.listProfiles()).toEqual([c]);
+    expect(store.getSnapshot().activeProfileId).toBe(c.id);
+    await store.removeProfile(c.id);
     expect(store.getSnapshot().activeProfileId).toBeNull();
     expect(JSON.parse(storage.entries.get(PROFILE_INDEX_STORAGE_KEY)!)).toEqual(
       {
