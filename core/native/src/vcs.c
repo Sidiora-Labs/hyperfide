@@ -9,6 +9,7 @@
 #include "cg.h"
 #include "hyperfide/client.h"
 #include <dirent.h>
+#include <errno.h>
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -25,10 +26,12 @@ static int obj_write(const Cg *cg, const void *data, size_t len, char hash[65]) 
     char p[4900];
     obj_path(cg, hash, p, sizeof p);
     struct stat st;
-    if (stat(p, &st) == 0) return 0;              /* dedup */
+    if (stat(p, &st) == 0) return S_ISREG(st.st_mode) ? 0 : -1; /* dedup */
     char dir[4900];
     snprintf(dir, sizeof dir, "%s/%s/%.2s", cg->shared, CG_OBJECTS, hash);
     if (mkdirs(dir) != 0) return -1;
+    /* write_entire_file stages beside the destination and renames, so readers
+     * observe either the complete object or no object at all. */
     return write_entire_file(p, data, len);
 }
 
@@ -48,10 +51,15 @@ static int head_read(const Cg *cg, char hash[65]) {
     return strlen(hash) == 64 ? 0 : -1;
 }
 
-static void head_write(const Cg *cg, const char *hash) {
+static int head_write(const Cg *cg, const char *hash) {
+    if (!hash || strlen(hash) != 64 ||
+        strspn(hash, "0123456789abcdef") != 64)
+        return -1;
     char p[4900];
     snprintf(p, sizeof p, "%s/%s", cg->shared, CG_HEAD);
-    write_entire_file(p, hash, strlen(hash));
+    /* HEAD uses the same staged rename as objects: a reader never sees a
+     * partially-written commit id. */
+    return write_entire_file(p, hash, strlen(hash));
 }
 
 /* resolve a (possibly abbreviated) commit id; "HEAD" allowed */
@@ -347,10 +355,38 @@ static int man_load(const Cg *cg, const char *tree_hash, Manifest *m) {
         char hash[65];
         long size;
         char *tab = strchr(line, '\t');
-        if (!tab || sscanf(line, "%64s %ld", hash, &size) != 2) continue;
+        if (!tab || tab == line || strchr(tab + 1, '\t') ||
+            sscanf(line, "%64s %ld", hash, &size) != 2 ||
+            strlen(hash) != 64 || strspn(hash, "0123456789abcdef") != 64 ||
+            size < 0 || !tab[1] || tab[1] == '/') {
+            free(data);
+            man_free(m);
+            return -1;
+        }
+        /* A manifest path is always relative and must not escape its root. */
+        for (const char *p = tab + 1; *p; ) {
+            const char *e = strchr(p, '/');
+            size_t n = e ? (size_t)(e - p) : strlen(p);
+            if ((n == 1 && p[0] == '.') ||
+                (n == 2 && p[0] == '.' && p[1] == '.') ||
+                n == 0 || strchr(p, '\r') || strchr(p, '\t')) {
+                free(data);
+                man_free(m);
+                return -1;
+            }
+            if (!e) break;
+            p = e + 1;
+        }
         man_push(m, hash, size, tab + 1);
     }
     free(data);
+    qsort(m->v, (size_t)m->n, sizeof(MEnt), ment_cmp);
+    for (int i = 1; i < m->n; i++) {
+        if (strcmp(m->v[i - 1].path, m->v[i].path) == 0) {
+            man_free(m);
+            return -1;
+        }
+    }
     return 0;
 }
 
@@ -387,7 +423,10 @@ int cmd_commit_with_options(Cg *cg, const char *msg, bool quiet,
     size_t mlen = 0;
     char *mdata = man_serialize(&m, &mlen);
     char tree_hash[65];
-    obj_write(cg, mdata, mlen, tree_hash);
+    if (obj_write(cg, mdata, mlen, tree_hash) != 0) {
+        fprintf(stderr, "cg: cannot write snapshot tree object\n");
+        free(mdata); man_free(&m); return 1;
+    }
     free(mdata);
 
     char parent[65] = "";
@@ -438,9 +477,15 @@ int cmd_commit_with_options(Cg *cg, const char *msg, bool quiet,
     sb_printf(&c, "date %ld\n", (long)time(NULL));
     sb_printf(&c, "message %s", final_msg);
     char commit_hash[65];
-    obj_write(cg, c.p, c.len, commit_hash);
+    if (obj_write(cg, c.p, c.len, commit_hash) != 0) {
+        fprintf(stderr, "cg: cannot write commit object\n");
+        sb_free(&c); free(tagged); man_free(&m); return 1;
+    }
     sb_free(&c);
-    head_write(cg, commit_hash);
+    if (head_write(cg, commit_hash) != 0) {
+        fprintf(stderr, "cg: cannot update HEAD; snapshot remains unreferenced\n");
+        free(tagged); man_free(&m); return 1;
+    }
 
     if (!quiet)
         printf("[%.12s] %d files — %s\n", commit_hash, m.n, final_msg);
@@ -1199,8 +1244,27 @@ int cmd_checkout(Cg *cg, const char *id, bool force) {
         return 1;
     }
     Manifest target = {0}, current = {0};
-    man_load(cg, c.tree, &target);
+    if (man_load(cg, c.tree, &target) != 0) {
+        fprintf(stderr, "cg: bad or missing manifest for commit %s\n", hash);
+        free(c.message);
+        return 1;
+    }
     free(c.message);
+
+    /* Validate every referenced blob before touching the working tree. */
+    for (int i = 0; i < target.n; i++) {
+        size_t len = 0;
+        char *data = obj_read(cg, target.v[i].hash, &len);
+        if (!data || (unsigned long long)target.v[i].size !=
+                     (unsigned long long)len) {
+            fprintf(stderr, "cg: missing or truncated object for %s\n",
+                    target.v[i].path);
+            free(data);
+            man_free(&target);
+            return 1;
+        }
+        free(data);
+    }
     snapshot_tree(cg, &current, false);
 
     int restored = 0, removed = 0;
@@ -1213,8 +1277,10 @@ int cmd_checkout(Cg *cg, const char *id, bool force) {
         size_t len = 0;
         char *data = obj_read(cg, target.v[i].hash, &len);
         if (!data) {
-            fprintf(stderr, "cg: missing object for %s\n", target.v[i].path);
-            continue;
+            fprintf(stderr, "cg: restore failed; object disappeared for %s\n",
+                    target.v[i].path);
+            man_free(&target); man_free(&current);
+            return 1;
         }
         char abs[4900];
         snprintf(abs, sizeof abs, "%s/%s", cg->root, target.v[i].path);
@@ -1224,8 +1290,13 @@ int cmd_checkout(Cg *cg, const char *id, bool force) {
             mkdirs(abs);
             *slash = '/';
         }
-        write_entire_file(abs, data, len);
+        int wrc = write_entire_file(abs, data, len);
         free(data);
+        if (wrc != 0) {
+            fprintf(stderr, "cg: restore failed for %s\n", target.v[i].path);
+            man_free(&target); man_free(&current);
+            return 1;
+        }
         restored++;
     }
     for (int i = 0; i < current.n; i++) {
@@ -1233,11 +1304,20 @@ int cmd_checkout(Cg *cg, const char *id, bool force) {
         if (!bsearch(&key, target.v, (size_t)target.n, sizeof(MEnt), ment_cmp)) {
             char abs[4900];
             snprintf(abs, sizeof abs, "%s/%s", cg->root, current.v[i].path);
-            unlink(abs);
+            if (unlink(abs) != 0 && errno != ENOENT) {
+                fprintf(stderr, "cg: remove failed for %s: %s\n",
+                        current.v[i].path, strerror(errno));
+                man_free(&target); man_free(&current);
+                return 1;
+            }
             removed++;
         }
     }
-    head_write(cg, hash);
+    if (head_write(cg, hash) != 0) {
+        fprintf(stderr, "cg: checkout restored files but could not update HEAD\n");
+        man_free(&target); man_free(&current);
+        return 1;
+    }
     printf("checked out %.12s: %d file%s restored, %d removed "
            "(run `cg sync` to refresh the graph)\n",
            hash, restored, restored == 1 ? "" : "s", removed);

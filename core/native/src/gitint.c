@@ -484,10 +484,11 @@ int cmd_branches(Cg *cg, int argc, char **argv, bool json) {
 int git_ingest(Cg *cg, int limit, long *ncommits_out, long *npaths_out,
                long *seen_out) {
     StrBuf cmd; sb_init(&cmd);
-    sb_printf(&cmd,
-        "git -C '%s' log --no-merges --no-renames -n %d "
-        "--pretty=format:'\x01%%H\t%%an\t%%at\t%%s' --name-only 2>/dev/null",
-        cg->root, limit);
+    sb_puts(&cmd, "git -C ");
+    sb_shquote(&cmd, cg->root);
+    sb_puts(&cmd, " log --no-merges --no-renames -n ");
+    sb_printf(&cmd, "%d ", limit);
+    sb_puts(&cmd, "--pretty=format:'\x01%H\t%an\t%at\t%s' --name-only 2>/dev/null");
     FILE *f = popen(cmd.p, "r");
     sb_free(&cmd);
     if (!f) return -1;
@@ -536,7 +537,9 @@ int git_ingest(Cg *cg, int limit, long *ncommits_out, long *npaths_out,
     sqlite3_finalize(ins);
     sqlite3_finalize(chu);
     cg_exec(cg, "COMMIT");
-    pclose(f);
+    int st = pclose(f);
+    if (st == -1 || !WIFEXITED(st) || WEXITSTATUS(st) != 0)
+        return -1;
     if (ncommits_out) *ncommits_out = ncommits;
     if (npaths_out) *npaths_out = npaths;
     if (seen_out) *seen_out = seen;
@@ -584,21 +587,13 @@ int git_commit_mirror(Cg *cg, const char *message) {
         fprintf(stderr, "cg: --git needs a git repository at %s\n", cg->root);
         return 1;
     }
-    StrBuf c; sb_init(&c);
-    sb_printf(&c, "git -C '%s' add -A", cg->root);
-    int rc = system(c.p);
-    sb_free(&c);
+    int rc = git_run(cg->root, "add -A", NULL);
     if (rc != 0) { fprintf(stderr, "cg: git add failed\n"); return 1; }
 
     StrBuf m; sb_init(&m);
-    for (const char *p = message; *p; p++) {         /* single-quote safe */
-        if (*p == '\'') sb_puts(&m, "'\\''");
-        else sb_putc(&m, *p);
-    }
-    sb_init(&c);
-    sb_printf(&c, "git -C '%s' commit -q -m '%s'", cg->root, m.p);
-    rc = system(c.p);
-    sb_free(&c);
+    sb_puts(&m, "commit -q -m ");
+    sb_shquote(&m, message ? message : "");
+    rc = git_run(cg->root, m.p, NULL);
     sb_free(&m);
     if (rc != 0) {
         fprintf(stderr, "cg: git commit failed (nothing staged?)\n");
