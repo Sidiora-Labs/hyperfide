@@ -4,11 +4,18 @@
 //   done and review ledgers are terminal; a second failure moves the ledger to state/ledger/failed/<id>.json.
 //   A job with `after` waits until those jobs are done. Wave then id order; at most --cap (fleet.json cap) jobs in flight,
 //   starts --stagger-ms apart. A failure that names HTTP 429 pauses new starts (backoff.initialMs, doubling to backoff.maxMs).
-import {cfg, P, requireEnv, load, save, now, sleep, opts, safe, poolWorkers, updateWorker, ledgerPath, failedPath, baseBundle, git, repoRoot, here} from './lib.mjs';
+import {cfg, P, requireEnv, load, save, now, sleep, opts, safe, poolWorkers, updateWorker, ledgerPath, failedPath, baseBundle, git, repoRoot, here,
+  acquireProcessLock} from './lib.mjs';
 import fs from 'node:fs'; import path from 'node:path'; import {spawn} from 'node:child_process';
 
 const o = opts(process.argv.slice(2), ['dry', 'watch']);
 if (!o.dry) requireEnv();
+// There must be one dispatcher reconciling worker/job ledgers.  Without this
+// guard two invocations can both observe the same idle worker and launch a
+// duplicate runner.  A dead owner leaves a recoverable lock: acquisition
+// checks the recorded PID and takes over only after that process is gone.
+const releaseDispatchLock = o.dry ? null : await acquireProcessLock(path.join(path.dirname(P.ledger), 'dispatch.lock'));
+if (releaseDispatchLock) process.on('exit', () => { try { releaseDispatchLock(); } catch {} });
 const cap = Number(o.cap || cfg.cap), stagger = Number(o['stagger-ms'] ?? cfg.staggerMs);
 const only = o.only ? new Set(o.only.split(',').filter(Boolean)) : null;
 const onlyWorkers = o.workers ? new Set(o.workers.split(',')) : null;
@@ -19,8 +26,16 @@ const ledger = id => (fs.existsSync(ledgerPath(id)) ? load(ledgerPath(id)) : nul
 const alive = pid => { if (!pid) return false; try { process.kill(pid, 0); return true; } catch { return false; } };
 const isDone = id => ['done', 'review'].includes(ledger(id)?.state);
 
-// Stale claims: a worker whose runner is gone is free again; a ledger whose runner is gone failed.
-for (const w of poolWorkers()) if (w.job && !alive(w.pid)) updateWorker(w.file, {job: null, pid: null});
+// Stale claims: a worker whose runner is gone is free again; a ledger whose
+// runner is gone failed.  During the tiny parent->child launch window the
+// worker has a dispatcherPid but no runner pid yet; that claim is recoverable
+// when the owning dispatcher has disappeared.
+for (const w of poolWorkers()) if (w.job) {
+  const l = ledger(w.job); const runnerPid = w.pid || l?.pid;
+  if ((runnerPid && !alive(runnerPid)) || (!runnerPid && w.dispatcherPid && !alive(w.dispatcherPid))) {
+    updateWorker(w.file, {job: null, pid: null, dispatcherPid: null});
+  }
+}
 for (const j of jobs) { const l = ledger(j.id); if (l && !l.finishedAt && !alive(l.pid)) save(ledgerPath(j.id), {...l, state: 'failed', error: 'runner died', finishedAt: now()}); }
 
 const queue = [], skipped = {};
@@ -46,15 +61,15 @@ let wake = null; const nudge = () => { if (wake) { wake(); wake = null; } };
 function start(job, worker) {
   fs.mkdirSync(P.logs, {recursive: true, mode: 0o700});
   const log = fs.openSync(path.join(P.logs, `${safe(job.id)}.dispatch.log`), 'a', 0o600);
-  updateWorker(worker.file, {job: job.id, jobStartedAt: now()});
+  updateWorker(worker.file, {job: job.id, jobStartedAt: now(), dispatcherPid: process.pid});
   const child = spawn(process.execPath, [path.join(here, 'run-job.mjs'), worker.file, job.file], {stdio: ['ignore', log, log], env: process.env});
-  updateWorker(worker.file, {pid: child.pid});
+  updateWorker(worker.file, {pid: child.pid, dispatcherPid: null});
   running.set(job.id, {job, worker: worker.name, pid: child.pid});
   console.log(JSON.stringify({start: job.id, worker: worker.name, pid: child.pid, attempt: job.avoid ? 2 : 1}));
   child.on('exit', code => {
     running.delete(job.id); fs.closeSync(log);
     // the runner releases its worker; make sure even a crashed runner does
-    const wf = path.join(P.ledger, 'pool', `${worker.name}.json`); if (fs.existsSync(wf) && load(wf).job === job.id) updateWorker(wf, {job: null, pid: null});
+    const wf = path.join(P.ledger, 'pool', `${worker.name}.json`); if (fs.existsSync(wf) && load(wf).job === job.id) updateWorker(wf, {job: null, pid: null, dispatcherPid: null});
     const l = ledger(job.id) || {state: 'failed', error: `runner exit ${code} before its ledger`};
     if (['done', 'review'].includes(l.state)) { settled.push({id: job.id, state: l.state}); console.log(JSON.stringify({settled: job.id, state: l.state, worker: worker.name})); }
     else if (!job.avoid) {
@@ -125,3 +140,4 @@ snapshot();
 const count = {}; for (const s of settled) count[s.state] = (count[s.state] || 0) + 1;
 save(path.join(P.ledger, `dispatch-${Date.now()}.json`), {at: now(), cap, staggerMs: stagger, settled});
 console.log(JSON.stringify({dispatched: settled.length, ...count}));
+if (releaseDispatchLock) releaseDispatchLock();

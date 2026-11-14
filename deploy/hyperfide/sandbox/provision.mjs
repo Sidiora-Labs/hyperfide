@@ -9,6 +9,7 @@
 //        node provision.mjs teardown [--force]                      -> destroy every pool worker (busy ones only with --force)
 // A Railway sandbox carries no name: a pool name is the state/ledger/pool/<name>.json record that owns the sandbox id.
 import {cfg, P, W, sdk, requireEnv, save, now, run, must, redact, git, repoRoot, mainTip, isAncestor, poolWorkers, fill, sleep, opts,
+  acquireProcessLock,
   recordCheckpoint, checkpointLayout, layoutCommand} from './lib.mjs';
 import {revisionLayout} from './layout.mjs';
 import path from 'node:path'; import fs from 'node:fs'; import {randomUUID} from 'node:crypto';
@@ -21,9 +22,9 @@ if (mode === 'use') {
   recordCheckpoint(name, commit); console.log(JSON.stringify({checkpoint: name, checkpointCommit: commit}));
   process.exit(0);
 }
+requireEnv([cfg.env.token, cfg.env.environmentId]);
 const selectedLayout = mode === 'pool' ? checkpointLayout() : mode === 'base'
   ? revisionLayout(repoRoot, git(repoRoot, 'rev-parse', '--verify', `${args[0] || cfg.mainBranch}^{commit}`)) : null;
-requireEnv([cfg.env.token, cfg.env.environmentId]);
 const {Sandbox, SandboxNotFoundError, config} = await sdk();
 const create = {resources: cfg.resources, idleTimeoutMinutes: cfg.idleTimeoutMinutes};
 const pool = cfg.pool;
@@ -65,34 +66,60 @@ if (mode === 'base') {
   finally { rec.endedAt = now(); save(recFile, rec); try { await sb.destroy(); console.log('base sandbox destroyed'); } catch (e) { console.error('destroy failed', redact(e.message)); } }
 
 } else if (mode === 'pool') {
-  const count = Number(args[0] || pool.defaultSize);
-  if (!Number.isInteger(count) || count < 1) throw new Error('count must be a positive integer');
-  if (!cfg.checkpoint) throw new Error('fleet.json has no checkpoint: run `provision.mjs base` or `provision.mjs use` first');
-  const all = poolWorkers(), live = all.filter(w => w.state !== 'destroyed');
-  if (live.length + count > pool.maxSize) throw new Error(`pool would hold ${live.length + count} workers; the cap is ${pool.maxSize}`);
-  const used = new Set(live.map(w => w.name)); const todo = [];
-  for (let n = 1; todo.length < count; n++) { const name = `${pool.prefix}${String(n).padStart(3, '0')}`; if (!used.has(name)) todo.push(name); }
-  const results = [], pending = [];
-  for (const [i, name] of todo.entries()) {
-    if (i) await sleep(cfg.staggerMs);
-    pending.push((async () => {
-      try {
+  // Name allocation and the provider lifecycle are one critical section.  A
+  // second invocation waits for the first to commit its worker ledgers before
+  // choosing names, so it cannot create duplicate workers.
+  const releasePoolLock = await acquireProcessLock(path.join(P.ledger, 'pool.lock'), {wait: true});
+  try {
+    const count = Number(args[0] || pool.defaultSize);
+    if (!Number.isInteger(count) || count < 1) throw new Error('count must be a positive integer');
+    if (!cfg.checkpoint) throw new Error('fleet.json has no checkpoint: run `provision.mjs base` or `provision.mjs use` first');
+    const all = poolWorkers(), live = all.filter(w => w.state !== 'destroyed');
+    if (live.length + count > pool.maxSize) throw new Error(`pool would hold ${live.length + count} workers; the cap is ${pool.maxSize}`);
+    const used = new Set(live.map(w => w.name)); const todo = [];
+    for (let n = 1; todo.length < count; n++) { const name = `${pool.prefix}${String(n).padStart(3, '0')}`; if (!used.has(name)) todo.push(name); }
+    const results = [], pending = [];
+    for (const [i, name] of todo.entries()) {
+      if (i) await sleep(cfg.staggerMs);
+      pending.push((async () => {
+        const file = path.join(P.ledger, 'pool', `${name}.json`);
         const t0 = Date.now();
-        checkpointLayout();
-        // No credential enters the sandbox environment; each job hands its gateway key over in a root-only file.
-        const sb = await Sandbox.create(cfg.checkpoint, {...config, ...create, env: {FLEET_WORKER: name}});
-        const probe = await run(sb, layoutCommand('probe', selectedLayout) + ' && ' + fill(cfg.probe, {W}), {cwd: W, timeoutSec: 180, label: 'probe'});
-        const rec = {name, sandboxId: sb.id, createdAt: now(), bootMs: Date.now() - t0, checkpoint: cfg.checkpoint, resources: cfg.resources,
-          checkpointLayout: selectedLayout,
-          state: probe.exitCode === 0 ? 'ready' : 'probe_failed', probe: probe.stdout.trim().split('\n'), probeErr: probe.stderr.slice(-500), job: null};
-        save(path.join(P.ledger, 'pool', `${name}.json`), rec); results.push(rec);
-        console.log(JSON.stringify({worker: name, state: rec.state, bootMs: rec.bootMs}));
-      } catch (e) { results.push({name, error: true}); console.error('worker', name, 'failed:', redact(e.message).slice(0, 300)); }
-    })());
-  }
-  await Promise.all(pending);
-  const ready = results.filter(r => r.state === 'ready').length;
-  console.log('ready', ready, 'of', count); if (ready < count) process.exitCode = 1;
+        // Persist the reservation before contacting Railway.  This closes the
+        // window in which another process could mistake the name for free.
+        let rec = {name, createdAt: now(), checkpoint: cfg.checkpoint, resources: cfg.resources,
+          checkpointLayout: selectedLayout, state: 'creating', job: null, ownerPid: process.pid};
+        save(file, rec);
+        let sb = null;
+        try {
+          checkpointLayout();
+          // No credential enters the sandbox environment; each job hands its gateway key over in a root-only file.
+          sb = await Sandbox.create(cfg.checkpoint, {...config, ...create, env: {FLEET_WORKER: name}});
+          rec = {...rec, sandboxId: sb.id, bootMs: Date.now() - t0}; save(file, rec);
+          const probe = await run(sb, layoutCommand('probe', selectedLayout) + ' && ' + fill(cfg.probe, {W}), {cwd: W, timeoutSec: 180, label: 'probe'});
+          rec = {...rec, state: probe.exitCode === 0 ? 'ready' : 'probe_failed', probe: probe.stdout.trim().split('\n'), probeErr: probe.stderr.slice(-500), job: null};
+          if (rec.state === 'probe_failed') throw Object.assign(new Error('worker probe failed'), {probeResult: probe});
+          save(file, rec); results.push(rec);
+          console.log(JSON.stringify({worker: name, state: rec.state, bootMs: rec.bootMs}));
+        } catch (e) {
+          const probe = e.probeResult;
+          let cleanupError = null;
+          if (sb) {
+            try { await sb.destroy(); }
+            catch (destroyError) { cleanupError = redact(destroyError.message).slice(0, 500); }
+          }
+          rec = {...rec, state: 'destroyed', failureState: probe ? 'probe_failed' : 'provision_failed',
+            error: redact(e.message).slice(0, 3000), destroyedAt: now(), job: null};
+          if (probe) rec = {...rec, probe: probe.stdout.trim().split('\n'), probeErr: probe.stderr.slice(-500)};
+          if (cleanupError) rec.cleanupError = cleanupError;
+          save(file, rec); results.push(rec);
+          console.error('worker', name, 'failed:', redact(e.message).slice(0, 300), cleanupError ? `(cleanup failed: ${cleanupError})` : '(sandbox destroyed)');
+        }
+      })());
+    }
+    await Promise.all(pending);
+    const ready = results.filter(r => r.state === 'ready').length;
+    console.log('ready', ready, 'of', count); if (ready < count) process.exitCode = 1;
+  } finally { releasePoolLock(); }
 
 } else if (mode === 'list') {
   const byId = new Map(poolWorkers().map(w => [w.sandboxId, w.name]));

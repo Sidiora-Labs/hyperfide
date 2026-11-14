@@ -60,6 +60,49 @@ export function save(p, d) {
 export const load = p => JSON.parse(fs.readFileSync(p, 'utf8'));
 export function writePrivate(p, data) { fs.mkdirSync(path.dirname(p), {recursive: true, mode: 0o700}); fs.writeFileSync(p, data, {mode: 0o600}); return p; }
 
+// A small process lock for commands that mutate shared fleet ledgers.  The
+// exclusive create is the ownership decision; the token check prevents a
+// stale process from deleting a newer owner's lock during cleanup.
+export async function acquireProcessLock(file, {wait = false, pollMs = 100, staleMs = 24 * 60 * 60 * 1000} = {}) {
+  fs.mkdirSync(path.dirname(file), {recursive: true, mode: 0o700});
+  const token = randomUUID();
+  const owner = {pid: process.pid, token, at: now()};
+  for (;;) {
+    try {
+      const fd = fs.openSync(file, 'wx', 0o600);
+      try { fs.writeFileSync(fd, JSON.stringify(owner) + '\n'); } finally { fs.closeSync(fd); }
+      let released = false;
+      const release = () => {
+        if (released) return;
+        released = true;
+        try {
+          const current = load(file);
+          if (current.token === token) fs.unlinkSync(file);
+        } catch (e) { if (e.code !== 'ENOENT') throw e; }
+      };
+      return release;
+    } catch (e) {
+      if (e.code !== 'EEXIST') throw e;
+      let stale = false;
+      try {
+        const current = load(file);
+        const age = Date.now() - Date.parse(current.at || 0);
+        if (current.pid && current.pid !== process.pid) {
+          try { process.kill(current.pid, 0); } catch (probe) { if (probe.code === 'ESRCH') stale = true; }
+        }
+        if (age > staleMs) stale = true;
+      } catch (readError) {
+        // A lock is written in two syscalls.  Treat a partially written file
+        // as owned until it ages out rather than racing its creator.
+        try { stale = Date.now() - fs.statSync(file).mtimeMs > staleMs; } catch { stale = false; }
+      }
+      if (stale) { try { fs.unlinkSync(file); } catch (unlinkError) { if (unlinkError.code !== 'ENOENT') throw unlinkError; } continue; }
+      if (!wait) throw new Error(`another process holds lock ${file}`);
+      await sleep(pollMs);
+    }
+  }
+}
+
 export const ledgerPath = id => path.join(P.ledger, 'jobs', `${safe(id)}.json`);
 export const failedPath = id => path.join(P.ledger, 'failed', `${safe(id)}.json`);
 export const findLedger = id => [ledgerPath(id), failedPath(id)].find(f => fs.existsSync(f)) || null;
