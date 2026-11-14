@@ -15,6 +15,7 @@ export function SegmentedChoice<T extends string>({
           key={option.value}
           size="sm"
           variant={option.value === value ? "default" : "outline"}
+          accessibilityState={{ selected: option.value === value }}
           onPress={() => onChange(option.value)}
           testID={testIDPrefix ? `${testIDPrefix}-${option.value}` : undefined}
         >

@@ -157,6 +157,7 @@ export function Button({
   onPressIn,
   onPressOut,
   className,
+  accessibilityState,
   accessibilityRole = "button",
   ...props
 }: ButtonProps) {
@@ -192,7 +193,7 @@ export function Button({
   return (
     <Pressable
       accessibilityRole={accessibilityRole}
-      accessibilityState={{ disabled: !!isDisabled, selected: false }}
+      accessibilityState={{ ...accessibilityState, disabled: !!isDisabled }}
       disabled={isDisabled}
       onPress={() => onPress?.()}
       onPressIn={(event) => {

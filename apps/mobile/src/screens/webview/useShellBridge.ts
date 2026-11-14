@@ -90,6 +90,11 @@ export function useShellBridge(
                 error: describeError(error),
               });
             }
+          } else {
+            respond(message.id, {
+              ok: false,
+              error: "Clipboard requests are not supported by this app build",
+            });
           }
           return;
         }

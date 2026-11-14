@@ -9,7 +9,7 @@ import { Button, Input, Text, toast } from "@/ui";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useRef, useState } from "react";
 import { View, type TextInput } from "react-native";
-import { rawPathHref } from "../shell/hrefs";
+import { firstParam, rawPathHref } from "../shell/hrefs";
 import { GroupedScreen } from "./GroupedScreen";
 import { SettingsSection } from "./SettingsRows";
 
@@ -33,8 +33,10 @@ const URL_HELP =
 export function AddServerScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ serverUrl?: string; next?: string }>();
+  const requestedServerUrl = firstParam(params.serverUrl);
+  const requestedNext = firstParam(params.next);
   const { profiles, addProfile, setActiveProfile } = useProfiles();
-  const [url, setUrl] = useState(params.serverUrl ?? "");
+  const [url, setUrl] = useState(requestedServerUrl ?? "");
   const [label, setLabel] = useState("");
   const [urlTouched, setUrlTouched] = useState(false);
   const [submit, setSubmit] = useState<SubmitState>({ phase: "idle" });
@@ -77,7 +79,8 @@ export function AddServerScreen() {
       await setActiveProfile(profile.id);
       toast.success(`Added ${profile.label}`);
       router.dismissTo("/");
-      if (params.next?.startsWith("/")) router.push(rawPathHref(params.next));
+      if (requestedNext?.startsWith("/"))
+        router.push(rawPathHref(requestedNext));
     } catch (error) {
       setSubmit({ phase: "failed", message: describeError(error) });
     }
@@ -86,7 +89,11 @@ export function AddServerScreen() {
   return (
     <>
       <Stack.Screen
-        options={{ title: firstRun ? "Connect to a hyperfide-platform server" : "Add server" }}
+        options={{
+          title: firstRun
+            ? "Connect to a hyperfide-platform server"
+            : "Add server",
+        }}
       />
       <GroupedScreen testID="add-server-screen">
         <SettingsSection
