@@ -484,6 +484,9 @@ export const REALTIME_ENVIRONMENT_CHANGE_REGISTRY = {
   "diff-viewed-changed": {
     dirty: [dirtyEnvironmentDiffViewedQueries],
   },
+  "terminals-changed": {
+    dirty: [dirtyEnvironmentTerminalQueries],
+  },
 } satisfies EnvironmentChangeRegistry;
 
 export const REALTIME_PROJECT_CHANGE_REGISTRY = {
@@ -529,6 +532,9 @@ export const REALTIME_HOST_CHANGE_REGISTRY = {
   },
   "provider-model-catalog-changed": {
     dirty: [dirtyHostSystemExecutionOptionQueries],
+  },
+  "terminals-changed": {
+    dirty: [() => [allTerminalsQueryKeyPrefix()]],
   },
 } satisfies HostChangeRegistry;
 
@@ -1003,6 +1009,14 @@ function dirtyThreadTerminalQueries({
 }: ThreadRealtimeDirtyContext): QueryKey[] {
   return threadId
     ? [terminalsQueryKey({ kind: "thread", threadId })]
+    : [allTerminalsQueryKeyPrefix()];
+}
+
+function dirtyEnvironmentTerminalQueries({
+  environmentId,
+}: EnvironmentRealtimeDirtyContext): QueryKey[] {
+  return environmentId
+    ? [terminalsQueryKey({ kind: "environment", environmentId })]
     : [allTerminalsQueryKeyPrefix()];
 }
 

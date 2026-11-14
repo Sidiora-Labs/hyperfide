@@ -2295,12 +2295,23 @@ export class TerminalSessionLifecycle {
   }
 
   private async notifyTerminalSessionChanged(
-    session: Pick<TerminalSessionRow, "threadId">,
+    session: Pick<
+      TerminalSessionRow,
+      "environmentId" | "hostId" | "threadId"
+    >,
   ): Promise<void> {
     if (session.threadId !== null) {
       await this.options.hub.notifyThread(session.threadId, [
         "terminals-changed",
       ]);
+      return;
     }
+    if (session.environmentId !== null) {
+      await this.options.hub.notifyEnvironment(session.environmentId, [
+        "terminals-changed",
+      ]);
+      return;
+    }
+    await this.options.hub.notifyHost(session.hostId, ["terminals-changed"]);
   }
 }

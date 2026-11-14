@@ -50,6 +50,7 @@ export const ENVIRONMENT_CHANGE_KINDS = [
   "git-refs-changed",
   "thread-storage-changed",
   "diff-viewed-changed",
+  "terminals-changed",
 ] as const;
 export type EnvironmentChangeKind = (typeof ENVIRONMENT_CHANGE_KINDS)[number];
 
@@ -57,6 +58,7 @@ export const HOST_CHANGE_KINDS = [
   "host-connected",
   "host-disconnected",
   "provider-model-catalog-changed",
+  "terminals-changed",
 ] as const;
 export type HostChangeKind = (typeof HOST_CHANGE_KINDS)[number];
 

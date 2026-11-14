@@ -56,10 +56,15 @@ function senderThreadTitle(source: SenderThreadTitleSource): string | null {
 function addSenderThreadMetadata(
   metadataById: Map<string, SenderThreadMetadata>,
   thread: SenderThreadMetadataSource,
+  options?: { replace?: boolean },
 ): void {
   const title = senderThreadTitle(thread);
   const existing = metadataById.get(thread.id);
-  if (existing && (existing.title !== null || title === null)) {
+  if (
+    !options?.replace &&
+    existing &&
+    (existing.title !== null || title === null)
+  ) {
     return;
   }
   metadataById.set(thread.id, {
@@ -83,19 +88,22 @@ function buildSenderThreadMetadataById(
     addSenderThreadMetadata(metadataById, thread);
   }
 
-  for (const [, thread] of queryClient.getQueriesData<ThreadWithRuntime>({
-    queryKey: allThreadQueryKeyPrefix(),
-  })) {
-    if (thread) {
-      addSenderThreadMetadata(metadataById, thread);
-    }
-  }
-
   for (const cachedList of getCachedThreadLists(queryClient, {
     queryKey: threadsQueryKey(),
   })) {
     for (const thread of iterateThreadListCacheEntries(cachedList.data)) {
       addSenderThreadMetadata(metadataById, thread);
+    }
+  }
+
+  // A thread-detail query is the freshest source available for metadata. It
+  // must replace an older non-empty title from a sidebar/list cache after a
+  // realtime title change.
+  for (const [, thread] of queryClient.getQueriesData<ThreadWithRuntime>({
+    queryKey: allThreadQueryKeyPrefix(),
+  })) {
+    if (thread) {
+      addSenderThreadMetadata(metadataById, thread, { replace: true });
     }
   }
 
