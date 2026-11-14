@@ -39,7 +39,7 @@ export async function requireNoAskWait(tx:PrimaryTransaction,scope:SchedulerScop
 export async function eligibleTasks(tx:PrimaryTransaction,input:SchedulerScope&{pool_id:string;profile_id?:string;limit?:number;after_task_key?:string;preparation?:boolean},invocation?:InvocationContext):Promise<EligibleResult>{
  assertPrimaryTransaction(tx);await lockRun(tx,input);
  const limit=boundedInteger(input.limit??100,'limit',1,500);
- const after=input.after_task_key===undefined?null:text(input.after_task_key,'after_task_key',512);
+ const after=input.after_task_key===undefined?null:text(input.after_task_key,512);
  let ownedPackages:string[]|null=null;
  if(invocation){
   assertInvocation(invocation);await invocation.guard(tx);
@@ -405,7 +405,7 @@ export function createComponent(_startup:ComponentContext):Component{
       const scope=scopeOf(input),actor=actorFor(context,scope,input);
       return gatewayFor(context).withPrimaryTransaction({timeoutMs:10000,maxRetries:2,signal:context.signal},async tx=>{
         await requireQueueActor(tx,scope,actor,uuid(input.authority_epoch,'authority_epoch'),undefined,input.package_id===undefined?undefined:uuid(input.package_id,'package_id'));
-        return eligibleTasks(tx,{...scope,pool_id:uuid(input.pool_id,'pool_id'),...(input.profile_id===undefined?{}:{profile_id:uuid(input.profile_id,'profile_id')}),...(input.limit===undefined?{}:{limit:boundedInteger(input.limit,'limit',1,500)}),...(input.after_task_key===undefined?{}:{after_task_key:text(input.after_task_key,'after_task_key',512)})},invocationFor(context));
+        return eligibleTasks(tx,{...scope,pool_id:uuid(input.pool_id,'pool_id'),...(input.profile_id===undefined?{}:{profile_id:uuid(input.profile_id,'profile_id')}),...(input.limit===undefined?{}:{limit:boundedInteger(input.limit,'limit',1,500)}),...(input.after_task_key===undefined?{}:{after_task_key:text(input.after_task_key,512)})},invocationFor(context));
       });
     },
     'scheduler.resources.demand':async(value,context)=>{
