@@ -33,7 +33,7 @@ const isDone = id => ['done', 'review'].includes(ledger(id)?.state);
 for (const w of poolWorkers()) if (w.job) {
   const l = ledger(w.job); const workerAlive = alive(w.pid), ledgerAlive = alive(l?.pid);
   const hasRunner = workerAlive || ledgerAlive;
-  const abandonedLaunch = !w.pid && !l?.pid && w.dispatcherPid && !alive(w.dispatcherPid);
+  const abandonedLaunch = !w.pid && !l?.pid && (!w.dispatcherPid || !alive(w.dispatcherPid));
   if (!hasRunner && (w.pid || l?.pid || abandonedLaunch)) {
     updateWorker(w.file, {job: null, pid: null, dispatcherPid: null});
   }
