@@ -186,6 +186,7 @@ async function main(): Promise<void> {
     bindHost,
     serverPort,
     staticDir: readStaticDir(),
+    builtinPlugins: ["hyperfide-dispatch"],
   });
 
   const shutdown = async (signal: string) => {
