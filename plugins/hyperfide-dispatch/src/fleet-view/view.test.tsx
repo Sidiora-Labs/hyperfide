@@ -157,20 +157,22 @@ describe("Fleet ledger dashboard", () => {
     };
     source.handlers.readAuthoritativeLedger = vi.fn(async () => ({
       authority: source.ledger.authority,
-      history: [{
-        decisionId: "decision-manager",
-        operationId: "operation-manager",
-        actorId: "manager-1",
-        actorRole: "WAVE_MANAGER",
-        action: "PROVISION_SANDBOX",
-        authorityEpoch: "authority-epoch",
-        leaderGeneration: "leader-generation",
-        delegationId: "delegation",
-        managerGeneration: "manager-generation",
-        receiptState: "UNKNOWN",
-        receiptDigest: "sha256:" + "b".repeat(64),
-        createdAt: "2026-10-23T10:00:00.000Z",
-      }],
+      history: [
+        {
+          decisionId: "decision-manager",
+          operationId: "operation-manager",
+          actorId: "manager-1",
+          actorRole: "WAVE_MANAGER",
+          action: "PROVISION_SANDBOX",
+          authorityEpoch: "authority-epoch",
+          leaderGeneration: "leader-generation",
+          delegationId: "delegation",
+          managerGeneration: "manager-generation",
+          receiptState: "UNKNOWN",
+          receiptDigest: "sha256:" + "b".repeat(64),
+          createdAt: "2026-10-23T10:00:00.000Z",
+        },
+      ],
     }));
     const { slot } = await mount(source);
     expect(
@@ -179,6 +181,12 @@ describe("Fleet ledger dashboard", () => {
     expect(
       slot.getByText(/Manager-directed dispatch is read-only/),
     ).toBeTruthy();
+    expect(
+      slot.getByRole("region", { name: "Authority" }).textContent,
+    ).toContain("Leader generation: leader-generation");
+    expect(
+      slot.getByRole("region", { name: "Authority" }).textContent,
+    ).toContain("Manager generation: manager-generation");
     expect(slot.queryByRole("button", { name: "Pause dispatch" })).toBeNull();
     expect(slot.queryByRole("button", { name: "Resume dispatch" })).toBeNull();
     expect(slot.queryByRole("button", { name: "Raise cap" })).toBeNull();
@@ -191,6 +199,9 @@ describe("Fleet ledger dashboard", () => {
     expect(history.textContent).toContain("PROVISION_SANDBOX");
     expect(history.textContent).toContain("WAVE_MANAGER: manager-1");
     expect(history.textContent).toContain("UNKNOWN");
+    expect(
+      slot.getByRole("alert", { name: "Fleet outcome warning" }).textContent,
+    ).toContain("UNKNOWN or OUTCOME_UNKNOWN");
   });
 
   it("renders empty ledgers and pending tasks", async () => {
@@ -228,6 +239,9 @@ describe("Fleet ledger dashboard", () => {
         "ledger unavailable",
       ),
     );
+    expect(
+      slot.getByRole("status", { name: "Fleet freshness" }).textContent,
+    ).toContain("STALE");
     slot.unmount();
     const mounted = await mount(source);
     vi.mocked(source.handlers.cancelJob).mockRejectedValueOnce(
@@ -244,6 +258,36 @@ describe("Fleet ledger dashboard", () => {
       expect(mounted.slot.getByText("cancelled")).toBeTruthy(),
     );
   });
+
+  it("coalesces overlapping realtime refreshes into one in-flight read", async () => {
+    const source = backend();
+    const { slot } = await mount(source);
+    let release!: (value: FleetLedger) => void;
+    let activeReads = 0;
+    let maximumActiveReads = 0;
+    const readLedger = vi.fn(
+      () =>
+        new Promise<FleetLedger>((resolve) => {
+          activeReads += 1;
+          maximumActiveReads = Math.max(maximumActiveReads, activeReads);
+          release = (value) => {
+            activeReads -= 1;
+            resolve(value);
+          };
+        }),
+    );
+    source.handlers.readLedger = readLedger;
+    await Promise.all([
+      slot.behavior.emitRealtime("fleet:changed", {}),
+      slot.behavior.emitRealtime("fleet:changed", {}),
+    ]);
+    expect(readLedger).toHaveBeenCalledTimes(1);
+    expect(maximumActiveReads).toBe(1);
+    release(source.ledger);
+    await waitFor(() => expect(readLedger).toHaveBeenCalledTimes(2));
+    release(source.ledger);
+    await waitFor(() => expect(activeReads).toBe(0));
+  });
 });
 
 describe("Fleet RPC boundaries", () => {
@@ -253,22 +297,27 @@ describe("Fleet RPC boundaries", () => {
       authority: {
         ...source.ledger.authority,
         mode: "manager" as const,
-        capabilities: ["read", "manager-decision"] as FleetLedger["authority"]["capabilities"],
+        capabilities: [
+          "read",
+          "manager-decision",
+        ] as FleetLedger["authority"]["capabilities"],
       },
-      history: [{
-        decisionId: "decision-1",
-        operationId: "operation-1",
-        actorId: "manager-1",
-        actorRole: "WAVE_MANAGER",
-        action: "PROVISION_SANDBOX",
-        authorityEpoch: "epoch-1",
-        leaderGeneration: "7",
-        delegationId: "package-1",
-        managerGeneration: "3",
-        receiptState: "UNKNOWN",
-        receiptDigest: "sha256:" + "a".repeat(64),
-        createdAt: "2026-10-23T10:00:00.000Z",
-      }],
+      history: [
+        {
+          decisionId: "decision-1",
+          operationId: "operation-1",
+          actorId: "manager-1",
+          actorRole: "WAVE_MANAGER",
+          action: "PROVISION_SANDBOX",
+          authorityEpoch: "epoch-1",
+          leaderGeneration: "7",
+          delegationId: "package-1",
+          managerGeneration: "3",
+          receiptState: "UNKNOWN",
+          receiptDigest: "sha256:" + "a".repeat(64),
+          createdAt: "2026-10-23T10:00:00.000Z",
+        },
+      ],
     }));
     const view = await source.rpc.fleetLedger();
     expect(source.handlers.readAuthoritativeLedger).toHaveBeenCalledOnce();
@@ -277,6 +326,28 @@ describe("Fleet RPC boundaries", () => {
       delegationId: "package-1",
       receiptState: "UNKNOWN",
     });
+  });
+
+  it("rejects authoritative history that exceeds the bounded projection", async () => {
+    const source = backend();
+    source.handlers.readAuthoritativeLedger = vi.fn(async () => ({
+      authority: source.ledger.authority,
+      history: Array.from({ length: 501 }, (_, index) => ({
+        decisionId: `decision-${index}`,
+        operationId: `operation-${index}`,
+        actorId: "manager-1",
+        actorRole: "WAVE_MANAGER",
+        action: "PROVISION_SANDBOX",
+        authorityEpoch: null,
+        leaderGeneration: null,
+        delegationId: null,
+        managerGeneration: null,
+        receiptState: null,
+        receiptDigest: null,
+        createdAt: "2026-10-23T10:00:00.000Z",
+      })),
+    }));
+    await expect(source.rpc.fleetLedger()).rejects.toThrow();
   });
 
   it("clamps cap, rejects invalid targets and input, and bounds log tails", async () => {

@@ -24,6 +24,8 @@ import {
   FLEET_CHANGED_CHANNEL,
 } from "./contract.js";
 
+type DataFreshness = "fresh" | "stale" | "unknown";
+
 function elapsed(start: string | null, end: string | null, now: number) {
   return start === null
     ? "Pending"
@@ -41,27 +43,49 @@ export function FleetView() {
   const [cap, setCap] = useState("");
   const [now, setNow] = useState(Date.now());
   const [lastRefreshAt, setLastRefreshAt] = useState<number | null>(null);
+  const [dataFreshness, setDataFreshness] = useState<DataFreshness>("unknown");
   const connectionState = useRealtimeConnectionState();
   const active = useRef(false);
   const mutating = useRef(false);
   const revision = useRef(0);
+  const ledgerRef = useRef<FleetLedger | null>(null);
+  const refreshQueued = useRef(false);
+  const refreshInFlight = useRef<Promise<void> | null>(null);
+  ledgerRef.current = ledger;
   const refresh = useCallback(() => {
-    if (mutating.current) return;
-    const request = ++revision.current;
-    void rpc.call("fleetLedger").then(
-      (value) => {
-        if (active.current && request === revision.current) {
-          setLedger(value);
-          setError(null);
-          setNow(Date.now());
-          setLastRefreshAt(Date.now());
+    refreshQueued.current = true;
+    if (!active.current || mutating.current || refreshInFlight.current) return;
+    const run = async () => {
+      while (active.current && refreshQueued.current && !mutating.current) {
+        refreshQueued.current = false;
+        const request = ++revision.current;
+        try {
+          const value = await rpc.call("fleetLedger");
+          if (active.current && request === revision.current) {
+            ledgerRef.current = value;
+            setLedger(value);
+            setError(null);
+            setDataFreshness("fresh");
+            const refreshedAt = Date.now();
+            setNow(refreshedAt);
+            setLastRefreshAt(refreshedAt);
+          }
+        } catch (reason) {
+          if (active.current && request === revision.current) {
+            setError(String(reason));
+            setDataFreshness(ledgerRef.current === null ? "unknown" : "stale");
+          }
         }
-      },
-      (reason) => {
-        if (active.current && request === revision.current)
-          setError(String(reason));
-      },
-    );
+      }
+    };
+    const request = run();
+    refreshInFlight.current = request;
+    const settle = () => {
+      if (refreshInFlight.current === request) refreshInFlight.current = null;
+      if (active.current && refreshQueued.current && !mutating.current)
+        refresh();
+    };
+    void request.then(settle, settle);
   }, [rpc]);
   useRealtime(FLEET_CHANGED_CHANNEL, refresh);
   useEffect(() => {
@@ -70,10 +94,18 @@ export function FleetView() {
   useEffect(() => {
     active.current = true;
     refresh();
-    const timer = setInterval(refresh, 5000);
+    const onVisibilityChange = () => {
+      if (document.visibilityState !== "hidden") refresh();
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    const timer = setInterval(() => {
+      if (document.visibilityState !== "hidden") refresh();
+    }, 5000);
     return () => {
       active.current = false;
       ++revision.current;
+      refreshQueued.current = false;
+      document.removeEventListener("visibilitychange", onVisibilityChange);
       clearInterval(timer);
     };
   }, [refresh]);
@@ -86,20 +118,36 @@ export function FleetView() {
     try {
       const value = await rpc.call("fleetAction", input);
       if (active.current) {
+        ledgerRef.current = value;
         setLedger(value);
-        setNow(Date.now());
+        setDataFreshness("fresh");
+        const refreshedAt = Date.now();
+        setNow(refreshedAt);
+        setLastRefreshAt(refreshedAt);
       }
     } catch (reason) {
       if (active.current) setError(String(reason));
     } finally {
       mutating.current = false;
       if (active.current) setBusy(false);
+      if (active.current && refreshQueued.current) refresh();
     }
   }
   const selected =
     ledger?.jobs.find((job) => job.id === selectedId) ?? ledger?.jobs[0];
   const canLegacyMutate =
     ledger?.authority.capabilities.includes("legacy-mutate") ?? false;
+  const uncertainAuthority = ledger
+    ? ["UNKNOWN", "OUTCOME_UNKNOWN"].includes(
+        ledger.authority.state.toUpperCase(),
+      )
+    : false;
+  const uncertainHistory =
+    ledger?.history.some((row) =>
+      ["UNKNOWN", "OUTCOME_UNKNOWN"].includes(
+        row.receiptState?.toUpperCase() ?? "",
+      ),
+    ) ?? false;
   const matches = (item: { state: string }) =>
     (states.length === 0 || states.includes(item.state)) &&
     JSON.stringify(item).toLowerCase().includes(query.toLowerCase());
@@ -140,12 +188,21 @@ export function FleetView() {
         }
       >
         <h1 className="text-xl font-semibold">Fleet</h1>
-        <p role="status" aria-label="Fleet freshness" className="text-sm text-muted-foreground">
-          Realtime: {connectionState}. {connectionState === "connected"
-            ? lastRefreshAt === null
-              ? "Causal freshness is pending the first ledger read."
-              : `Causal freshness as of ${new Date(lastRefreshAt).toISOString()}.`
-            : "Causal freshness is unknown until the connection recovers."}
+        <p
+          role="status"
+          aria-label="Fleet freshness"
+          className="text-sm text-muted-foreground"
+        >
+          Realtime: {connectionState}. Data: {dataFreshness.toUpperCase()}.{" "}
+          {dataFreshness === "stale"
+            ? "The last ledger read failed; displayed data may be stale."
+            : dataFreshness === "unknown"
+              ? "Causal freshness is UNKNOWN until an authoritative ledger read succeeds."
+              : connectionState === "connected"
+                ? lastRefreshAt === null
+                  ? "Causal freshness is pending the first ledger read."
+                  : `Causal freshness as of ${new Date(lastRefreshAt).toISOString()}.`
+                : "Causal freshness is unknown until the connection recovers."}
         </p>
         {error && (
           <p
@@ -174,9 +231,35 @@ export function FleetView() {
                 {ledger.authority.capabilities.join(", ")}
               </p>
               <p className="text-sm text-muted-foreground">
-                Authority epoch: {ledger.authority.authorityEpoch ?? "Unknown"}{" "}
-                | As of: {ledger.authority.asOf}
+                Authority epoch: {ledger.authority.authorityEpoch ?? "UNKNOWN"}{" "}
+                | Leader generation:{" "}
+                {ledger.authority.leaderGeneration ?? "UNKNOWN"} | Manager
+                generation: {ledger.authority.managerGeneration ?? "UNKNOWN"} |
+                Delegation: {ledger.authority.delegationId ?? "UNKNOWN"} | As
+                of: {ledger.authority.asOf}
               </p>
+              {uncertainAuthority && (
+                <p
+                  role="alert"
+                  aria-label="Fleet authority warning"
+                  className="text-sm text-destructive"
+                >
+                  Authority state {ledger.authority.state} is UNKNOWN; reconcile
+                  the current authority before treating this view as committed
+                  state.
+                </p>
+              )}
+              {uncertainHistory && (
+                <p
+                  role="alert"
+                  aria-label="Fleet outcome warning"
+                  className="text-sm text-destructive"
+                >
+                  One or more authoritative operations have UNKNOWN or
+                  OUTCOME_UNKNOWN receipts; reconcile the original operation
+                  before retrying it.
+                </p>
+              )}
               {ledger.authority.mode === "manager" && (
                 <p role="status" className="text-sm text-muted-foreground">
                   Manager-directed dispatch is read-only here. Submit an
@@ -419,19 +502,72 @@ export function FleetView() {
                 </pre>
               </ResourceDetailPanel>
             )}
-            <section aria-label="Authoritative history" className="overflow-x-auto">
+            <section
+              aria-label="Authoritative history"
+              className="overflow-x-auto"
+            >
               <h2 className="font-semibold mb-3">Authoritative history</h2>
-              {ledger.history.length === 0 ? <p>No control-plane receipts</p> : (
+              {ledger.history.length === 0 ? (
+                <p>No control-plane receipts</p>
+              ) : (
                 <table className="w-full text-left text-sm [&_td]:p-3 [&_th]:p-3 [&_tr]:border-b [&_tr]:border-border">
-                  <thead><tr>{["Action", "Actor", "Delegation", "Generations", "Receipt", "Created"].map(label => <th key={label}>{label}</th>)}</tr></thead>
-                  <tbody>{ledger.history.map(row => <tr key={row.operationId}>
-                    <td>{row.action}<small className="block text-muted-foreground">{row.decisionId}</small></td>
-                    <td>{row.actorRole}: {row.actorId}</td>
-                    <td>{row.delegationId ?? "Primary"}</td>
-                    <td>{row.authorityEpoch ?? "?"}/{row.leaderGeneration ?? "?"}/{row.managerGeneration ?? "?"}</td>
-                    <td><ResourceStatus tone={row.receiptState === "UNKNOWN" ? "warning" : row.receiptState === "SUCCEEDED" ? "success" : "muted"}>{row.receiptState ?? "PENDING"}</ResourceStatus>{row.receiptDigest && <small className="block text-muted-foreground">{row.receiptDigest}</small>}</td>
-                    <td>{row.createdAt}</td>
-                  </tr>)}</tbody>
+                  <thead>
+                    <tr>
+                      {[
+                        "Action",
+                        "Actor",
+                        "Delegation",
+                        "Generations",
+                        "Receipt",
+                        "Created",
+                      ].map((label) => (
+                        <th key={label}>{label}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {ledger.history.map((row) => (
+                      <tr key={row.operationId}>
+                        <td>
+                          {row.action}
+                          <small className="block text-muted-foreground">
+                            {row.decisionId}
+                          </small>
+                        </td>
+                        <td>
+                          {row.actorRole}: {row.actorId}
+                        </td>
+                        <td>{row.delegationId ?? "Primary"}</td>
+                        <td>
+                          {row.authorityEpoch ?? "?"}/
+                          {row.leaderGeneration ?? "?"}/
+                          {row.managerGeneration ?? "?"}
+                        </td>
+                        <td>
+                          <ResourceStatus
+                            tone={
+                              ["UNKNOWN", "OUTCOME_UNKNOWN"].includes(
+                                row.receiptState?.toUpperCase() ?? "",
+                              )
+                                ? "warning"
+                                : row.receiptState?.toUpperCase() ===
+                                    "SUCCEEDED"
+                                  ? "success"
+                                  : "muted"
+                            }
+                          >
+                            {row.receiptState ?? "PENDING"}
+                          </ResourceStatus>
+                          {row.receiptDigest && (
+                            <small className="block text-muted-foreground">
+                              {row.receiptDigest}
+                            </small>
+                          )}
+                        </td>
+                        <td>{row.createdAt}</td>
+                      </tr>
+                    ))}
+                  </tbody>
                 </table>
               )}
             </section>

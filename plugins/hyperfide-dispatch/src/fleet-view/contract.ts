@@ -3,6 +3,7 @@ import { z } from "zod";
 
 /** Realtime channel emitted after a fleet projection mutation or reconciliation. */
 export const FLEET_CHANGED_CHANNEL = "fleet:changed";
+export const MAX_FLEET_HISTORY_ENTRIES = 500;
 
 export const stages = [
   "created",
@@ -17,9 +18,18 @@ export const stages = [
   "failed",
 ] as const;
 const timestamp = z.string().datetime();
-const authorityRole = z.enum(["PRIMARY", "FEATURE_MANAGER", "OPERATOR", "UNKNOWN"]);
+const authorityRole = z.enum([
+  "PRIMARY",
+  "FEATURE_MANAGER",
+  "OPERATOR",
+  "UNKNOWN",
+]);
 const authorityMode = z.enum(["manager", "legacy-nonadaptive"]);
-const authorityCapability = z.enum(["read", "legacy-mutate", "manager-decision"]);
+const authorityCapability = z.enum([
+  "read",
+  "legacy-mutate",
+  "manager-decision",
+]);
 export const fleetAuthoritySchema = z.object({
   /** Which planner owns mutations for this ledger. */
   mode: authorityMode,
@@ -85,27 +95,34 @@ export const ledgerSchema = z.object({
   // Authoritative control-plane decision/effect history. Local dispatcher
   // records remain useful for legacy jobs, but manager-directed work is only
   // represented here when it has a durable control-plane receipt.
-  history: z.array(z.object({
-    decisionId: z.string(),
-    operationId: z.string(),
-    actorId: z.string(),
-    actorRole: z.string(),
-    action: z.string(),
-    authorityEpoch: z.string().nullable(),
-    leaderGeneration: z.string().nullable(),
-    delegationId: z.string().nullable(),
-    managerGeneration: z.string().nullable(),
-    receiptState: z.string().nullable(),
-    receiptDigest: z.string().nullable(),
-    createdAt: timestamp,
-  })).default([]),
+  history: z
+    .array(
+      z.object({
+        decisionId: z.string(),
+        operationId: z.string(),
+        actorId: z.string(),
+        actorRole: z.string(),
+        action: z.string(),
+        authorityEpoch: z.string().nullable(),
+        leaderGeneration: z.string().nullable(),
+        delegationId: z.string().nullable(),
+        managerGeneration: z.string().nullable(),
+        receiptState: z.string().nullable(),
+        receiptDigest: z.string().nullable(),
+        createdAt: timestamp,
+      }),
+    )
+    .max(MAX_FLEET_HISTORY_ENTRIES)
+    .default([]),
 });
 export type FleetLedger = z.infer<typeof ledgerSchema>;
 export const authoritativeLedgerSchema = z.object({
   authority: fleetAuthoritySchema,
   history: ledgerSchema.shape.history,
 });
-export type AuthoritativeFleetLedger = z.infer<typeof authoritativeLedgerSchema>;
+export type AuthoritativeFleetLedger = z.infer<
+  typeof authoritativeLedgerSchema
+>;
 export const actionSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("cancel"), id: z.string().min(1) }),
   z.object({ kind: z.literal("destroy"), id: z.string().min(1) }),

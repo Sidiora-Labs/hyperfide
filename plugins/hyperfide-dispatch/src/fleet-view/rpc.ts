@@ -5,6 +5,7 @@ import {
 } from "@hyperfide/plugin-sdk";
 import {
   actionSchema,
+  authoritativeLedgerSchema,
   fleetRpcContract,
   ledgerSchema,
   importLedgersSchema,
@@ -17,7 +18,10 @@ import type { z } from "zod";
 export interface FleetBackend {
   readLedger(): Promise<FleetLedger>;
   /** Optional authenticated control-plane projection for manager-directed work. */
-  readAuthoritativeLedger?(): Promise<Pick<FleetLedger, "authority" | "history"> | null>;
+  readAuthoritativeLedger?(): Promise<Pick<
+    FleetLedger,
+    "authority" | "history"
+  > | null>;
   cancelJob(id: string): Promise<void>;
   destroyMachine(id: string): Promise<void>;
   setPaused(paused: boolean): Promise<void>;
@@ -28,14 +32,19 @@ export interface FleetBackend {
 export function createFleetHandlers(backend: FleetBackend) {
   const fleetLedger = async () => {
     const ledger = ledgerSchema.parse(await backend.readLedger());
-    const authoritative = backend.readAuthoritativeLedger
+    const authoritativeValue = backend.readAuthoritativeLedger
       ? await backend.readAuthoritativeLedger()
       : null;
-    return {
+    const authoritative = authoritativeValue
+      ? authoritativeLedgerSchema.parse(authoritativeValue)
+      : null;
+    return ledgerSchema.parse({
       ...ledger,
-      ...(authoritative ? { authority: authoritative.authority, history: authoritative.history } : {}),
+      ...(authoritative
+        ? { authority: authoritative.authority, history: authoritative.history }
+        : {}),
       jobs: ledger.jobs.map((job) => ({ ...job, log: job.log.slice(-16384) })),
-    };
+    });
   };
   // Serialize mutations so two cap changes cannot apply out of order.
   let queue = Promise.resolve();
@@ -106,18 +115,22 @@ export function registerFleetRpc(
       });
     }
   };
-  api.rpc.register(fleetRpcContract, {
-    fleetLedger: handlers.fleetLedger,
-    fleetAction: (input, context) => {
-      requireClient(context);
-      return handlers.fleetAction(input);
+  api.rpc.register(
+    fleetRpcContract,
+    {
+      fleetLedger: handlers.fleetLedger,
+      fleetAction: (input, context) => {
+        requireClient(context);
+        return handlers.fleetAction(input);
+      },
+      fleetImportLedgers: (input, context) => {
+        requireClient(context);
+        return handlers.fleetImportLedgers(input);
+      },
     },
-    fleetImportLedgers: (input, context) => {
-      requireClient(context);
-      return handlers.fleetImportLedgers(input);
+    {
+      experimental_discoverable: true,
+      experimental_description: "Read and control the dispatch fleet",
     },
-  }, {
-    experimental_discoverable: true,
-    experimental_description: "Read and control the dispatch fleet",
-  });
+  );
 }
