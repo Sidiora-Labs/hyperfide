@@ -583,6 +583,13 @@ export class SourceQueries {
             ? this.reader.tree(work.after, work.after_name, amount)
             : Promise.resolve({ entries: [], next_cursor: null }),
         ]);
+      // Tree pages are the diff's source payload. Account for both pages
+      // before processing entries so an oversized page cannot evade the
+      // caller's byte budget merely because its entries produce no output.
+      meter.addBytes(
+        Buffer.byteLength(canonicalJSON(a.entries)) +
+          Buffer.byteLength(canonicalJSON(b.entries)),
+      );
       const old = new Map(a.entries.map((entry) => [entry.name, entry])),
         next = new Map(b.entries.map((entry) => [entry.name, entry]));
       const names = [...new Set([...old.keys(), ...next.keys()])]

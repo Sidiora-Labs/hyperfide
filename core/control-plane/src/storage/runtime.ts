@@ -229,6 +229,15 @@ export class ResourceContainer implements ServiceResources {
     const deadline=deadlineFrom(options.timeoutMs),lease=await this.pool(route).acquire(deadline,options.signal);
     const session=this.session(lease,deadline,true);let healthy=true;
     try{
+      if(route==='replica'){
+        const recovery=(await bounded(
+          lease.client.query<{recovery:boolean}>('SELECT pg_is_in_recovery() AS recovery'),
+          deadline,
+          lease.signal,
+        )).rows[0]?.recovery;
+        if(recovery!==true)
+          throw new StorageError('REPLICA_REQUIRED','Configured observation route is not a physical replica');
+      }
       await lease.client.query('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY');
       const value=await bounded(Promise.resolve().then(()=>operation(session)),deadline,lease.signal);
       await lease.client.query('COMMIT');return {value,route,observedAt:new Date().toISOString()};

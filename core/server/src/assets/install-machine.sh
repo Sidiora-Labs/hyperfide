@@ -702,9 +702,9 @@ host_daemon_port_temp="$host_daemon_port_file.$$.tmp"
 mv "$host_daemon_port_temp" "$host_daemon_port_file"
 complete_step "Using local host-daemon port $host_daemon_port"
 
-# The server's own build is always installed when it offers one: version
-# strings cannot distinguish unpublished builds, so an existing hyperfide-app is
-# trusted only when the server provides no package (404) or is unreachable.
+# The server's own build is always installed when it offers one. A missing
+# server artifact is an installation failure; never substitute an unpinned
+# package from the public npm registry.
 package_url="${server_url%/}/install/hyperfide-app.tgz"
 package_dir=$(mktemp -d "${TMPDIR:-/tmp}/hyperfide-app.XXXXXX")
 package_file="$package_dir/hyperfide-app.tgz"
@@ -880,17 +880,9 @@ elif command -v hyperfide-app >/dev/null 2>&1; then
     warning_step "Could not download the server's hyperfide-app package (HTTP $package_status); using hyperfide-app at $hyperfide_app"
   fi
 elif [ "$package_status" = 404 ]; then
-  require_npm
-  rm -f "$host_artifact_digest_file"
-  warning_step "The server does not provide its hyperfide-app package"
-  active_step "Installing hyperfide-app from the npm registry"
-  if ! npm install -g "$hyperfide_app_allow_scripts" --prefix "$machine_npm_prefix" hyperfide-app; then
-    rm -rf "$package_dir"
-    fail_step "Could not install hyperfide-app for this machine. Check the npm error above, then rerun this command."
-    exit 1
-  fi
-  hyperfide_app_npm_prefix=$machine_npm_prefix
-  complete_step "Installed hyperfide-app from the npm registry"
+  rm -rf "$package_dir"
+  fail_step "The server does not provide its hyperfide-app package; refusing to install an unpinned npm package."
+  exit 1
 else
   rm -rf "$package_dir"
   fail_step "Could not download the server's hyperfide-app package from $package_url (HTTP $package_status)."

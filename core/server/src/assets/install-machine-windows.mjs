@@ -450,11 +450,9 @@ async function downloadPackage({ bootstrap, dataDir, npmPrefix }) {
     return;
   }
   if (response.status === 404) {
-    warn("The server does not provide its hyperfide-app package");
-    step("Installing hyperfide-app from the npm registry");
-    await installPackage({ dataDir, npmPrefix, source: "hyperfide-app" });
-    done("Installed hyperfide-app from the npm registry");
-    return;
+    throw new InstallError(
+      "The server does not provide its hyperfide-app package; refusing to install an unpinned npm package.",
+    );
   }
   if (!response.ok) {
     const details = [];

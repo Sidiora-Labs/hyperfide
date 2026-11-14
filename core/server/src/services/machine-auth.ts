@@ -289,8 +289,10 @@ export async function createMachineAuthService(
     hostId: string,
     preserveKeyId?: string,
   ): Promise<void> {
-    await ensureReady();
+    // Invalidate before asynchronous readiness/database work so a concurrent
+    // verifier cannot return a cached credential while revocation is pending.
     if (configId === DAEMON_HOST_CONFIG_ID) invalidateDaemonHostKeys(hostId);
+    await ensureReady();
     await args.db
       .update(authApiKeys)
       .set({
@@ -417,8 +419,10 @@ export async function createMachineAuthService(
     async revokeHostAuthKeys({
       hostId,
     }: RevokeHostAuthKeysArgs): Promise<void> {
-      await disableActiveKeysForHost(DAEMON_ENROLL_CONFIG_ID, hostId);
-      await disableActiveKeysForHost(DAEMON_HOST_CONFIG_ID, hostId);
+      await runSerialized(hostOperations, hostId, async () => {
+        await disableActiveKeysForHost(DAEMON_ENROLL_CONFIG_ID, hostId);
+        await disableActiveKeysForHost(DAEMON_HOST_CONFIG_ID, hostId);
+      });
     },
     async verifyDaemonHostKey(
       token: string,
