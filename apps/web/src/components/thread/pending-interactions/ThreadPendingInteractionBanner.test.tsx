@@ -10,7 +10,10 @@ import {
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter } from "react-router-dom";
-import type { PendingInteraction, PluginPendingInteraction } from "@hyperfide/domain";
+import type {
+  PendingInteraction,
+  PluginPendingInteraction,
+} from "@hyperfide/domain";
 import type { PluginPendingInteractionProps } from "@hyperfide/plugin-sdk";
 import {
   resetPluginSlotStoreForTest,
@@ -734,6 +737,36 @@ describe("ThreadPendingInteractionBanner collapsed strip", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
     expect(mocks.stopMutateAsync).toHaveBeenCalledWith("thr_1");
+  });
+
+  it("shows a cancellation failure without leaving the question settled", async () => {
+    mocks.stopMutateAsync.mockRejectedValueOnce(new Error("offline"));
+    const question: PendingInteraction = {
+      ...planReview,
+      id: "pint_question_cancel_failure",
+      resolution: null,
+      payload: {
+        kind: "user_question",
+        questions: [
+          {
+            id: "path",
+            prompt: "Which path should I take?",
+            multiSelect: false,
+            allowFreeText: false,
+            options: [{ value: "a", label: "A", description: "Option A" }],
+          },
+        ],
+      },
+    };
+    renderBanner(question);
+
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+
+    expect(await screen.findByText("offline")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Cancel" })).toHaveProperty(
+      "disabled",
+      false,
+    );
   });
 });
 

@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import type { PendingInteractionUserQuestionQuestion } from "@hyperfide/domain";
 import { QuestionForm } from "@hyperfide/shared-ui/question-form";
 import { useResolveThreadPendingInteraction } from "@/hooks/mutations/thread-interaction-mutations";
@@ -30,6 +30,7 @@ export function UserQuestionAnswerForm({
   const resolvePendingInteraction =
     useResolveThreadPendingInteraction(threadId);
   const stopThread = useStopThread();
+  const [cancelError, setCancelError] = useState<unknown>(null);
   const disabled = resolvePendingInteraction.isPending || isResolving;
   const error = resolvePendingInteraction.error
     ? getMutationErrorMessage({
@@ -37,7 +38,13 @@ export function UserQuestionAnswerForm({
         fallbackMessage: "Failed to submit answer",
         lifecycleOperation: "resolve_interaction",
       })
-    : null;
+    : cancelError
+      ? getMutationErrorMessage({
+          error: cancelError,
+          fallbackMessage: "Failed to cancel question",
+          lifecycleOperation: "stop_thread",
+        })
+      : null;
   return (
     <div>
       <QuestionForm
@@ -55,7 +62,15 @@ export function UserQuestionAnswerForm({
             })
             .then(() => {});
         }}
-        onCancel={() => stopThread.mutateAsync(threadId).then(() => {})}
+        onCancel={async () => {
+          setCancelError(null);
+          try {
+            await stopThread.mutateAsync(threadId);
+          } catch (cause) {
+            setCancelError(cause);
+            throw cause;
+          }
+        }}
       />
       {error ? (
         <div className="mt-2 shrink-0 rounded-md border border-surface-destructive-border bg-surface-destructive px-3 py-2 text-xs text-destructive-text">
