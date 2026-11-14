@@ -43,6 +43,10 @@ const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const record = (v: unknown): v is Record<string, unknown> => !!v && typeof v === "object" && !Array.isArray(v);
 /** Actions which can be selected by a Primary or delegated Feature Manager. */
 export const FLEET_COORDINATION_ACTIONS = [
+  "CONFIGURE_WAVE",
+  "DELEGATE_WAVE",
+  "REPLACE_MANAGER",
+  "SOURCE_OPERATION",
   "fleet.install.admit",
   "fleet.install.adopt",
   "PROVISION_SANDBOX",
