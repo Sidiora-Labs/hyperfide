@@ -190,8 +190,6 @@ export function createPushRegistrationController(
           const outcome = await sync(profile);
           if (outcome.action === "failed") failed = true;
         }
-        // Keep a failed token event eligible for a later retry. Token listeners
-        // can emit only once, so callers may explicitly replay the same event.
         if (!failed) lastDeviceToken = deviceToken;
       })();
       processingDeviceToken = { token: deviceToken, promise };
