@@ -11,6 +11,7 @@
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <sys/file.h>
 #include <sys/stat.h>
 #include <unistd.h>
 #include <time.h>
@@ -60,6 +61,27 @@ static int head_write(const Cg *cg, const char *hash) {
     /* HEAD uses the same staged rename as objects: a reader never sees a
      * partially-written commit id. */
     return write_entire_file(p, hash, strlen(hash));
+}
+
+/* HEAD is a small file rather than a database row.  Serialise the complete
+ * read-parent/write-head sequence so concurrent commits cannot both build
+ * from the same parent and let the later rename hide the earlier commit. */
+static int head_lock(const Cg *cg) {
+    char p[4900];
+    snprintf(p, sizeof p, "%s/%s.lock", cg->shared, CG_HEAD);
+    int fd = open(p, O_CREAT | O_RDWR | O_CLOEXEC, 0600);
+    if (fd < 0 || flock(fd, LOCK_EX) != 0) {
+        if (fd >= 0) close(fd);
+        return -1;
+    }
+    return fd;
+}
+
+static void head_unlock(int fd) {
+    if (fd >= 0) {
+        flock(fd, LOCK_UN);
+        close(fd);
+    }
 }
 
 /* resolve a (possibly abbreviated) commit id; "HEAD" allowed */
@@ -429,10 +451,18 @@ int cmd_commit_with_options(Cg *cg, const char *msg, bool quiet,
     }
     free(mdata);
 
+    int hlock = head_lock(cg);
+    if (hlock < 0) {
+        fprintf(stderr, "cg: cannot lock HEAD\n");
+        man_free(&m);
+        return 1;
+    }
+
     char parent[65] = "";
     bool has_parent = head_read(cg, parent) == 0;
     if (amend && !has_parent) {
         if (!quiet) fprintf(stderr, "cg: cannot amend before the first snapshot\n");
+        head_unlock(hlock);
         man_free(&m);
         return 1;
     }
@@ -448,11 +478,13 @@ int cmd_commit_with_options(Cg *cg, const char *msg, bool quiet,
             if (same && !amend) {
                 if (!quiet) printf("nothing to commit (tree unchanged)\n");
                 man_free(&m);
+                head_unlock(hlock);
                 return 0;
             }
         } else if (amend) {
             if (!quiet) fprintf(stderr, "cg: cannot load snapshot being amended\n");
             man_free(&m);
+            head_unlock(hlock);
             return 1;
         }
     }
@@ -479,18 +511,19 @@ int cmd_commit_with_options(Cg *cg, const char *msg, bool quiet,
     char commit_hash[65];
     if (obj_write(cg, c.p, c.len, commit_hash) != 0) {
         fprintf(stderr, "cg: cannot write commit object\n");
-        sb_free(&c); free(tagged); man_free(&m); return 1;
+        sb_free(&c); free(tagged); man_free(&m); head_unlock(hlock); return 1;
     }
     sb_free(&c);
     if (head_write(cg, commit_hash) != 0) {
         fprintf(stderr, "cg: cannot update HEAD; snapshot remains unreferenced\n");
-        free(tagged); man_free(&m); return 1;
+        free(tagged); man_free(&m); head_unlock(hlock); return 1;
     }
 
     if (!quiet)
         printf("[%.12s] %d files — %s\n", commit_hash, m.n, final_msg);
     free(tagged);
     man_free(&m);
+    head_unlock(hlock);
     return 0;
 }
 

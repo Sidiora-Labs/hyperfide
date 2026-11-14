@@ -162,10 +162,7 @@ function validateSymlinkTarget(pathname: string, bytes: Buffer): void {
     path.posix.join(path.posix.dirname(pathname), target),
   );
   if (resolved === ".." || resolved.startsWith("../"))
-    workspaceError(
-      "SYMLINK_ESCAPE",
-      "Symlink target escapes the workspace",
-    );
+    workspaceError("SYMLINK_ESCAPE", "Symlink target escapes the workspace");
 }
 function mode(entry: SourceEntry): number {
   return entry.kind === "directory"
@@ -607,8 +604,7 @@ export class NativeVirtualFilesystem {
               !file.isFile() ||
               file.size !== entry.size ||
               file.mode & 0o077 ||
-              "sha256:" +
-                createHash("sha256").update(payload).digest("hex") !==
+              "sha256:" + createHash("sha256").update(payload).digest("hex") !==
                 entry.digest
             )
               workspaceError(
@@ -783,7 +779,8 @@ export class NativeVirtualFilesystem {
     await this.current(node.path, false, signal);
     if (node.overlay) {
       const bytes = await this.readOverlay(node.overlay);
-      if (node.entry.kind === "symlink") validateSymlinkTarget(node.path, bytes);
+      if (node.entry.kind === "symlink")
+        validateSymlinkTarget(node.path, bytes);
       return bytes;
     }
     const key = node.entry.object_id + ":" + node.path;
@@ -996,6 +993,7 @@ export class NativeVirtualFilesystem {
     const emitted = new Set<string>();
     if (!node.overlay) {
       let cursor: string | undefined;
+      const cursors = new Set<string>();
       do {
         this.metrics.metadataRequests++;
         const page = await this.client.entries(
@@ -1018,7 +1016,11 @@ export class NativeVirtualFilesystem {
             kind: child.entry.kind,
           };
         }
-        cursor = page.next_cursor ?? undefined;
+        const next = page.next_cursor ?? undefined;
+        if (next !== undefined && (next === cursor || cursors.has(next)))
+          workspaceError("TREE_PAGINATION", "Tree cursor did not advance");
+        if (next !== undefined) cursors.add(next);
+        cursor = next;
       } while (cursor);
     }
     for (const entry of this.state.overlay)
@@ -1622,7 +1624,6 @@ export class NativeVirtualFilesystem {
       );
     await this.current();
     await this.load();
-    await this.claimOwner();
     const escaped = path
       .resolve(this.options.mountpoint)
       .replaceAll(" ", "\\040");
@@ -1636,6 +1637,40 @@ export class NativeVirtualFilesystem {
             "VIRTUAL_MOUNT_OCCUPIED",
             "Mountpoint belongs to another filesystem",
           );
+        /* Never tear down a live mount until its durable owner proves that it
+         * is this workspace and this descriptor generation. */
+        let ownerRaw: string;
+        try {
+          ownerRaw = await fs.readFile(this.ownerPath(), "utf8");
+        } catch (error) {
+          if ((error as NodeJS.ErrnoException).code === "ENOENT")
+            workspaceError(
+              "VIRTUAL_MOUNT_BUSY",
+              "Mounted filesystem has no verifiable owner",
+            );
+          throw error;
+        }
+        const owner = JSON.parse(ownerRaw);
+        if (
+          owner.workspace_id !== this.descriptor.workspace_id ||
+          owner.binding !== binding(this.descriptor)
+        )
+          workspaceError(
+            "VIRTUAL_MOUNT_BUSY",
+            "Mountpoint is owned by another workspace",
+          );
+        try {
+          const record = (await fs.readFile(`/proc/${owner.pid}/stat`, "utf8"))
+            .split(") ")[1]!
+            .split(" ");
+          if (record[0] !== "Z" && record[19] === owner.start)
+            workspaceError(
+              "VIRTUAL_MOUNT_BUSY",
+              "The existing virtual daemon is still running",
+            );
+        } catch (error) {
+          if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+        }
         await fs.writeFile(
           `/sys/fs/fuse/connections/${prior.split(" ")[2]!.split(":")[1]}/abort`,
           "1",
@@ -1657,6 +1692,7 @@ export class NativeVirtualFilesystem {
       const directory = await fs.lstat(this.options.mountpoint);
       if (
         directory.uid !== process.getuid?.() ||
+        (process.getgid !== undefined && directory.gid !== process.getgid()) ||
         directory.mode & 0o022 ||
         (await fs.readdir(this.options.mountpoint)).length
       )
@@ -1664,9 +1700,15 @@ export class NativeVirtualFilesystem {
           "VIRTUAL_MOUNT_OCCUPIED",
           "Virtual mountpoint must be an owned empty directory",
         );
+      /* Claim the state only after validating the actual mountpoint.  This
+       * prevents a failed startup on an occupied or foreign directory from
+       * deleting/replacing a previous daemon's ownership record. */
+      await this.claimOwner();
     } catch (error) {
-      await fs.unlink(this.ownerPath());
-      this.ownsMount = false;
+      if (this.ownsMount) {
+        await fs.unlink(this.ownerPath()).catch(() => {});
+        this.ownsMount = false;
+      }
       throw error;
     }
     try {

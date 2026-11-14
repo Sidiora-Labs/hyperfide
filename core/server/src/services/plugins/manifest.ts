@@ -12,6 +12,7 @@ import { resolvePluginCodeThemePath } from "../system/code-themes.js";
 import {
   readPluginPackageJsonFile,
   resolveManifestAssetFile,
+  resolveManifestDirectory,
   resolveManifestEntryFile,
   resolveManifestPath,
   assertValidPluginCompactIconSvg,
@@ -105,8 +106,14 @@ export async function readPluginManifest(
   const hostEntry = hyperfide.host
     ? await resolveManifestEntryFile(rootDir, hyperfide.host, "hyperfide.host")
     : undefined;
-  const skillsRootPaths = (hyperfide.skills ?? ["skills"]).map((entry) =>
-    resolveManifestPath(rootDir, entry.replace(/\/\*$/, ""), "hyperfide.skills"),
+  const skillsRootPaths = await Promise.all(
+    (hyperfide.skills ?? ["skills"]).map((entry) =>
+      resolveManifestDirectory(
+        rootDir,
+        entry.replace(/\/\*$/, ""),
+        "hyperfide.skills",
+      ),
+    ),
   );
   const resolveBrandingAsset = (entry: string, label: string): string => {
     if (!/\.(svg|png|webp)$/i.test(entry)) {
@@ -134,7 +141,8 @@ export async function readPluginManifest(
               }),
         };
   const brandingCompactIconPath =
-    hyperfide.branding.icon !== undefined && isPluginOwnedIconPath(hyperfide.branding.icon)
+    hyperfide.branding.icon !== undefined &&
+    isPluginOwnedIconPath(hyperfide.branding.icon)
       ? resolveBrandingAsset(hyperfide.branding.icon, "hyperfide.branding.icon")
       : undefined;
   for (const [label, assetPath] of [
@@ -164,7 +172,9 @@ export async function readPluginManifest(
   const themeIds = new Set<string>();
   const themes = (hyperfide.themes ?? []).map((theme) => {
     if (themeIds.has(theme.id)) {
-      throw new Error(`manifest hyperfide.themes contains duplicate id "${theme.id}"`);
+      throw new Error(
+        `manifest hyperfide.themes contains duplicate id "${theme.id}"`,
+      );
     }
     themeIds.add(theme.id);
     if (!theme.css.toLowerCase().endsWith(".css")) {
@@ -197,7 +207,11 @@ export async function readPluginManifest(
       id: theme.id,
       name: theme.name,
       description: theme.description ?? null,
-      cssPath: resolveManifestPath(rootDir, theme.css, `hyperfide.themes.${theme.id}.css`),
+      cssPath: resolveManifestPath(
+        rootDir,
+        theme.css,
+        `hyperfide.themes.${theme.id}.css`,
+      ),
       codeTheme,
       codeThemePaths,
     };
@@ -227,7 +241,9 @@ export async function readPluginManifest(
     name: hyperfide.name,
     description: hyperfide.description,
     branding: {
-      ...(hyperfide.branding.icon === undefined ? {} : { icon: hyperfide.branding.icon }),
+      ...(hyperfide.branding.icon === undefined
+        ? {}
+        : { icon: hyperfide.branding.icon }),
       ...(brandingCompactIconPath === undefined
         ? {}
         : { compactIconPath: brandingCompactIconPath }),
@@ -240,7 +256,9 @@ export async function readPluginManifest(
       ({ id, displayName }) => ({ id, displayName }),
     ),
     serverEntry,
-    appEntry: hyperfide.app ? resolveManifestPath(rootDir, hyperfide.app, "hyperfide.app") : undefined,
+    appEntry: hyperfide.app
+      ? resolveManifestPath(rootDir, hyperfide.app, "hyperfide.app")
+      : undefined,
     hostEntry,
     themes,
     skillsRootPaths,

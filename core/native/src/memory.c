@@ -1501,6 +1501,15 @@ static void port_plan(Cg *cg, PortIn *in, const MemImportOpts *o,
                       const CidRow *tv, int tn, int *cleared) {
     const char *eq = o->retask ? strchr(o->retask, '=') : NULL;
     size_t olen = eq ? (size_t)(eq - o->retask) : 0;
+    /* Retasking changes the content identity (the task is part of the
+     * identity), so keep the source identities around while rewriting. A
+     * supersession edge must follow the rewritten successor rather than
+     * dangling at the pre-retask id. */
+    char (*original)[65] = xmalloc(sizeof(*original) * (size_t)(in->n ? in->n : 1));
+    for (int i = 0; i < in->n; i++) {
+        memory_content_id(in->v[i].type, in->v[i].task, in->v[i].body,
+                          original[i]);
+    }
     for (int i = 0; i < in->n; i++) {
         PortRec *r = &in->v[i];
         /* a tag prefix, matched on a boundary: codify-v12 rewrites
@@ -1535,6 +1544,19 @@ static void port_plan(Cg *cg, PortIn *in, const MemImportOpts *o,
         r->row = cid_row(tv, tn, r->cid);
         r->fresh = r->row == 0;
     }
+    if (eq) {
+        for (int i = 0; i < in->n; i++) {
+            PortRec *r = &in->v[i];
+            if (!r->sup || !r->sup[0]) continue;
+            for (int j = 0; j < in->n; j++) {
+                if (strcmp(original[j], r->sup) == 0) {
+                    free(r->sup);
+                    r->sup = xstrdup(in->v[j].cid);
+                    break;
+                }
+            }
+        }
+    }
     /* the same note twice in one file lands once: the first line wins */
     CidRow *byc = xmalloc(sizeof *byc * (size_t)(in->n ? in->n : 1));
     for (int i = 0; i < in->n; i++) {
@@ -1551,6 +1573,7 @@ static void port_plan(Cg *cg, PortIn *in, const MemImportOpts *o,
         r->fresh = false;
     }
     free(byc);
+    free(original);
 }
 
 static int port_read_input(Cg *cg, const MemImportOpts *o, char **text,

@@ -154,6 +154,24 @@ static int list_records(const char *dir, char ***out) {
     return n;
 }
 
+/* A process can die after fsyncing a journal temp but before rename.  Temp
+ * files are never records and must not accumulate or be mistaken for a
+ * pending count. */
+static void prune_temporary(const char *dir) {
+    DIR *d = opendir(dir);
+    if (!d) return;
+    time_t now = time(NULL);
+    struct dirent *e;
+    while ((e = readdir(d))) {
+        if (strncmp(e->d_name, ".tmp-", 5) != 0) continue;
+        char p[5000];
+        snprintf(p, sizeof p, "%s/%s", dir, e->d_name);
+        struct stat st;
+        if (stat(p, &st) == 0 && now - st.st_mtime > 3600) unlink(p);
+    }
+    closedir(d);
+}
+
 static void free_list(char **v, int n) {
     for (int i = 0; i < n; i++) free(v[i]);
     free(v);
@@ -162,6 +180,7 @@ static void free_list(char **v, int n) {
 int journal_pending(const Cg *cg, int *failed) {
     char dir[4700], fdir[4800];
     journal_dir(cg, dir, sizeof dir);
+    prune_temporary(dir);
     char **v;
     int n = list_records(dir, &v);
     free_list(v, n);
@@ -370,9 +389,12 @@ static int g_replaying;
 int journal_replay(Cg *cg, JournalMode mode) {
     if (!cg || !cg->db || g_replaying) return 0;
     bool held = mode == JOURNAL_HELD;
+    char prune_dir[4700];
+    journal_dir(cg, prune_dir, sizeof prune_dir);
+    prune_temporary(prune_dir);
     if (!any_pending(cg)) return 0;
     char dir[4700];
-    journal_dir(cg, dir, sizeof dir);
+    snprintf(dir, sizeof dir, "%s", prune_dir);
     int dfd = open(dir, O_RDONLY | O_DIRECTORY | O_CLOEXEC);
     if (dfd < 0) return 0;
     /* never wait on another replayer: it may be waiting on the very database

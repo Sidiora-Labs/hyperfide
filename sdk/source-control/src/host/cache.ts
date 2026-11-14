@@ -26,6 +26,7 @@ export class NativeObjectCache {
     downloads: 0,
     downloaded_bytes: 0,
     evictions: 0,
+    orphaned: 0,
   };
   get metrics() {
     return { ...this.counters };
@@ -120,6 +121,34 @@ export class NativeObjectCache {
         continue;
       const base = path.join(this.root, domain.name);
       const names = await fs.readdir(base);
+      const dataStems = new Set(
+        names
+          .filter((name) => /^[a-f0-9]{64}\.data$/.test(name))
+          .map((name) => name.slice(0, -5)),
+      );
+      const metaStems = new Set(
+        names
+          .filter((name) => /^[a-f0-9]{64}\.json$/.test(name))
+          .map((name) => name.slice(0, -5)),
+      );
+      /* A crash between the data rename and metadata write leaves an
+       * unaccounted object.  Remove incomplete pairs before budgeting so a
+       * dead writer cannot permanently consume cache capacity. */
+      for (const stem of dataStems) {
+        if (metaStems.has(stem)) continue;
+        await fs.rm(path.join(base, stem + ".data"), { force: true });
+        this.count("orphaned");
+      }
+      for (const stem of metaStems) {
+        if (dataStems.has(stem)) continue;
+        await fs.rm(path.join(base, stem + ".json"), { force: true });
+        this.count("orphaned");
+      }
+      for (const name of names) {
+        if (!name.includes(".tmp-")) continue;
+        await fs.rm(path.join(base, name), { force: true });
+        this.count("orphaned");
+      }
       for (const name of names) {
         if (!/^[a-f0-9]{64}\.data$/.test(name)) continue;
         const stem = path.join(base, name.slice(0, -5));

@@ -23,6 +23,7 @@ export {
 export {
   readPluginPackageJsonFile,
   resolveManifestAssetFile,
+  resolveManifestDirectory,
   resolveManifestEntryFile,
   resolveManifestPath,
 } from "./plugin-manifest.js";

@@ -123,6 +123,21 @@ export class SourceWorkspaceJournal {
   async snapshot(): Promise<JournalState> {
     return this.exclusive(async (state) => structuredClone(state));
   }
+  async counts(): Promise<{
+    dirty: number;
+    installed: number;
+    materialized: number;
+    pending: boolean;
+    overflow: boolean;
+  }> {
+    return this.exclusive(async (state) => ({
+      dirty: state.entries.length,
+      installed: state.installed.length,
+      materialized: state.materialized_paths.length,
+      pending: state.pending !== null,
+      overflow: state.overflow,
+    }));
+  }
   async mark(
     pathname: string,
     operation: "dirty" | "remove" = "dirty",
@@ -167,6 +182,10 @@ export class SourceWorkspaceJournal {
         if (!state.materialized_paths.includes(item))
           state.materialized_paths.push(item);
       }
+      if (state.materialized_paths.length > this.maxDirtyPaths)
+        state.materialized_paths = state.materialized_paths.slice(
+          -this.maxDirtyPaths,
+        );
       await this.persist();
     });
   }
@@ -219,6 +238,9 @@ export class SourceWorkspaceJournal {
           .map((c) => c.path),
       );
       state.installed = state.installed.filter((e) => !removed.has(e.path));
+      state.materialized_paths = state.materialized_paths.filter(
+        (path) => !removed.has(path),
+      );
       state.pending = null;
       await this.persist();
     });

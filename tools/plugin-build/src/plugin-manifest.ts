@@ -56,11 +56,43 @@ export async function resolveManifestEntryFile(
 ): Promise<string> {
   const resolved = resolveManifestPath(rootDir, entry, label);
   try {
-    await stat(resolved);
-  } catch {
-    throw new Error(`manifest ${label} points at a missing file: ${entry}`);
+    return await resolveManifestAssetFile(rootDir, resolved, label);
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      /points at a missing file/.test(error.message)
+    )
+      throw new Error(`manifest ${label} points at a missing file: ${entry}`);
+    throw error;
   }
-  return resolved;
+}
+
+/** Resolve a manifest directory and reject symlinks that leave the package. */
+export async function resolveManifestDirectory(
+  rootDir: string,
+  directory: string,
+  label: string,
+): Promise<string> {
+  const resolved = resolveManifestPath(rootDir, directory, label);
+  let value;
+  try {
+    value = await stat(resolved);
+  } catch {
+    /* Optional skill roots may be absent; retain the lexical path so callers
+     * can treat a missing root as empty. */
+    return resolved;
+  }
+  if (!value.isDirectory())
+    throw new Error(`manifest ${label} must point at a directory`);
+  const [realRoot, realDirectory] = await Promise.all([
+    realpath(rootDir),
+    realpath(resolved),
+  ]);
+  if (!isPathWithinDirectory(realRoot, realDirectory))
+    throw new Error(
+      `manifest ${label} escapes the plugin directory through a symlink`,
+    );
+  return realDirectory;
 }
 
 export async function resolveManifestAssetFile(

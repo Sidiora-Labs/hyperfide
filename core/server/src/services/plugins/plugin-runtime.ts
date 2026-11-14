@@ -1552,6 +1552,7 @@ export function createPluginRuntime(context: PluginRuntimeContext) {
       return null;
     }
     const previous = loaded.get(row.id);
+    const previousPackageName = identities.get(row.id)?.manifest.packageName;
     function failBeforeFactory(
       status: PluginRuntimeStatus,
       detail: string,
@@ -1589,6 +1590,17 @@ export function createPluginRuntime(context: PluginRuntimeContext) {
       return failBeforeFactory(
         "error",
         error instanceof Error ? error.message : String(error),
+      );
+    }
+    if (
+      row.sourceKind === "path" &&
+      previous !== undefined &&
+      previousPackageName !== undefined &&
+      previousPackageName !== manifest.packageName
+    ) {
+      return failBeforeFactory(
+        "error",
+        `path plugin package name changed from "${previousPackageName}" to "${manifest.packageName}"; reinstall the plugin to change its identity`,
       );
     }
     const engineProblem =
@@ -1863,7 +1875,8 @@ export function createPluginRuntime(context: PluginRuntimeContext) {
       discardCandidateHandle(handle);
       let message = error instanceof Error ? error.message : String(error);
       if (/ERR_DLOPEN_FAILED|\.node/.test(message)) {
-        message += " (native dependencies are not supported in HYPERFIDE plugins)";
+        message +=
+          " (native dependencies are not supported in HYPERFIDE plugins)";
       }
       if (previous !== undefined) {
         setStatus(row.id, "running", `reload failed: ${message}`);
