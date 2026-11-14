@@ -50,7 +50,7 @@ function authorityView(planning: PlanningState | undefined) {
 
 export function createServerBackend(api: HyperfidePluginApi, authoritativeLedger?: () => Promise<AuthoritativeFleetLedger | null>): FleetBackend {
   const publishChanged = () =>
-    api.realtime.publish("fleet:changed", { at: new Date().toISOString() });
+    api.realtime?.publish("fleet:changed", { at: new Date().toISOString() });
   // Open lazily: the SDK and its registered providers are available after bind.
   let storage: ReturnType<typeof openDispatchStorage> | undefined;
   const store = () =>
