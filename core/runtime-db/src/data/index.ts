@@ -369,6 +369,7 @@ export {
   listThreadTurnInterruptionEventStates,
   MissingStoredTurnStartedError,
 } from "./events.js";
+export { claimTurnRetryInTransaction, hasTurnRetryClaim } from "./turn-retry-claims.js";
 export {
   getDatabaseDataVersion,
   getThreadEventRewriteGeneration,

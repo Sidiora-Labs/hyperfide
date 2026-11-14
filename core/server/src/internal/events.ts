@@ -230,7 +230,7 @@ interface ActivePruneCandidate {
 interface ResolveActivePruneCandidatesArgs {
   acceptedEvents: AcceptedDaemonEvent[];
   events: HostDaemonEventEnvelope[];
-  insertedEventIndexes: number[];
+  acceptedEventInputIndexes: number[];
 }
 
 interface AddParentTurnNotificationFollowUpArgs {
@@ -345,6 +345,7 @@ function toStoredEvent(args: ToStoredEventArgs): AppendDaemonEventInput {
   const envelope = args.envelope;
   const { scope, type, threadId, ...data } = envelope.event;
   return {
+    ...(envelope.eventId === undefined ? {} : { id: envelope.eventId }),
     threadId: envelope.threadId,
     environmentId: args.environmentId,
     ...resolveProviderIdentifiers(envelope.event),
@@ -414,6 +415,7 @@ async function applyEventEffects(
 ): Promise<EventEffectFollowUp[]> {
   const followUps: EventEffectFollowUp[] = [];
   const failedParentNotificationThreadIds = new Set<string>();
+  let firstError: unknown = null;
   for (const entry of events) {
     try {
       const event = entry.event;
@@ -608,7 +610,11 @@ async function applyEventEffects(
         },
         "Failed to apply event side effects",
       );
+      firstError ??= error;
     }
+  }
+  if (firstError !== null) {
+    throw firstError;
   }
   return followUps;
 }
@@ -942,7 +948,11 @@ function shouldApplyEventEffect(args: ShouldApplyEventEffectArgs): boolean {
   const { entry } = args;
 
   if (entry.event.type === "turn/completed") {
-    return args.insertedEventIndexLookup.has(args.index);
+    // Completion side effects are replay-safe and must be retried after a
+    // committed event whose first HTTP response was lost or whose lifecycle
+    // application failed. `applyTurnCompletedEvent` fences already-applied
+    // lifecycle transitions.
+    return true;
   }
 
   if (entry.event.type === "turn/started") {
@@ -986,7 +996,7 @@ function resolveActivePruneCandidates(
   const latestPrunableSequenceByThreadId = new Map<string, number>();
 
   for (const [acceptedIndex, acceptedEvent] of args.acceptedEvents.entries()) {
-    const inputIndex = args.insertedEventIndexes[acceptedIndex];
+    const inputIndex = args.acceptedEventInputIndexes[acceptedIndex];
     if (inputIndex === undefined) {
       throw new Error("Missing inserted event index for accepted daemon event");
     }
@@ -1275,16 +1285,15 @@ export function registerInternalEventRoutes(app: Hono, deps: AppDeps): void {
       for (const candidate of resolveActivePruneCandidates({
         acceptedEvents: appendResult.acceptedEvents,
         events: postableEvents,
-        insertedEventIndexes: appendResult.insertedInputIndexes,
+      acceptedEventInputIndexes: appendResult.acceptedInputIndexes,
       })) {
         await maybePruneActiveThreadEventHistory(deps, candidate);
       }
 
       await deferEventFollowUpBatch(deps, followUps);
       const response: HostDaemonEventBatchResponse = {
-        acceptedEvents: appendResult.acceptedEvents.map(
-          (acceptedEvent, acceptedIndex) => {
-            const inputIndex = appendResult.insertedInputIndexes[acceptedIndex];
+        acceptedEvents: appendResult.acceptedEvents.map((acceptedEvent) => {
+            const inputIndex = acceptedEvent.inputIndex;
             if (inputIndex === undefined) {
               throw new Error(
                 "Missing inserted event index for accepted daemon event",
@@ -1299,8 +1308,7 @@ export function registerInternalEventRoutes(app: Hono, deps: AppDeps): void {
               sequence: acceptedEvent.sequence,
               threadId: acceptedEvent.threadId,
             };
-          },
-        ),
+          }),
         rejectedEvents,
       };
       const body = JSON.stringify(response);

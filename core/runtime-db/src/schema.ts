@@ -876,6 +876,21 @@ export const events = sqliteTable(
   ],
 );
 
+export const turnRetryClaims = sqliteTable(
+  "turn_retry_claims",
+  {
+    threadId: text("thread_id")
+      .notNull()
+      .references(() => threads.id, { onDelete: "cascade" }),
+    originalRequestId: text("original_request_id").notNull(),
+    attempt: integer("attempt").notNull(),
+    createdAt: integer("created_at").notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.threadId, table.originalRequestId, table.attempt] }),
+  ],
+);
+
 export const retainedEventOutputs = sqliteTable(
   "retained_event_outputs",
   {

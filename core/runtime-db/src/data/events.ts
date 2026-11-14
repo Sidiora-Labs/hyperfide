@@ -127,6 +127,7 @@ function isNotSupersededBackgroundTaskProgressBefore(
 }
 
 export interface InsertEventInput {
+  id?: string;
   threadId: string;
   environmentId?: string | null;
   scope: ThreadEventScope;
@@ -146,6 +147,7 @@ export interface InsertEventsResult {
 }
 
 export interface AppendDaemonEventInput {
+  id?: string;
   data: string;
   environmentId: string | null;
   itemId: string | null;
@@ -158,6 +160,7 @@ export interface AppendDaemonEventInput {
 }
 
 export interface AcceptedDaemonEvent {
+  inputIndex: number;
   sequence: number;
   threadId: string;
 }
@@ -165,6 +168,7 @@ export interface AcceptedDaemonEvent {
 export interface AppendDaemonEventsResult {
   acceptedEvents: AcceptedDaemonEvent[];
   insertedInputIndexes: number[];
+  acceptedInputIndexes: number[];
   skippedTurnUnstartedInputIndexes: number[];
 }
 
@@ -432,6 +436,7 @@ export interface ThreadTurnInterruptionEventState {
 }
 
 interface InsertStoredEventRowArgs {
+  id?: string;
   attachmentOwnership: ProjectAttachmentOwnershipMode;
   conflict: "error" | "ignore";
   createdAt: number;
@@ -457,7 +462,7 @@ async function insertStoredEventRow(
   db: DbQueryConnection,
   args: InsertStoredEventRowArgs,
 ): Promise<InsertStoredEventRowResult> {
-  const id = createEventId();
+  const id = args.id ?? createEventId();
   const prepared = prepareCompletedEventOutputData({
     createdAt: args.createdAt,
     data: args.data,
@@ -825,6 +830,7 @@ export async function appendDaemonEventsInTransaction(
     return {
       acceptedEvents: [],
       insertedInputIndexes: [],
+      acceptedInputIndexes: [],
       skippedTurnUnstartedInputIndexes: [],
     };
   }
@@ -839,6 +845,7 @@ export async function appendDaemonEventsInTransaction(
   );
   const acceptedEvents: AcceptedDaemonEvent[] = [];
   const insertedInputIndexes: number[] = [];
+  const acceptedInputIndexes: number[] = [];
   const skippedTurnUnstartedInputIndexes: number[] = [];
 
   const startedTurnKeys = await listStoredTurnStartedKeySet(
@@ -857,6 +864,22 @@ export async function appendDaemonEventsInTransaction(
   );
   const now = Date.now();
   for (const [index, input] of eventInputs.entries()) {
+    if (input.id !== undefined) {
+      const existing = await db
+        .select({ threadId: events.threadId, sequence: events.sequence })
+        .from(events)
+        .where(eq(events.id, input.id))
+        .limit(1)
+        .get();
+      if (existing !== undefined) {
+        if (existing.threadId !== input.threadId) {
+          throw new Error(`Event id ${input.id} belongs to another thread`);
+        }
+        acceptedEvents.push({ inputIndex: index, sequence: existing.sequence, threadId: existing.threadId });
+        acceptedInputIndexes.push(index);
+        continue;
+      }
+    }
     if (input.type === "turn/diff/updated") continue;
     const turnStartDisposition = resolveDaemonTurnStartDisposition(
       input,
@@ -909,6 +932,7 @@ export async function appendDaemonEventsInTransaction(
       threadId: input.threadId,
       turnId,
       type: input.type,
+      id: input.id,
     });
     const event = parseDaemonThreadEvent(input);
     if (event !== null) {
@@ -922,10 +946,12 @@ export async function appendDaemonEventsInTransaction(
     }
 
     const acceptedEvent: AcceptedDaemonEvent = {
+      inputIndex: index,
       sequence,
       threadId: input.threadId,
     };
     acceptedEvents.push(acceptedEvent);
+    acceptedInputIndexes.push(index);
     insertedInputIndexes.push(index);
     if (input.type === "turn/started") {
       const turnId = getThreadEventScopeTurnId(input.scope);
@@ -945,6 +971,7 @@ export async function appendDaemonEventsInTransaction(
   return {
     acceptedEvents,
     insertedInputIndexes,
+    acceptedInputIndexes,
     skippedTurnUnstartedInputIndexes,
   };
 }

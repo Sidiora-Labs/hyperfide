@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import type { ThreadEvent } from "@hyperfide/domain";
 import { TEXT_DELTA_FLUSH_MS } from "@hyperfide/provider-bridge-protocol/assembler";
 import type {
@@ -394,8 +395,18 @@ export function createEventSink(options: CreateEventSinkOptions): EventSink {
         backedUpSinceMs = now();
       }
       const immediate = shouldFlushThreadEventImmediately(input.event);
+      const envelope: HostDaemonEventEnvelope = {
+        threadId: input.threadId,
+        event: input.event,
+      };
+      Object.defineProperty(envelope, "eventId", {
+        configurable: false,
+        enumerable: false,
+        value: randomUUID(),
+        writable: false,
+      });
       queue.push({
-        envelope: { threadId: input.threadId, event: input.event },
+        envelope,
         immediate,
         queuedAt: now(),
       });

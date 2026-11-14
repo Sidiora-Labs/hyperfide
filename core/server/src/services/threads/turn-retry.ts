@@ -1,4 +1,4 @@
-import { hasQueuedRetryOfTurnRequest } from "@hyperfide/db";
+import { claimTurnRetryInTransaction } from "@hyperfide/db";
 import { permissionModeSchema } from "@hyperfide/domain";
 import type {
   ClientTurnRequestId,
@@ -30,16 +30,6 @@ type TurnRetryDeps = LoggedPendingInteractionWorkSessionDeps;
  * same turn twice, which the user would see as two identical retry cards and
  * the provider as two identical turns.
  */
-async function hasQueuedRetryFor(
-  deps: Pick<TurnRetryDeps, "db">,
-  args: { threadId: string; originalRequestId: string },
-): Promise<boolean> {
-  return await hasQueuedRetryOfTurnRequest(deps.db, {
-    threadId: args.threadId,
-    retryOfTurnRequestId: args.originalRequestId,
-  });
-}
-
 /**
  * The failed turn a retry re-submits.
  *
@@ -170,8 +160,6 @@ function retryExecution(failed: FailedTurnRecord): {
  * both dispatch. One failure earns one retry, so the second caller gets the
  * same 409 a queued duplicate gets.
  */
-const retriesInFlight = new Set<string>();
-
 /**
  * Re-submits a failed turn.
  *
@@ -193,24 +181,24 @@ export async function retryFailedTurn(
   });
   const chain = retryChain(failed.request);
   const originalRequestId = chain.originalRequestId;
-  const inFlightKey = `${thread.id}:${originalRequestId}`;
-  if (
-    (await hasQueuedRetryFor(deps, {
-      threadId: thread.id,
-      originalRequestId,
-    })) ||
-    retriesInFlight.has(inFlightKey)
-  ) {
+  const attempt = chain.attemptNumber + 1;
+  const claimed = await deps.db.transaction(
+    async (tx) =>
+      await claimTurnRetryInTransaction(tx, {
+        threadId: thread.id,
+        originalRequestId,
+        attempt,
+      }),
+    { behavior: "immediate" },
+  );
+  if (!claimed) {
     throw new ApiError(
       409,
       "retry_already_queued",
-      `Turn ${originalRequestId} already has a retry waiting on thread ${thread.id}.`,
+      `Turn ${originalRequestId} already has retry attempt ${attempt} on thread ${thread.id}.`,
     );
   }
-  retriesInFlight.add(inFlightKey);
-  try {
-    const attempt = chain.attemptNumber + 1;
-    const outcome = await attemptDispatch(deps, {
+  const outcome = await attemptDispatch(deps, {
       thread,
       payload: {
         // A retry never steers: it re-runs a turn, so a thread that is busy
@@ -233,28 +221,25 @@ export async function retryFailedTurn(
       originPluginId: null,
       startedOnBehalfOf: null,
       trigger: "user",
-    });
-    if (outcome.kind === "dispatched") {
+  });
+  if (outcome.kind === "dispatched") {
       return {
         ok: true,
         delivery: "sent",
         turnRequestId: originalRequestId,
         attempt,
       };
-    }
-    return {
-      ok: true,
-      delivery: "queued",
-      turnRequestId: originalRequestId,
-      attempt,
-      queuedMessageId: outcome.entry.id,
-      // A queued row's `waitingOn` is null only when a drain cleared its wait
-      // and is about to re-attempt it — a state this row, just written by the
-      // attempt above, cannot be in. The fallback narrows the type honestly.
-      waitingOn: outcome.entry.waitingOn ?? { kind: "thread-busy" },
-      sendAt: outcome.entry.sendAt,
-    };
-  } finally {
-    retriesInFlight.delete(inFlightKey);
   }
+  return {
+    ok: true,
+    delivery: "queued",
+    turnRequestId: originalRequestId,
+    attempt,
+    queuedMessageId: outcome.entry.id,
+    // A queued row's `waitingOn` is null only when a drain cleared its wait
+    // and is about to re-attempt it — a state this row, just written by the
+    // attempt above, cannot be in. The fallback narrows the type honestly.
+    waitingOn: outcome.entry.waitingOn ?? { kind: "thread-busy" },
+    sendAt: outcome.entry.sendAt,
+  };
 }

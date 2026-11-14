@@ -898,6 +898,21 @@ export const events = platformTable(
   ],
 );
 
+export const turnRetryClaims = platformTable(
+  "turn_retry_claims",
+  {
+    threadId: pgText("thread_id")
+      .notNull()
+      .references(() => threads.id, { onDelete: "cascade" }),
+    originalRequestId: pgText("original_request_id").notNull(),
+    attempt: integer("attempt").notNull(),
+    createdAt: integer("created_at").notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.threadId, table.originalRequestId, table.attempt] }),
+  ],
+);
+
 export const retainedEventOutputs = platformTable(
   "retained_event_outputs",
   {
