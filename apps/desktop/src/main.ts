@@ -3032,6 +3032,13 @@ async function runDesktopApp(): Promise<void> {
     openExternalUrl(openArgs) {
       void shell.openExternal(openArgs.url);
     },
+    onWindowCreated(browserWindow) {
+      const webContentsId = browserWindow.webContents.id;
+      applicationWindowWebContentsIds.add(webContentsId);
+      if (currentWindowUrl !== null) {
+        desktopIpcAuthorization.authorize(webContentsId, currentWindowUrl);
+      }
+    },
     preloadPath,
     userDataPath,
   });
