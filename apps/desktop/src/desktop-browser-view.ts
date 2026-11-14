@@ -323,13 +323,17 @@ export interface DesktopBrowserViewManager {
   setAutomationControlled(webContents: WebContents, controlled: boolean): void;
   setTabLeased(ref: NativeTabRef, leased: boolean): void;
   session(): Session;
-  attach(args: HostScopedRequestArgs<HyperfideDesktopBrowserAttachRequest>): void;
+  attach(
+    args: HostScopedRequestArgs<HyperfideDesktopBrowserAttachRequest>,
+  ): void;
   detach(args: HostScopedTabArgs): void;
   setThreadDiscarded(
     args: HostScopedRequestArgs<HyperfideDesktopBrowserSetThreadDiscardedRequest>,
   ): void;
   focus(args: HostScopedTabArgs): void;
-  navigate(args: HostScopedRequestArgs<HyperfideDesktopBrowserNavigateRequest>): void;
+  navigate(
+    args: HostScopedRequestArgs<HyperfideDesktopBrowserNavigateRequest>,
+  ): void;
   goBack(args: HostScopedTabArgs): void;
   goForward(args: HostScopedTabArgs): void;
   reload(args: HostScopedTabArgs): void;
@@ -1321,15 +1325,31 @@ export function createDesktopBrowserViewManager(
     return entry;
   }
 
-  function loadBrowserUrl(entry: BrowserViewEntry, url: string): void {
+  function loadBrowserUrl(
+    entry: BrowserViewEntry,
+    tabId: string,
+    url: string,
+  ): void {
     if (url.length === 0) {
       return;
     }
+    entry.pendingNavigationUrl = url;
     if (!isAllowedBrowserUrl(url)) {
+      entry.lastErrorText = "Unsupported browser URL";
+      pushState(entry.hostWindow, tabId, entry);
       return;
     }
     entry.lastErrorText = null;
-    entry.webContents.loadURL(url).catch(() => {});
+    entry.webContents.loadURL(url).catch((error: unknown) => {
+      if (entry.pendingNavigationUrl !== url) return;
+      const message = error instanceof Error ? error.message : String(error);
+      if (message.includes("ERR_ABORTED")) {
+        entry.pendingNavigationUrl = null;
+        return;
+      }
+      entry.lastErrorText = "Failed to load page";
+      pushState(entry.hostWindow, tabId, entry);
+    });
   }
 
   function disposeEntry(key: string, entry: BrowserViewEntry): void {
@@ -1560,7 +1580,7 @@ export function createDesktopBrowserViewManager(
       entry.agentOwned = true;
       applyEntryDesiredBounds(entry, request.hostWindow);
       applyEntryVisibility(entry, request.hostWindow);
-      loadBrowserUrl(entry, request.url);
+      loadBrowserUrl(entry, request.tabId, request.url);
       notifyAutomationTabs();
       pushState(request.hostWindow, request.tabId, entry);
       return nativeTab(request.tabId, entry);
@@ -1711,7 +1731,7 @@ export function createDesktopBrowserViewManager(
         focusEntryWithoutNotifying(entry);
       }
       if (existing === null) {
-        loadBrowserUrl(entry, request.url);
+        loadBrowserUrl(entry, request.tabId, request.url);
         notifyAutomationTabs();
       }
       pushState(hostWindow, request.tabId, entry);
@@ -1751,7 +1771,8 @@ export function createDesktopBrowserViewManager(
                 [{ code: source }],
               ),
         );
-        const parsed = hyperfideDesktopBrowserEvaluateResultSchema.safeParse(result);
+        const parsed =
+          hyperfideDesktopBrowserEvaluateResultSchema.safeParse(result);
         return parsed.success
           ? parsed.data
           : { ok: false, error: "Browser page script returned no result" };
@@ -1767,7 +1788,7 @@ export function createDesktopBrowserViewManager(
       withEntry({ hostWindow, tabId: request.tabId }, (entry) => {
         resetEntryRendererRecovery(entry);
         applyEntryVisibility(entry, hostWindow);
-        loadBrowserUrl(entry, request.url);
+        loadBrowserUrl(entry, request.tabId, request.url);
       });
     },
     goBack({ hostWindow, tabId }) {

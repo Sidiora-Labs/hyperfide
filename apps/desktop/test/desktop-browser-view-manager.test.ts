@@ -1281,6 +1281,54 @@ describe("browser page scripts", () => {
   });
 });
 
+describe("browser URL failures", () => {
+  it("reports unsupported URLs as visible tab errors", () => {
+    const manager = createDesktopBrowserViewManager({
+      partition: "persist:test",
+    });
+    const hostWindow = new FakeHostWindow({
+      contentBounds: { width: 700, height: 450 },
+      webContentsId: 91,
+    });
+
+    manager.attach({
+      hostWindow,
+      request: {
+        threadId: "thread-1",
+        tabId: "browser:unsupported",
+        url: "javascript:alert(1)",
+        bounds: { x: 0, y: 0, width: 640, height: 400 },
+        visible: true,
+      },
+    });
+
+    expect(hostWindow.webContents.sentPayloads.at(-1)).toMatchObject({
+      tabId: "browser:unsupported",
+      url: "javascript:alert(1)",
+      errorText: "Unsupported browser URL",
+    });
+  });
+
+  it("reports a rejected navigation as a retryable visible tab error", async () => {
+    const { manager, hostWindow, view } = createRendererRecoveryFixture(91);
+    vi.spyOn(view.webContents, "loadURL").mockRejectedValueOnce(
+      new Error("ERR_CONNECTION_REFUSED"),
+    );
+
+    manager.navigate({
+      hostWindow,
+      request: { tabId: "browser:a", url: "https://unreachable.example" },
+    });
+    await Promise.resolve();
+
+    expect(hostWindow.webContents.sentPayloads.at(-1)).toMatchObject({
+      tabId: "browser:a",
+      url: "https://unreachable.example",
+      errorText: "Failed to load page",
+    });
+  });
+});
+
 function createRendererRecoveryFixture(
   webContentsId: number,
   threadId = "thread-1",
