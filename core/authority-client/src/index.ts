@@ -204,7 +204,9 @@ export async function createAuthorityClient(configuration: AuthorityConfiguratio
       const parsed = parseFleetDecision(decision);
       if (parsed.operation_id !== identity.operationId)
         throw new AuthorityError("INVALID_REQUEST", "Decision and transport operation identities must match");
-      return invoke<Record<string, unknown>>("fleet.manager.execute", {decision: parsed}, identity, signal, "fleet-manager-effects");
+      const component = parsed.actor_role === "PRIMARY" ? "fleet-orchestration" : "fleet-manager-effects";
+      const action = parsed.actor_role === "PRIMARY" ? "fleet.decision.apply" : "fleet.manager.execute";
+      return invoke<Record<string, unknown>>(action, {decision: parsed}, identity, signal, component);
     },
     pluginState: (input: PluginStateRequest, identity?: TransactionIdentity) =>
       invoke<PluginStateEntry[]>("authority.plugin-state", input, identity),
