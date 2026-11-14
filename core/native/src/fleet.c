@@ -24,6 +24,7 @@ extern int hf_advice_unit(const char *obj, const char *key, double *out);
 #include <sys/file.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
+#include <signal.h>
 #include <time.h>
 #include <unistd.h>
 
@@ -2604,6 +2605,10 @@ static void merge_event(Cg *cg, const Lifecycle *c, const char *id,
  * move up with its code, so the base keeps what was learned. */
 int fleet_merge_up(Cg *cg, const char *id, const char *feature_ov, bool force,
                    bool keep, bool json) {
+    /* --force is retained for CLI compatibility, but it must never turn an
+     * unqualified branch into publishable work. Qualification is the gate;
+     * there is no force override for it. */
+    (void)force;
     Lifecycle c;
     if (lifecycle_open(cg, feature_ov, &c) != 0) return 1;
     if (lifecycle_merge_lock(&c) != 0) { lifecycle_close(&c); return 1; }
@@ -2628,10 +2633,10 @@ int fleet_merge_up(Cg *cg, const char *id, const char *feature_ov, bool force,
     char tip[64] = "";
     if (!task_status_on_branch(&c, branch, id, tip, sizeof tip))
         snprintf(tip, sizeof tip, "%s", status);
-    if (strcmp(tip, "done") != 0 && !force) {
+    if (strcmp(tip, "done") != 0) {
         fprintf(stderr, "hyperfide fleet: %s is %s on %s, not done — qualify it "
-                        "(hyperfide spec done %s) and commit, or --force\n", id, tip,
-                branch, id);
+                "(hyperfide spec done %s) and commit; --force cannot publish an "
+                "unqualified branch\n", id, tip, branch, id);
         lifecycle_close(&c);
         return 1;
     }
@@ -3011,6 +3016,24 @@ static bool names_wave_or_task(const char *s) {
     return true;
 }
 
+/* Landing is a prepare/check/commit sequence.  Keep an interrupt visible to
+ * the caller so the uncommitted merge can be rolled back before returning. */
+static volatile sig_atomic_t fleet_land_interrupted;
+
+static void fleet_land_signal(int sig) {
+    fleet_land_interrupted = sig;
+}
+
+static void fleet_land_rollback(const char *tree, const char *pre_head) {
+    if (git_run(tree, "merge --abort", NULL) != 0 && pre_head && pre_head[0]) {
+        StrBuf r; sb_init(&r);
+        sb_puts(&r, "reset --hard ");
+        sb_shquote(&r, pre_head);
+        git_run(tree, r.p, NULL);
+        sb_free(&r);
+    }
+}
+
 int fleet_land(Cg *cg, const char *what, const char *feature_ov, bool no_pr,
                bool json) {
     /* `land <feature>` still names a feature: it is the old shape's form */
@@ -3110,24 +3133,39 @@ int fleet_land(Cg *cg, const char *what, const char *feature_ov, bool no_pr,
         lifecycle_close(&c);
         return 0;
     }
+    char merge_msg[1200];
+    snprintf(merge_msg, sizeof merge_msg, "land %s into %s [spec:%s]", branch,
+             c.h.main_branch, c.feature);
+    struct sigaction old_int, old_term, old_hup;
+    struct sigaction land_act;
+    memset(&land_act, 0, sizeof land_act);
+    sigemptyset(&land_act.sa_mask);
+    land_act.sa_handler = fleet_land_signal;
+    bool hook_int = sigaction(SIGINT, &land_act, &old_int) == 0;
+    bool hook_term = hook_int && sigaction(SIGTERM, &land_act, &old_term) == 0;
+    bool hook_hup = hook_int && sigaction(SIGHUP, &land_act, &old_hup) == 0;
+    fleet_land_interrupted = 0;
     StrBuf a; sb_init(&a);
-    StrBuf msg; sb_init(&msg);
-    sb_printf(&msg, "land %s into %s [spec:%s]", branch, c.h.main_branch,
-              c.feature);
-    sb_puts(&a, "merge --no-ff --no-edit -m ");
-    sb_shquote(&a, msg.p);
+    /* Prepare the index and working tree, but do not create the merge commit
+     * until every configured gate has passed. */
+    sb_puts(&a, "merge --no-ff --no-commit --no-edit -m ");
+    sb_shquote(&a, merge_msg);
     sb_putc(&a, ' ');
     sb_shquote(&a, branch);
-    sb_free(&msg);
     StrBuf out; sb_init(&out);
     int rc = git_run(c.tree, a.p, &out);
     sb_free(&a);
     if (rc != 0) {
         char **paths = NULL;
         int np = git_conflicted_paths(c.tree, &paths);
-        git_run(c.tree, "merge --abort", NULL);
+        fleet_land_rollback(c.tree, pre);
+        if (hook_int) sigaction(SIGINT, &old_int, NULL);
+        if (hook_term) sigaction(SIGTERM, &old_term, NULL);
+        if (hook_hup) sigaction(SIGHUP, &old_hup, NULL);
+        bool interrupted = fleet_land_interrupted != 0;
         if (json) {
-            sb_puts(&b, "{\"landed\":false,\"feature\":");
+            sb_printf(&b, "{\"landed\":false,\"interrupted\":%s,\"feature\":",
+                      interrupted ? "true" : "false");
             sb_json_str(&b, c.feature);
             sb_puts(&b, ",\"branch\":"); sb_json_str(&b, branch);
             sb_puts(&b, ",\"main\":"); sb_json_str(&b, c.h.main_branch);
@@ -3146,7 +3184,8 @@ int fleet_land(Cg *cg, const char *what, const char *feature_ov, bool no_pr,
         }
         fputs(b.p, stdout);
         sb_free(&b); sb_free(&out);
-        land_event(cg, &c, "conflict", branch, pre, n, paths, np, NULL);
+        land_event(cg, &c, interrupted ? "interrupted" : "conflict", branch,
+                   pre, n, paths, np, NULL);
         free_list(paths, np);
         lifecycle_close(&c);
         return 1;
@@ -3164,7 +3203,9 @@ int fleet_land(Cg *cg, const char *what, const char *feature_ov, bool no_pr,
     bool gate_ran[2] = { false, false };
     char logs[2][4800];
     int red = -1;
+    bool interrupted = false;
     for (int g = 0; g < 2 && red < 0; g++) {
+        if (fleet_land_interrupted) { interrupted = true; break; }
         if (!cmds[g] || !cmds[g][0]) { logs[g][0] = 0; continue; }
         /* one log per branch, like the pull request body: a wave's land
          * must not overwrite the record of the wave landed before it */
@@ -3176,7 +3217,8 @@ int fleet_land(Cg *cg, const char *what, const char *feature_ov, bool no_pr,
                      c.feature, names[g]);
         gate_ran[g] = true;
         gate_rc[g] = run_gate(c.tree, cmds[g], logs[g], &gate_ms[g]);
-        if (gate_rc[g] != 0) red = g;
+        if (fleet_land_interrupted) interrupted = true;
+        if (gate_rc[g] != 0 || interrupted) red = g;
         StrBuf e; sb_init(&e);
         ev_str(&e, "feature", c.feature); ev_str(&e, "gate", names[g]);
         ev_str(&e, "cmd", cmds[g]);
@@ -3187,16 +3229,34 @@ int fleet_land(Cg *cg, const char *what, const char *feature_ov, bool no_pr,
     }
     char head[65];
     if (red >= 0) {
-        StrBuf r; sb_init(&r);
-        sb_puts(&r, "reset --hard ");
-        sb_shquote(&r, pre);
-        git_run(c.tree, r.p, NULL);
-        sb_free(&r);
+        fleet_land_rollback(c.tree, pre);
     } else {
-        c.gates_ok = 1;            /* the pull request may say so */
-        git_head(c.tree, on, sizeof on, head, sizeof head);
-        branch_register(cg, c.h.main_branch, c.tree, head, NULL);
+        if (fleet_land_interrupted) {
+            interrupted = true;
+            fleet_land_rollback(c.tree, pre);
+            red = 0;
+        } else {
+            /* The merge was prepared with --no-commit.  Only now may it be
+             * published as a commit. */
+            StrBuf commit; sb_init(&commit);
+            sb_puts(&commit, "commit --no-edit -m ");
+            sb_shquote(&commit, merge_msg);
+            int crc = git_run(c.tree, commit.p, NULL);
+            sb_free(&commit);
+            if (crc != 0 || fleet_land_interrupted) {
+                interrupted = fleet_land_interrupted != 0;
+                fleet_land_rollback(c.tree, pre);
+                red = 0;
+            } else {
+                c.gates_ok = 1;      /* the pull request may say so */
+                git_head(c.tree, on, sizeof on, head, sizeof head);
+                branch_register(cg, c.h.main_branch, c.tree, head, NULL);
+            }
+        }
     }
+    if (hook_int) sigaction(SIGINT, &old_int, NULL);
+    if (hook_term) sigaction(SIGTERM, &old_term, NULL);
+    if (hook_hup) sigaction(SIGHUP, &old_hup, NULL);
     if (json) {
         sb_printf(&b, "{\"landed\":%s,\"feature\":", red < 0 ? "true" : "false");
         sb_json_str(&b, c.feature);
@@ -3219,12 +3279,17 @@ int fleet_land(Cg *cg, const char *what, const char *feature_ov, bool no_pr,
         sb_putc(&b, '}');
         if (red >= 0) {
             sb_puts(&b, ",\"reset_to\":"); sb_json_str(&b, pre);
+            sb_printf(&b, ",\"interrupted\":%s", interrupted ? "true" : "false");
             sb_puts(&b, "}\n");
         }
     } else if (red >= 0) {
-        sb_printf(&b, "landing refused: %s gate `%s` failed (exit %d) — %s "
-                      "reset to %.8s\n  log: %s\n", names[red], cmds[red],
-                  gate_rc[red], c.h.main_branch, pre, logs[red]);
+        if (interrupted)
+            sb_printf(&b, "landing interrupted — %s rolled back to %.8s\n",
+                      c.h.main_branch, pre);
+        else
+            sb_printf(&b, "landing refused: %s gate `%s` failed (exit %d) — %s "
+                      "rolled back to %.8s\n  log: %s\n", names[red], cmds[red],
+                      gate_rc[red], c.h.main_branch, pre, logs[red]);
     } else {
         sb_printf(&b, "landed %s into %s: %ld commit%s, gates green (head "
                       "%.8s)\n", branch, c.h.main_branch, n, n == 1 ? "" : "s",
@@ -3237,9 +3302,10 @@ int fleet_land(Cg *cg, const char *what, const char *feature_ov, bool no_pr,
     fputs(b.p, stdout);
     fflush(stdout);
     sb_free(&b);
-    land_event(cg, &c, red >= 0 ? "refused" : "landed", branch,
-               red >= 0 ? pre : head, n, NULL, 0, red >= 0 ? names[red] : NULL);
-    if (red >= 0) { lifecycle_close(&c); return 1; }
+    land_event(cg, &c, red >= 0 ? (interrupted ? "interrupted" : "refused") : "landed",
+               branch, red >= 0 ? pre : head, n, NULL, 0,
+               red >= 0 && !interrupted ? names[red] : NULL);
+    if (red >= 0) { lifecycle_close(&c); return interrupted ? 128 + fleet_land_interrupted : 1; }
     fleet_projection_rebuild(cg, NULL, 0);   /* codify-v15 4.2: after a land */
 
     /* the pull request: opened on green when the policy is auto, printed

@@ -1303,6 +1303,35 @@ static int spec_queue_release(Cg *g, const char *tag, const char *agent,
     return rc;
 }
 
+/* A status transition is a lifecycle mutation too.  When the graph is busy,
+ * queue the path/section together with the exact attempt credentials instead
+ * of editing KVX from a read-only owner check.  Replay applies the status,
+ * finishes the attempt, and removes its lease under one fenced write
+ * transaction. */
+static int spec_queue_status(Cg *g, const char *tag, const char *agent,
+                             const char *attempt, long fence,
+                             const char *path, const char *section,
+                             const char *status) {
+    StrBuf a; sb_init(&a);
+    sb_puts(&a, "{\"task\":"); sb_json_str(&a, tag);
+    sb_puts(&a, ",\"agent\":");
+    if (agent && agent[0]) sb_json_str(&a, agent); else sb_puts(&a, "null");
+    sb_puts(&a, ",\"attempt\":");
+    if (attempt && attempt[0]) sb_json_str(&a, attempt); else sb_puts(&a, "null");
+    sb_printf(&a, ",\"fence\":%ld,\"path\":", fence);
+    sb_json_str(&a, path);
+    sb_puts(&a, ",\"section\":"); sb_json_str(&a, section);
+    sb_puts(&a, ",\"status\":"); sb_json_str(&a, status);
+    sb_putc(&a, '}');
+    char sum[800];
+    snprintf(sum, sizeof sum, "status %s -> %s", tag, status);
+    /* Reuse the established lease-release journal envelope so older journal
+     * dispatchers still route this fenced lifecycle record here. */
+    int rc = journal_append(g, "lease.release", a.p, sum);
+    sb_free(&a);
+    return rc;
+}
+
 /* Manual local lifecycle commands remain usable without an attempt. Once an
  * orchestrator supplies either credential, both become mandatory and the
  * exact live owner generation must match before task state may change. */
@@ -1357,15 +1386,12 @@ static int spec_set_status_owned(Spec *s, const char *id, const char *status,
     char tag[700];
     snprintf(tag, sizeof tag, "%s/%s", s->feature, id);
     if (journal_begin(&g) != 0) {
-        /* Busy: spec_require_owner checked these credentials moments ago
-         * (a read). The status still lands in the kvx file; the attempt
-         * finish and lease release are journaled with the credentials, so
-         * the replay applies them only if this attempt is still the live
-         * one. */
-        int wrc = kvx_set_status(s->fpath, sec, status);
+        /* Do not write KVX after a non-transactional owner read.  Replay
+         * rechecks the fence while holding the graph write transaction and
+         * performs both the status change and lease/attempt cleanup. */
+        int wrc = spec_queue_status(&g, &tag[0], agent, attempt_id, fence,
+                                    s->fpath, sec, status);
         if (wrc != 0) { cg_close(&g); return -1; }
-        spec_queue_release(&g, tag, agent, attempt_id, fence, false,
-                           "completed", "task left active execution");
         cg_close(&g);
         return 0;
     }
@@ -3503,7 +3529,6 @@ static int spec_done_cmd(Spec *s, const char *id, const char *agent,
 
     char sec[300];
     task_sec(sec, sizeof sec, id);
-    bool forced_past = false;
     char *vc = S(s->f, sec, "verify_cmd");
     if (vc[0]) {
         printf("verify: %s\n", vc);
@@ -3513,34 +3538,29 @@ static int spec_done_cmd(Spec *s, const char *id, const char *agent,
         if (rc != 0) {
             int code = (rc > 0 && (rc & 0x7f) == 0) ? (rc >> 8) & 0xff : rc;
             fprintf(stderr, "hyperfide spec: verify_cmd failed (exit %d) — task %s "
-                    "NOT marked done%s\n", code,
-                    id, force ? "" : " (--force to override)");
-            if (!force) {
-                char *t = S(s->f, sec, "title");
-                StrBuf mb; sb_init(&mb);
-                sb_printf(&mb, "blocked: %s — verify_cmd failed (exit %d)",
-                          t, code);
-                /* Jev says what kind of failure it was and what to do about
-                 * it; the exit code above already decided the verdict */
-                if (hf_client_authority_mode() == 1 /* distributed */) {
-                    spec_triage_distributed(id, code, tail, &mb);
-                } else {
-                JevTriage tri;
-                Cg g;
-                bool opened = memory_open_quiet(&g);
-                if (jev_triage_failure(opened ? &g : NULL, tail, &tri) == JEV_OK) {
-                    printf("jev triage: %s\n", tri.line);
-                    sb_printf(&mb, " [jev: %s → %s]", tri.category, tri.action);
-                }
-                if (opened) cg_close(&g);
-                }
-                spec_note_outcome(s, id, mb.p);
-                sb_free(&mb); free(t); free(vc);
-                return 1;
+                    "NOT marked done; --force cannot bypass verification\n", code,
+                    id);
+            char *t = S(s->f, sec, "title");
+            StrBuf mb; sb_init(&mb);
+            sb_printf(&mb, "blocked: %s — verify_cmd failed (exit %d)",
+                      t, code);
+            /* Jev says what kind of failure it was and what to do about
+             * it; the exit code above already decided the verdict */
+            if (hf_client_authority_mode() == 1 /* distributed */) {
+                spec_triage_distributed(id, code, tail, &mb);
+            } else {
+            JevTriage tri;
+            Cg g;
+            bool opened = memory_open_quiet(&g);
+            if (jev_triage_failure(opened ? &g : NULL, tail, &tri) == JEV_OK) {
+                printf("jev triage: %s\n", tri.line);
+                sb_printf(&mb, " [jev: %s → %s]", tri.category, tri.action);
             }
-            fprintf(stderr, "hyperfide spec: --force: marking done despite failed "
-                    "verify\n");
-            forced_past = true;
+            if (opened) cg_close(&g);
+            }
+            spec_note_outcome(s, id, mb.p);
+            sb_free(&mb); free(t); free(vc);
+            return 1;
         }
     }
     free(vc);
@@ -3549,19 +3569,15 @@ static int spec_done_cmd(Spec *s, const char *id, const char *agent,
        declared touches must appear changed (worktree or tagged commits) */
     int vfail = spec_verify_task(s, id);
     if (vfail > 0) {
-        if (!force) {
-            fprintf(stderr, "hyperfide spec: %d graph check(s) failed — task %s NOT "
-                    "marked done (--force to override)\n", vfail, id);
-            char *t = S(s->f, sec, "title");
-            StrBuf mb; sb_init(&mb);
-            sb_printf(&mb, "blocked: %s — %d graph check(s) failed", t, vfail);
-            spec_note_outcome(s, id, mb.p);
-            sb_free(&mb); free(t);
-            return 1;
-        }
-        fprintf(stderr, "hyperfide spec: --force: marking done despite %d failed "
-                "graph check(s)\n", vfail);
-        forced_past = true;
+        fprintf(stderr, "hyperfide spec: %d graph check(s) failed — task %s NOT "
+                "marked done; --force cannot bypass graph verification\n", vfail,
+                id);
+        char *t = S(s->f, sec, "title");
+        StrBuf mb; sb_init(&mb);
+        sb_printf(&mb, "blocked: %s — %d graph check(s) failed", t, vfail);
+        spec_note_outcome(s, id, mb.p);
+        sb_free(&mb); free(t);
+        return 1;
     }
 
     int src = spec_set_status_owned(s, id, "done", agent, attempt, fence);
@@ -3595,8 +3611,7 @@ static int spec_done_cmd(Spec *s, const char *id, const char *agent,
     }
     if (s->f) {
         StrBuf mb; sb_init(&mb);
-        sb_printf(&mb, "%s: %s", forced_past ? "done (forced past failed "
-                  "checks)" : "done", title);
+        sb_printf(&mb, "done: %s", title);
         spec_note_outcome(s, id, mb.p);
         sb_free(&mb);
     }
@@ -3659,6 +3674,9 @@ int spec_journal_apply(Cg *g, const char *op, const char *args, char *err,
     char *attempt = json_get_string(args, "attempt");
     char *state = json_get_string(args, "state");
     char *reason = json_get_string(args, "reason");
+    char *status_path = json_get_string(args, "path");
+    char *status_section = json_get_string(args, "section");
+    char *status_value = json_get_string(args, "status");
     long fence = json_get_int(args, "fence", 0);
     char *force_raw = json_get_raw(args, "force");
     bool force = force_raw && strcmp(force_raw, "true") == 0;
@@ -3667,6 +3685,32 @@ int spec_journal_apply(Cg *g, const char *op, const char *args, char *err,
     if (!tag) {
         snprintf(err, errcap, "%s without a task", op);
         rc = -1;
+    } else if (strcmp(op, "spec.status") == 0 ||
+               (strcmp(op, "lease.release") == 0 && status_path &&
+                status_section && status_value)) {
+        bool ok = attempt && attempt[0] && fence > 0 && status_path &&
+                  status_section && status_value &&
+                  spec_attempt_owned(g, tag, agent ? agent : "", attempt, fence);
+        if (!ok) {
+            /* A reassigned/expired attempt makes the queued status moot. */
+            rc = 0;
+        } else {
+            events_bind(g);
+            int wrc = kvx_set_status(status_path, status_section, status_value);
+            events_unbind();
+            if (wrc != 0) {
+                snprintf(err, errcap, "could not apply status %s in %s",
+                         status_section, status_path);
+                rc = -1;
+            } else {
+                spec_attempt_finish(g, tag, "completed", "task left active execution");
+                sqlite3_stmt *del = cg_prep(g, "DELETE FROM leases WHERE task=?");
+                sqlite3_bind_text(del, 1, tag, -1, SQLITE_TRANSIENT);
+                sqlite3_step(del);
+                sqlite3_finalize(del);
+                rc = 0;
+            }
+        }
     } else if (strcmp(op, "lease.release") == 0 ||
                strcmp(op, "attempt.finish") == 0) {
         bool ok = true;
@@ -3701,6 +3745,7 @@ int spec_journal_apply(Cg *g, const char *op, const char *args, char *err,
         rc = -1;
     }
     free(tag); free(agent); free(attempt); free(state); free(reason);
+    free(status_path); free(status_section); free(status_value);
     return rc;
 }
 
@@ -3743,6 +3788,15 @@ static bool spec_graph_open_opts(Cg *g, bool sync, bool reuse_fresh) {
     else if (st.coalesced)
         fprintf(stderr, "hyperfide spec: another hyperfide process is indexing; checks use "
                         "the last completed index\n");
+    /* Qualification must be scoped to the current worktree.  A failed branch
+     * registry write leaves branch_id zero; graph queries deliberately treat
+     * that as "all branches" for read-only search, but qualification must
+     * fail closed rather than accept an unrelated definition. */
+    if (g->branch_id <= 0) {
+        fprintf(stderr, "hyperfide spec: qualification has no registered branch "
+                        "scope — refusing an unscoped graph\n");
+        return false;
+    }
     return true;
 }
 
@@ -3829,8 +3883,9 @@ static int graph_symbol_named(Cg *g, const char *lookup,
                               SymTie *tie) {
     /* one branch only: the shared graph holds this symbol once per indexed
      * worktree, and a qualification must judge the tree it is standing in.
-     * ?2<=0 (no registry write got through) falls back to unfiltered — a
-     * gate must never refuse a done because the branch row is missing. */
+     * A missing branch id is never allowed to widen the query to all
+     * worktrees. */
+    if (g->branch_id <= 0) return 0;
     sqlite3_stmt *st = trace_symbol_stmt ? trace_symbol_stmt
                                         : graph_trace_symbols_prepare(g);
     if (st) sqlite3_reset(st);
