@@ -1,5 +1,6 @@
 import { Suspense, lazy, useEffect, useState, type ReactNode } from "react";
 import { TooltipProvider } from "@hyperfide/shared-ui/tooltip";
+import { Skeleton } from "@hyperfide/shared-ui/skeleton";
 import { useUpdateGeneralSettings } from "@/hooks/mutations/settings-mutations";
 import { useSystemConfig } from "@/hooks/queries/system-queries";
 
@@ -10,6 +11,24 @@ const OnboardingFlow = lazy(() =>
 );
 
 const ONBOARDING_SEEN_STORAGE_KEY = "hyperfide.onboarding.seen";
+
+function OnboardingLoadingFallback() {
+  return (
+    <div
+      role="status"
+      aria-busy="true"
+      aria-label="Loading setup guide"
+      className="mx-auto flex w-full max-w-2xl flex-1 flex-col justify-center gap-6 px-6"
+    >
+      <Skeleton className="h-8 w-64 max-w-full" />
+      <Skeleton className="h-4 w-full max-w-xl" />
+      <Skeleton className="h-4 w-5/6 max-w-lg" />
+      <div className="mt-4 flex justify-end">
+        <Skeleton className="h-10 w-28 rounded-md" />
+      </div>
+    </div>
+  );
+}
 
 function readOnboardingSeen(): boolean {
   try {
@@ -55,7 +74,7 @@ export function OnboardingGate({ children }: { children: ReactNode }) {
   return (
     <TooltipProvider delayDuration={300} disableHoverableContent>
       <div className="flex h-dvh w-full flex-col bg-background pt-[env(safe-area-inset-top)] pr-[env(safe-area-inset-right)] pb-[var(--hyperfide-safe-area-bottom,env(safe-area-inset-bottom))] pl-[env(safe-area-inset-left)]">
-        <Suspense fallback={null}>
+        <Suspense fallback={<OnboardingLoadingFallback />}>
           <OnboardingFlow
             initialStep="agent"
             entry={seenBefore ? "replay" : "first_run"}

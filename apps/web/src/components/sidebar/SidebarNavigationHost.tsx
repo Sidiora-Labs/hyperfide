@@ -9,6 +9,7 @@ import {
 import type { ExperimentalSidebarNavigationPlacement } from "@hyperfide/plugin-sdk";
 import { Button } from "@hyperfide/shared-ui/button";
 import { Popover, PopoverAnchor } from "@hyperfide/shared-ui/popover";
+import { Skeleton } from "@hyperfide/shared-ui/skeleton";
 import { PluginReplacementSlot } from "@/components/plugin/PluginReplacementSlot";
 import { appToast } from "@/components/ui/app-toast";
 import { schedulePluginFrontendReconcile } from "@/lib/plugin-frontend-lazy";
@@ -121,13 +122,54 @@ function NavigationProviderSlot({
   );
 }
 
+function SidebarNavigationLoadingSkeleton({
+  placement,
+}: {
+  placement: ExperimentalSidebarNavigationPlacement;
+}) {
+  const isRail = placement === "rail";
+  return (
+    <div
+      role="status"
+      aria-busy="true"
+      aria-label="Loading sidebar navigation"
+      data-sidebar-navigation-placeholder="loading"
+      className={
+        isRail
+          ? "flex flex-col items-center gap-2 p-2"
+          : "space-y-1.5 px-2 py-2"
+      }
+    >
+      {["w-2/3", "w-1/2", "w-3/5"].map((textWidth) => (
+        <div
+          key={textWidth}
+          className={
+            isRail
+              ? "flex size-8 items-center justify-center rounded-md"
+              : "flex h-7 items-center gap-2 rounded-md"
+          }
+        >
+          <Skeleton className="size-4 shrink-0 rounded-md bg-sidebar-border/60" />
+          {!isRail ? (
+            <Skeleton
+              className={`h-3 rounded-sm bg-sidebar-border/50 ${textWidth}`}
+            />
+          ) : null}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function SidebarNavigationProviderMount({
   resolved,
 }: {
   resolved: ResolvedSidebarNavigation;
 }) {
   const { isCompactViewport } = useSidebar();
-  if (resolved.kind === "loading") return null;
+  if (resolved.kind === "loading") {
+    return <SidebarNavigationLoadingSkeleton placement={resolved.placement} />;
+  }
   if (resolved.kind === "missing") {
     return (
       <div

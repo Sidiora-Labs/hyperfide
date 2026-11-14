@@ -293,6 +293,63 @@ describe("resuming released watches", () => {
       effects.dispose();
     }
   });
+
+  it.each([
+    {
+      label: "plugin",
+      queryKey: ["plugin-rpc", "plugin-1", "read"],
+      target: { kind: "plugin", pluginId: "plugin-1" } as const,
+    },
+    {
+      label: "project",
+      queryKey: projectsQueryKey(),
+      target: { kind: "project-list" } as const,
+    },
+    {
+      label: "host",
+      queryKey: hostsQueryKey(),
+      target: { kind: "host-list" } as const,
+    },
+    {
+      label: "environment",
+      queryKey: environmentWorkStatusQueryKey("env-1", "main"),
+      target: { kind: "environment-detail", environmentId: "env-1" } as const,
+    },
+    {
+      label: "system",
+      queryKey: systemConfigQueryKey(),
+      target: { kind: "system" } as const,
+    },
+    {
+      label: "thread terminals",
+      queryKey: terminalsQueryKey({ kind: "thread", threadId: "thr_1" }),
+      target: { kind: "thread-detail", threadId: "thr_1" } as const,
+    },
+  ])(
+    "refetches the active $label family when its released watch resumes",
+    async ({ queryKey, target }) => {
+      const { effects, queryClient } = createRealtimeEffectsTestContext();
+      const queryFn = vi.fn<() => Promise<string>>().mockResolvedValue("fresh");
+      const observer = new QueryObserver(queryClient, {
+        queryKey,
+        queryFn,
+        staleTime: Infinity,
+        refetchOnWindowFocus: false,
+      });
+      const unsubscribe = observer.subscribe(() => {});
+      try {
+        await vi.waitFor(() => expect(queryFn).toHaveBeenCalledTimes(1));
+
+        effects.handleResumed([target]);
+
+        await vi.waitFor(() => expect(queryFn).toHaveBeenCalledTimes(2));
+      } finally {
+        unsubscribe();
+        effects.dispose();
+        queryClient.clear();
+      }
+    },
+  );
 });
 
 describe("core tag reconnect refresh", () => {

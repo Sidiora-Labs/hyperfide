@@ -1,4 +1,8 @@
-import { CORE_TAG_SCOPE, invalidateTags, pluginTagScope } from "@hyperfide/query-tags";
+import {
+  CORE_TAG_SCOPE,
+  invalidateTags,
+  pluginTagScope,
+} from "@hyperfide/query-tags";
 import type { QueryClient } from "@tanstack/react-query";
 import { assertNever } from "@hyperfide/core-ui";
 import {
@@ -70,6 +74,7 @@ const WATCHED_ENVIRONMENT_CHANGE_KINDS: EnvironmentChangeKind[] = [
   "work-status-changed",
   "git-refs-changed",
   "thread-storage-changed",
+  "terminals-changed",
 ];
 
 type RealtimeConnectedEvent =
@@ -517,7 +522,9 @@ export function createRealtimeCacheEffects({
       case "host-list":
       case "host-detail":
       case "system":
+        return;
       case "plugin":
+        applyTags(pluginTagScope(target.pluginId), null);
         return;
       default:
         assertNever(target);
@@ -692,7 +699,10 @@ export function createRealtimeCacheEffects({
       if (!visibility.isDocumentVisible()) {
         return;
       }
-      refetchActiveRealtimeQueriesOnResume({ queryClient });
+      refetchActiveRealtimeQueriesOnResume({
+        queryClient,
+        releasedTargets,
+      });
       for (const target of releasedTargets) {
         catchUpReleasedWatch(target);
       }

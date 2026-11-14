@@ -1,5 +1,6 @@
 import type { QueryKey } from "@tanstack/react-query";
 import type { Environment, Host } from "@hyperfide/domain";
+import type { RealtimeSubscriptionTarget } from "@hyperfide/server-contract";
 import type {
   SystemConfigResponse,
   SystemProviderCatalogEntry,
@@ -8,19 +9,40 @@ import {
   allEnvironmentDiffFilesQueryKeyPrefix,
   allEnvironmentDiffPatchQueryKeyPrefix,
   allEnvironmentFilePreviewQueryKeyPrefix,
+  environmentMergeBaseBranchesQueryKeyPrefix,
   allEnvironmentMergeBaseBranchesQueryKeyPrefix,
   allEnvironmentQueryKeyPrefix,
   allEnvironmentWorkStatusQueryKeyPrefix,
+  environmentDiffFilesQueryKeyPrefix,
+  environmentDiffPatchQueryKeyPrefix,
+  environmentDiffViewedQueryKeyPrefix,
+  environmentFilePreviewQueryKeyPrefix,
+  environmentPathsQueryKeyPrefix,
+  environmentWorkStatusQueryKeyPrefix,
   allHostQueryKeyPrefix,
   allMachineEnvironmentQueryKeyPrefix,
   allProjectCommandsQueryKeyPrefix,
   allProjectPathsQueryKeyPrefix,
   allProjectSourceBranchesQueryKeyPrefix,
+  projectPathsQueryKeyPrefix,
+  projectPromptHistoryQueryKey,
+  projectPromptHistoryQueryKeyPrefix,
+  projectSourceBranchesQueryKeyPrefix,
   allSystemExecutionOptionsQueryKeyPrefix,
   allSystemMachineProvidersQueryKeyPrefix,
   allSystemProvidersQueryKeyPrefix,
   allSystemThemesQueryKeyPrefix,
   allTerminalsQueryKeyPrefix,
+  allPluginCatalogSearchQueryKeyPrefix,
+  allPluginContributionsQueryKeyPrefix,
+  allPluginListQueryKeyPrefix,
+  allPluginSettingsQueryKeyPrefix,
+  allPluginSettingsViewQueryKeyPrefix,
+  allPluginSourceQueryKeyPrefix,
+  pluginSafeModeQueryKey,
+  pluginInstallJobsQueryKey,
+  pluginMarketplacesQueryKey,
+  pluginUpdateJobsQueryKey,
   allThreadConversationOutlineQueryKeyPrefix,
   allThreadDetailBootstrapQueryKeyPrefix,
   allThreadHostFilePreviewQueryKeyPrefix,
@@ -33,15 +55,25 @@ import {
   allThreadStoragePathsQueryKeyPrefix,
   allThreadTimelineQueryKeyPrefix,
   allThreadTimelineTurnSummaryDetailsQueryKeyPrefix,
+  threadTimelineQueryKeyPrefix,
   environmentQueryKey,
+  hostProviderCliStatusQueryKey,
   hostPathExistenceQueryKeyPrefix,
   hostsQueryKey,
+  hostQueryKey,
   projectsQueryKey,
-  projectPromptHistoryQueryKeyPrefix,
   serverMoveStatusQueryKey,
   sidebarNavigationQueryKey,
+  systemAiServicesQueryKey,
   systemConfigQueryKey,
+  systemCliSkillsQueryKey,
+  systemCliCommandQueryKey,
+  systemAppUpdateQueryKey,
+  systemMachineProvidersQueryKey,
   systemProviderCatalogQueryKey,
+  systemExecutionOptionsEnvironmentQueryKeyPrefix,
+  terminalsQueryKey,
+  uiPreferencesQueryKey,
   threadPromptHistoryQueryKeyPrefix,
   threadSearchQueryKeyPrefix,
   threadsQueryKey,
@@ -100,6 +132,176 @@ interface InitialConnectInvalidationArgs extends QueryClientArg {
   connectedAt: number;
 }
 
+function refetchActiveQueryKeys(
+  queryClient: QueryClientArg["queryClient"],
+  queryKeys: readonly QueryKey[],
+): void {
+  for (const queryKey of queryKeys) {
+    void queryClient
+      .refetchQueries({ queryKey, type: "active" }, { cancelRefetch: false })
+      .catch(() => {});
+  }
+}
+
+function pluginResumeQueryKeys(pluginId: string): QueryKey[] {
+  return [
+    ["plugin-rpc", pluginId],
+    allPluginCatalogSearchQueryKeyPrefix(),
+    allPluginContributionsQueryKeyPrefix(),
+    allPluginListQueryKeyPrefix(),
+    allPluginSettingsQueryKeyPrefix(),
+    allPluginSettingsViewQueryKeyPrefix(),
+    allPluginSourceQueryKeyPrefix(),
+    pluginInstallJobsQueryKey(),
+    pluginMarketplacesQueryKey(),
+    pluginSafeModeQueryKey(),
+    pluginUpdateJobsQueryKey(),
+  ];
+}
+
+function projectResumeQueryKeys(projectId?: string): QueryKey[] {
+  return [
+    projectsQueryKey(),
+    sidebarNavigationQueryKey(),
+    threadSearchQueryKeyPrefix(),
+    allProjectCommandsQueryKeyPrefix(),
+    ...(projectId
+      ? [
+          projectPathsQueryKeyPrefix(projectId),
+          projectPromptHistoryQueryKey(projectId),
+          projectSourceBranchesQueryKeyPrefix(projectId),
+        ]
+      : [
+          allProjectPathsQueryKeyPrefix(),
+          allProjectSourceBranchesQueryKeyPrefix(),
+          projectPromptHistoryQueryKeyPrefix(),
+        ]),
+  ];
+}
+
+function environmentResumeQueryKeys(environmentId?: string): QueryKey[] {
+  return [
+    ...(environmentId
+      ? [
+          environmentQueryKey(environmentId),
+          environmentDiffFilesQueryKeyPrefix(environmentId),
+          environmentDiffPatchQueryKeyPrefix(environmentId),
+          environmentDiffViewedQueryKeyPrefix(environmentId),
+          environmentFilePreviewQueryKeyPrefix(environmentId),
+          environmentMergeBaseBranchesQueryKeyPrefix(environmentId),
+          environmentPathsQueryKeyPrefix(environmentId),
+          environmentWorkStatusQueryKeyPrefix(environmentId),
+          systemExecutionOptionsEnvironmentQueryKeyPrefix(environmentId),
+          terminalsQueryKey({ kind: "environment", environmentId }),
+        ]
+      : [
+          allEnvironmentDiffFilesQueryKeyPrefix(),
+          allEnvironmentDiffPatchQueryKeyPrefix(),
+          allEnvironmentFilePreviewQueryKeyPrefix(),
+          allEnvironmentMergeBaseBranchesQueryKeyPrefix(),
+          allEnvironmentQueryKeyPrefix(),
+          allEnvironmentWorkStatusQueryKeyPrefix(),
+          ["environmentPaths"],
+          allTerminalsQueryKeyPrefix(),
+        ]),
+    ...(environmentId ? [] : [sidebarNavigationQueryKey()]),
+  ];
+}
+
+function hostResumeQueryKeys(hostId?: string): QueryKey[] {
+  return [
+    hostsQueryKey(),
+    ...(hostId ? [hostQueryKey(hostId)] : []),
+    allHostQueryKeyPrefix(),
+    hostPathExistenceQueryKeyPrefix(),
+    allSystemExecutionOptionsQueryKeyPrefix(),
+    allSystemProvidersQueryKeyPrefix(),
+    hostId === undefined
+      ? allTerminalsQueryKeyPrefix()
+      : terminalsQueryKey({ kind: "host_path", hostId }),
+    ...(hostId ? [hostProviderCliStatusQueryKey(hostId)] : []),
+  ];
+}
+
+function systemResumeQueryKeys(): QueryKey[] {
+  return [
+    allMachineEnvironmentQueryKeyPrefix(),
+    allSystemExecutionOptionsQueryKeyPrefix(),
+    allSystemMachineProvidersQueryKeyPrefix(),
+    allSystemProvidersQueryKeyPrefix(),
+    allSystemThemesQueryKeyPrefix(),
+    hostPathExistenceQueryKeyPrefix(),
+    pluginInstallJobsQueryKey(),
+    pluginUpdateJobsQueryKey(),
+    serverMoveStatusQueryKey(),
+    systemAiServicesQueryKey(),
+    systemAppUpdateQueryKey(),
+    systemCliCommandQueryKey(),
+    systemCliSkillsQueryKey(),
+    systemConfigQueryKey(),
+    systemMachineProvidersQueryKey(),
+    systemProviderCatalogQueryKey(),
+    ["systemProviderStates"],
+    uiPreferencesQueryKey(),
+  ];
+}
+
+function releasedTargetQueryKeys(
+  target: RealtimeSubscriptionTarget,
+): QueryKey[] {
+  switch (target.kind) {
+    case "plugin":
+    case "plugin-read":
+      return pluginResumeQueryKeys(target.pluginId);
+    case "project-list":
+      return projectResumeQueryKeys();
+    case "project-detail":
+      return projectResumeQueryKeys(target.projectId);
+    case "environment-list":
+      return environmentResumeQueryKeys();
+    case "environment-detail":
+      return environmentResumeQueryKeys(target.environmentId);
+    case "host-list":
+      return hostResumeQueryKeys();
+    case "host-detail":
+      return hostResumeQueryKeys(target.hostId);
+    case "system":
+      return systemResumeQueryKeys();
+    case "thread-detail":
+      return [
+        allThreadConversationOutlineQueryKeyPrefix(),
+        allThreadDefaultExecutionOptionsQueryKeyPrefix(),
+        allThreadDetailBootstrapQueryKeyPrefix(),
+        allThreadHostFilePreviewQueryKeyPrefix(),
+        allThreadPendingInteractionsQueryKeyPrefix(),
+        threadPromptHistoryQueryKeyPrefix(),
+        allThreadQueuedMessagesQueryKeyPrefix(),
+        allThreadQueryKeyPrefix(),
+        allThreadStorageFilePreviewQueryKeyPrefix(),
+        allThreadStorageFilesQueryKeyPrefix(),
+        allThreadStorageLocationsQueryKeyPrefix(),
+        allThreadStoragePathsQueryKeyPrefix(),
+        allThreadTimelineQueryKeyPrefix(),
+        allThreadTimelineTurnSummaryDetailsQueryKeyPrefix(),
+        threadSearchQueryKeyPrefix(),
+        terminalsQueryKey({ kind: "thread", threadId: target.threadId }),
+      ];
+    case "thread-timeline":
+      return [
+        allThreadTimelineQueryKeyPrefix(),
+        threadTimelineQueryKeyPrefix(target.threadId),
+      ];
+    case "thread-list":
+      return [
+        sidebarNavigationQueryKey(),
+        threadSearchQueryKeyPrefix(),
+        threadsQueryKey(),
+      ];
+    default:
+      return [];
+  }
+}
+
 export function invalidateRealtimeQueriesFetchedBeforeInitialConnect({
   connectedAt,
   queryClient,
@@ -116,16 +318,17 @@ export function invalidateRealtimeQueriesFetchedBeforeInitialConnect({
 
 export function refetchActiveRealtimeQueriesOnResume({
   queryClient,
-}: QueryClientArg): void {
-  for (const queryKey of [
+  releasedTargets = [],
+}: QueryClientArg & {
+  releasedTargets?: readonly RealtimeSubscriptionTarget[];
+}): void {
+  refetchActiveQueryKeys(queryClient, [
     allThreadTimelineQueryKeyPrefix(),
     allThreadQueryKeyPrefix(),
     sidebarNavigationQueryKey(),
-  ]) {
-    void queryClient.refetchQueries(
-      { queryKey, type: "active" },
-      { cancelRefetch: false },
-    );
+  ]);
+  for (const target of releasedTargets) {
+    refetchActiveQueryKeys(queryClient, releasedTargetQueryKeys(target));
   }
 }
 

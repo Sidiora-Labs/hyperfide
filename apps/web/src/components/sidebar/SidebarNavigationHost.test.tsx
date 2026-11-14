@@ -562,6 +562,23 @@ describe("sidebar navigation providers", () => {
     ).toBe("No navigation plugin is enabled.");
   });
 
+  it.each(["rail", "list"] as const)(
+    "keeps the %s navigation region occupied while its provider loads",
+    (placement) => {
+      render(
+        <SidebarProvider>
+          <SidebarNavigationProviderMount
+            resolved={{ kind: "loading", placement }}
+          />
+        </SidebarProvider>,
+      );
+
+      expect(
+        screen.getByRole("status", { name: "Loading sidebar navigation" }),
+      ).toHaveAttribute("data-sidebar-navigation-placeholder", "loading");
+    },
+  );
+
   it("renders the bundled provider for the placement as a plugin's Original", () => {
     registerPlugin((app) =>
       app.slots.experimental_sidebarNavigation({

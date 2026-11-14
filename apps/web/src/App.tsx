@@ -296,7 +296,16 @@ export function AppRoutes() {
   }, [isRootComposeView]);
   return (
     <AppLayout>
-      <Suspense fallback={null}>
+      <Suspense
+        fallback={
+          <RouteLoadingSkeleton
+            isBoundedPane={false}
+            variant={isRootComposeView ? "root-compose" : "default"}
+          >
+            {isThreadView ? <ThreadTimelineLoadingSkeleton /> : null}
+          </RouteLoadingSkeleton>
+        }
+      >
         <Routes>
           <Route
             path="/settings/usage"
