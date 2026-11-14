@@ -152,7 +152,20 @@ async function writeExportFile(args: {
         `The downloaded export does not match the SHA-256 digest the server sent, so ${outPath} was not written. Try the export again.`,
       );
     }
-    await rename(tempPath, outPath);
+    try {
+      await rename(tempPath, outPath);
+    } catch (error) {
+      // Windows does not replace an existing file with rename(2), while Unix
+      // does. Remove the destination only for that platform-specific retry so
+      // a successful export has the same overwrite behavior everywhere.
+      const code =
+        typeof error === "object" && error !== null && "code" in error
+          ? (error as { code?: unknown }).code
+          : undefined;
+      if (code !== "EEXIST" && code !== "EPERM") throw error;
+      await rm(outPath, { force: true });
+      await rename(tempPath, outPath);
+    }
   } catch (error) {
     await file.close();
     await rm(tempPath, { force: true });

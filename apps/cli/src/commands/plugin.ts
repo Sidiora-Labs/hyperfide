@@ -2076,10 +2076,22 @@ export function registerPluginCommands(
         for (;;) {
           await sleep(1000);
           const next = await fetchTail(1000);
-          const lastPrinted = lines.at(-1);
-          const startAfter =
-            lastPrinted === undefined ? -1 : next.lastIndexOf(lastPrinted);
-          for (const line of next.slice(startAfter + 1)) console.log(line);
+          const overlapLimit = Math.min(lines.length, next.length);
+          let overlap = 0;
+          for (let candidate = overlapLimit; candidate > 0; candidate -= 1) {
+            let matches = true;
+            for (let index = 0; index < candidate; index += 1) {
+              if (lines[lines.length - candidate + index] !== next[index]) {
+                matches = false;
+                break;
+              }
+            }
+            if (matches) {
+              overlap = candidate;
+              break;
+            }
+          }
+          for (const line of next.slice(overlap)) console.log(line);
           lines = next;
         }
       }),
