@@ -155,6 +155,23 @@ describe("Fleet ledger dashboard", () => {
       managerGeneration: "manager-generation",
       asOf: "2026-10-23T10:00:00.000Z",
     };
+    source.handlers.readAuthoritativeLedger = vi.fn(async () => ({
+      authority: source.ledger.authority,
+      history: [{
+        decisionId: "decision-manager",
+        operationId: "operation-manager",
+        actorId: "manager-1",
+        actorRole: "WAVE_MANAGER",
+        action: "PROVISION_SANDBOX",
+        authorityEpoch: "authority-epoch",
+        leaderGeneration: "leader-generation",
+        delegationId: "delegation",
+        managerGeneration: "manager-generation",
+        receiptState: "UNKNOWN",
+        receiptDigest: "sha256:" + "b".repeat(64),
+        createdAt: "2026-10-23T10:00:00.000Z",
+      }],
+    }));
     const { slot } = await mount(source);
     expect(
       slot.getByRole("region", { name: "Authority" }).textContent,
@@ -170,6 +187,10 @@ describe("Fleet ledger dashboard", () => {
     expect(
       slot.queryByRole("button", { name: "Destroy machine-1" }),
     ).toBeNull();
+    const history = slot.getByRole("region", { name: "Authoritative history" });
+    expect(history.textContent).toContain("PROVISION_SANDBOX");
+    expect(history.textContent).toContain("WAVE_MANAGER: manager-1");
+    expect(history.textContent).toContain("UNKNOWN");
   });
 
   it("renders empty ledgers and pending tasks", async () => {
