@@ -574,8 +574,10 @@ describe("sidebar navigation providers", () => {
       );
 
       expect(
-        screen.getByRole("status", { name: "Loading sidebar navigation" }),
-      ).toHaveAttribute("data-sidebar-navigation-placeholder", "loading");
+        screen
+          .getByRole("status", { name: "Loading sidebar navigation" })
+          .getAttribute("data-sidebar-navigation-placeholder"),
+      ).toBe("loading");
     },
   );
 
