@@ -1757,7 +1757,7 @@ static void json_sym(Cg *cg, StrBuf *b, const SymRow *r) {
 /* compact repeat form: enough to jump to the code without restating it.
  * The branch is named only when the answer spans branches. */
 static void json_sym_compact(Cg *cg, StrBuf *b, const SymRow *r) {
-    char at[1100], bn[256];
+    char at[8300], bn[8192];
     snprintf(at, sizeof at, "%s:%d", r->path, r->line);
     sb_puts(b, "{\"n\":");  sb_json_str(b, r->name);
     sb_puts(b, ",\"at\":"); sb_json_str(b, at);
@@ -1969,7 +1969,7 @@ static void impact_json_dir(Cg *cg, StrBuf *b, const char *key, const INode *v,
     int emitted = 0, omitted = 0;
     for (int i = 0; i < n; i++) {
         StrBuf it; sb_init(&it);
-        char at[1100], bn[256];
+        char at[8300], bn[8192];
         snprintf(at, sizeof at, "%s:%d", v[i].loc.path, v[i].loc.line);
         sb_puts(&it, "{\"n\":");  sb_json_str(&it, v[i].name);
         sb_puts(&it, ",\"at\":"); sb_json_str(&it, at);
@@ -3509,14 +3509,16 @@ bool graph_path_is_test(const char *path) {
 /* tests referencing `name`; returns count, appends rows to b */
 static int tests_for_symbol(Cg *cg, const char *name, StrBuf *b, bool json,
                             int *emitted, bool *more_out) {
-    char scope[64], sql[1024];
+    char scope[64];
     branch_scope_sql(cg, "f", scope, sizeof scope);
-    snprintf(sql, sizeof sql,
-        "SELECT DISTINCT f.path, r.line FROM refs r "
-        "JOIN files f ON f.id=r.file_id "
-        "WHERE r.name=? AND " TEST_PATH_SQL "%s "
-        "ORDER BY f.path, r.line LIMIT 26", scope);
-    sqlite3_stmt *st = cg_prep(cg, sql);
+    StrBuf query; sb_init(&query);
+    sb_puts(&query, "SELECT DISTINCT f.path, r.line FROM refs r "
+                   "JOIN files f ON f.id=r.file_id "
+                   "WHERE r.name=? AND " TEST_PATH_SQL);
+    sb_puts(&query, scope);
+    sb_puts(&query, " ORDER BY f.path, r.line LIMIT 26");
+    sqlite3_stmt *st = cg_prep(cg, query.p);
+    sb_free(&query);
     sqlite3_bind_text(st, 1, name, -1, SQLITE_STATIC);
     int n = 0;
     bool more = false;
