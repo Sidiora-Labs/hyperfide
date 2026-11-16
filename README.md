@@ -1,6 +1,6 @@
 <div align="center">
 
-# Hyperfide
+# Hyperfide Community Version
 
 <img src="https://supabase.paxeer.app/storage/v1/object/public/json/hfide.png">
 <a
